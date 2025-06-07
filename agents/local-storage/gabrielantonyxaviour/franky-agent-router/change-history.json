@@ -1,0 +1,52 @@
+{
+  "changes": [
+    {
+      "timestamp": "2025-06-07T13:27:48.505Z",
+      "commit": {
+        "sha": "be2c4e4c365982a0cfc3c71849b45e562d73f7e3",
+        "message": "Update README.md",
+        "author": "Gabriel Antony Xaviour",
+        "date": "2025-06-07T13:27:46Z",
+        "stats": {
+          "total": 2,
+          "additions": 1,
+          "deletions": 1
+        },
+        "files": [
+          {
+            "filename": "README.md",
+            "status": "modified",
+            "additions": 1,
+            "deletions": 1,
+            "changes": 2
+          }
+        ]
+      },
+      "significance": 0.30019999999999997
+    },
+    {
+      "timestamp": "2025-06-07T13:14:03.153Z",
+      "commit": {
+        "sha": "918ba55f73d3980eb136c71cfbb44d44ce2c36f8",
+        "message": "Update README.md again",
+        "author": "Gabriel Antony Xaviour",
+        "date": "2025-06-07T13:14:01Z",
+        "stats": {
+          "total": 3,
+          "additions": 3,
+          "deletions": 0
+        },
+        "files": [
+          {
+            "filename": "README.md",
+            "status": "modified",
+            "additions": 3,
+            "deletions": 0,
+            "changes": 3
+          }
+        ]
+      },
+      "significance": 0.3003
+    }
+  ]
+}
