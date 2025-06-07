@@ -1,19 +1,31 @@
 {
-  "name": "agents",
+  "name": "multi-agent-system",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Multi-agent system for GitHub intelligence, social media, lead generation, and blockchain IP management",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.js",
-    "watch": "nodemon --exec ts-node src/index.ts",
-    "test": "jest"
+    "dev:orchestrator": "tsx src/aws/index.ts",
+    "dev:github": "tsx src/aws/servers/github.ts",
+    "dev:local": "tsx src/local/server.ts",
+    "test": "tsx src/local/test.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "keywords": [
+    "multi-agent",
+    "github-api",
+    "social-media",
+    "lead-generation",
+    "blockchain",
+    "aws",
+    "microservices",
+    "typescript"
+  ],
+  "author": "Gabriel Antony Xavier",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/multi-agent-system.git"
+  },
+  "type": "module",
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.826.0",
     "@aws-sdk/client-dynamodb": "^3.826.0",
@@ -37,6 +49,7 @@
     "jest": "^29.7.0",
     "nodemon": "^3.1.10",
     "ts-jest": "^29.3.4",
+    "tsx": "^4.6.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }

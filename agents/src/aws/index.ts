@@ -1,22 +1,13 @@
-import { config } from "dotenv";
-import { GitHubIntelligenceAgent } from "./agents/github";
+import dotenv from "dotenv";
+import { CoreOrchestratorAgent } from "./agents/orchestrator";
 
-config(); // Load environment variables
+dotenv.config();
 
-async function testGitHubAgent() {
-  const agent = new GitHubIntelligenceAgent();
+async function main() {
+  console.log("🚀 Starting Core Orchestrator Agent...");
 
-  try {
-    // Test with a public repo
-    const result = await agent.analyzeRepository(
-      "https://github.com/gabrielantonyxaviour/franky-agent-router"
-    );
-
-    console.log("Analysis Result:", result);
-  } catch (error: any) {
-    console.error("Error:", error.message);
-  }
+  const orchestrator = new CoreOrchestratorAgent();
+  orchestrator.start(3000);
 }
 
-// Run test
-testGitHubAgent();
+main().catch(console.error);

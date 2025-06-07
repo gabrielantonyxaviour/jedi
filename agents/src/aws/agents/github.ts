@@ -159,20 +159,21 @@ Recent Activity: ${recentActivity}
   private async storeRepoData(owner: string, repo: string, summary: string) {
     await this.dynamodb.send(
       new PutItemCommand({
-        TableName: "GitHubRepos",
+        TableName: process.env.GITHUB_PROJECTS_TABLE || "github-projects", // Changed from "GitHubRepos"
         Item: {
-          repoId: { S: `${owner}/${repo}` },
+          projectId: { S: `${owner}/${repo}` }, // Changed from repoId
+          owner: { S: owner }, // Add owner field
           summary: { S: summary },
           lastAnalyzed: { S: new Date().toISOString() },
         },
       })
     );
   }
-
   private async storeDetailedData(owner: string, repo: string, data: any) {
     await this.s3.send(
       new PutObjectCommand({
-        Bucket: "github-repo-data",
+        Bucket:
+          process.env.GITHUB_DATA_BUCKET || "github-intelligence-data-jedi-v0",
         Key: `${owner}/${repo}/analysis.json`,
         Body: JSON.stringify(data),
         ContentType: "application/json",

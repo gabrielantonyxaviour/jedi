@@ -825,4 +825,4 @@ ${analysis.structure.keyFiles
   }
 }
 
-export { UniversalGitHubAgent, RepoAnalysis };
+export { UniversalGitHubAgent };

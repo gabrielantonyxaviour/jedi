@@ -1,4 +1,4 @@
-// src/managers/project-data-manager.ts
+// src/local/managers/project-data.ts
 import * as fs from "fs/promises";
 import * as path from "path";
 

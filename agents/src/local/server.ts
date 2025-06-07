@@ -4,7 +4,7 @@ import { config } from "dotenv";
 import { UniversalGitHubAgent } from "./agents/github";
 import { WebhookHandler } from "./handlers/webhook";
 import { ProjectDataManager } from "./managers/project-data";
-import { parseRepoUrl } from "../utils";
+import { parseRepoUrl } from "../aws/utils";
 
 config();
 
