@@ -1,7 +1,7 @@
 // src/handlers/webhook-handler.ts
 import { Request, Response } from "express";
 import { Octokit } from "@octokit/rest";
-import { UniversalGitHubAgent } from "../agents/github-testing";
+import { UniversalGitHubAgent } from "../agents/github";
 import { ProjectDataManager } from "../managers/project-data";
 import crypto from "crypto";
 
