@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { GitHubIntelligenceAgent } from "../agents/github";
+import { GitHubIntelligenceAgent } from "./agents/github";
 
 config(); // Load environment variables
 
