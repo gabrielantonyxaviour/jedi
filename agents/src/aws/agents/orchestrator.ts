@@ -1,11 +1,17 @@
 // src/orchestrator/core-orchestrator.ts
 import express from "express";
-import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
+import {
+  SQSClient,
+  SendMessageCommand,
+  ReceiveMessageCommand,
+  DeleteMessageCommand,
+} from "@aws-sdk/client-sqs";
 import {
   DynamoDBClient,
   PutItemCommand,
   GetItemCommand,
   UpdateItemCommand,
+  QueryCommand,
 } from "@aws-sdk/client-dynamodb";
 import {
   EventBridgeClient,
@@ -15,6 +21,7 @@ import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { v4 as uuidv4 } from "uuid";
 import { BillingService } from "../services/billing";
+import crypto from "crypto";
 
 interface UserContext {
   userId: string;
@@ -57,6 +64,7 @@ export class CoreOrchestratorAgent {
   private stepFunctionsClient: SFNClient;
   private app: express.Application;
   private billingService: BillingService;
+  private clientWebhooks: string[] = [];
 
   constructor() {
     this.sqsClient = new SQSClient({ region: process.env.AWS_REGION });
@@ -74,16 +82,16 @@ export class CoreOrchestratorAgent {
   }
 
   private setupMiddleware() {
-    this.app.use(express.json({ limit: "10mb" }));
+    // Special handling for GitHub webhooks - need raw body for signature verification
+    this.app.use("/webhooks/github", express.raw({ type: "application/json" }));
+
+    // JSON parsing for other endpoints
+    this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 
     // Request logging
-    this.app.use((req, res, next) => {
-      console.log(
-        `🎯 Orchestrator: ${req.method} ${
-          req.path
-        } - ${new Date().toISOString()}`
-      );
+    this.app.use((req: any, res: any, next: any) => {
+      console.log(`${req.method} ${req.path}`);
       next();
     });
   }
@@ -226,25 +234,9 @@ export class CoreOrchestratorAgent {
       async (req: any, res: any) => {
         try {
           const { owner, repo } = req.params;
-          const taskId = uuidv4();
-
           console.log(
             `🎯 Orchestrator: Retrieving project data for ${owner}/${repo}`
           );
-
-          // Send synchronous request to GitHub Intelligence Agent
-          const result = await this.sendSyncTaskToAgent("github-intelligence", {
-            taskId,
-            type: "GET_PROJECT_DATA",
-            payload: { owner, repo },
-            priority: "HIGH",
-          });
-
-          if (result) {
-            res.json(result);
-          } else {
-            res.status(404).json({ error: "Project not found" });
-          }
         } catch (error: any) {
           console.error("🚨 Orchestrator: Get project failed:", error);
           res.status(500).json({
@@ -315,16 +307,27 @@ export class CoreOrchestratorAgent {
     this.app.post("/webhooks/github", async (req: any, res: any) => {
       try {
         const taskId = uuidv4();
+        const workflowId = uuidv4();
 
-        console.log(`🎯 Orchestrator: Received GitHub webhook`);
+        // Verify GitHub webhook signature
+        const signature = req.headers["x-hub-signature-256"];
+        if (!this.verifyGitHubSignature(req.body, signature)) {
+          return res.status(401).json({ error: "Invalid signature" });
+        }
 
-        // Forward to GitHub Intelligence Agent
+        // Parse the JSON body
+        const webhookData = JSON.parse(req.body.toString());
+
+        console.log(`🔔 Orchestrator: Received GitHub webhook`);
+
+        // Forward to GitHub Intelligence Agent for processing
         await this.sendTaskToAgent("github-intelligence", {
           taskId,
+          workflowId,
           type: "PROCESS_WEBHOOK",
           payload: {
             headers: req.headers,
-            body: req.body,
+            body: webhookData,
           },
           priority: "HIGH",
         });
@@ -658,6 +661,21 @@ export class CoreOrchestratorAgent {
         res.status(500).json({ error: "Failed to get agent status" });
       }
     });
+
+    // Register client webhook
+    this.app.post("/api/webhooks/register", async (req: any, res: any) => {
+      const { webhookUrl } = req.body;
+
+      if (!webhookUrl) {
+        return res.status(400).json({ error: "webhookUrl is required" });
+      }
+
+      if (!this.clientWebhooks.includes(webhookUrl)) {
+        this.clientWebhooks.push(webhookUrl);
+      }
+
+      res.json({ success: true, registered: webhookUrl });
+    });
   }
 
   // =============================================================================
@@ -811,6 +829,21 @@ export class CoreOrchestratorAgent {
     await this.dynamoClient.send(command);
   }
 
+  private verifyGitHubSignature(payload: Buffer, signature: string): boolean {
+    if (!signature) {
+      console.warn("⚠️ No GitHub signature provided");
+      return false;
+    }
+
+    const secret = process.env.GITHUB_WEBHOOK_SECRET || "your-secret-here";
+
+    const hmac = crypto.createHmac("sha256", secret);
+    hmac.update(payload);
+    const digest = `sha256=${hmac.digest("hex")}`;
+
+    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+  }
+
   private async getTaskStatus(taskId: string): Promise<TaskStatus | null> {
     const tableName = process.env.TASK_STATUS_TABLE || "orchestrator-tasks";
 
@@ -913,6 +946,8 @@ export class CoreOrchestratorAgent {
   // =============================================================================
 
   public start(port: number = 3000): void {
+    this.startTaskCompletionListener();
+
     this.app.listen(port, () => {
       console.log(`🎯 Core Orchestrator Agent running on port ${port}`);
       console.log(
@@ -928,6 +963,181 @@ export class CoreOrchestratorAgent {
         `🚀 Project launch: POST http://localhost:${port}/api/workflows/project-launch`
       );
       console.log(`📋 Health check: http://localhost:${port}/health`);
+      console.log(
+        `🔔 Client webhook registration: POST http://localhost:${port}/api/webhooks/register`
+      );
     });
+  }
+
+  private async startTaskCompletionListener() {
+    const orchestratorQueueUrl = process.env.ORCHESTRATOR_QUEUE_URL!;
+
+    // Poll for task completions
+    setInterval(async () => {
+      try {
+        const command = new ReceiveMessageCommand({
+          QueueUrl: orchestratorQueueUrl,
+          MaxNumberOfMessages: 5,
+          WaitTimeSeconds: 5,
+        });
+
+        const response = await this.sqsClient.send(command);
+
+        if (response.Messages) {
+          for (const message of response.Messages) {
+            await this.processCompletionMessage(message);
+
+            // Delete processed message
+            await this.sqsClient.send(
+              new DeleteMessageCommand({
+                QueueUrl: orchestratorQueueUrl,
+                ReceiptHandle: message.ReceiptHandle!,
+              })
+            );
+          }
+        }
+      } catch (error) {
+        console.error("❌ Error processing completions:", error);
+      }
+    }, 2000);
+  }
+
+  private async processCompletionMessage(message: any) {
+    try {
+      const data = JSON.parse(message.Body);
+
+      if (data.type === "TASK_COMPLETION") {
+        const completion = data.payload;
+
+        // Update task status in DynamoDB
+        await this.updateTaskStatus(completion.taskId, {
+          status: completion.status,
+          endTime: completion.timestamp,
+          result: completion.result,
+          error: completion.error,
+        });
+
+        // Check if workflow is complete
+        const workflow = await this.getWorkflow(completion.workflowId);
+        if (workflow) {
+          const isComplete = await this.checkWorkflowCompletion(
+            completion.workflowId
+          );
+
+          if (isComplete) {
+            await this.completeWorkflow(completion.workflowId);
+          }
+
+          // Notify client
+          await this.notifyClient(completion.workflowId, {
+            type: "TASK_COMPLETED",
+            taskId: completion.taskId,
+            workflowId: completion.workflowId,
+            agent: completion.agent,
+            status: completion.status,
+            result: completion.result,
+            error: completion.error,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error processing completion:", error);
+    }
+  }
+
+  private async updateTaskStatus(taskId: string, updates: Partial<TaskStatus>) {
+    const tableName = process.env.TASK_STATUS_TABLE || "orchestrator-tasks";
+
+    const updateExpression = [];
+    const expressionAttributeValues: any = {};
+
+    if (updates.status) {
+      updateExpression.push("set #status = :status");
+      expressionAttributeValues[":status"] = updates.status;
+    }
+    if (updates.endTime) {
+      updateExpression.push("endTime = :endTime");
+      expressionAttributeValues[":endTime"] = updates.endTime;
+    }
+    if (updates.result) {
+      updateExpression.push("result = :result");
+      expressionAttributeValues[":result"] = updates.result;
+    }
+    if (updates.error) {
+      updateExpression.push("error = :error");
+      expressionAttributeValues[":error"] = updates.error;
+    }
+
+    const command = new UpdateItemCommand({
+      TableName: tableName,
+      Key: marshall({ taskId }),
+      UpdateExpression: updateExpression.join(", "),
+      ExpressionAttributeNames: {
+        "#status": "status",
+      },
+      ExpressionAttributeValues: marshall(expressionAttributeValues),
+    });
+
+    await this.dynamoClient.send(command);
+  }
+
+  private async notifyClient(workflowId: string, notification: any) {
+    // Send webhook to registered client endpoints
+    for (const webhookUrl of this.clientWebhooks) {
+      try {
+        await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workflowId,
+            timestamp: new Date().toISOString(),
+            ...notification,
+          }),
+        });
+      } catch (error) {
+        console.error(`Failed to notify client webhook ${webhookUrl}:`, error);
+      }
+    }
+  }
+
+  private async checkWorkflowCompletion(workflowId: string): Promise<boolean> {
+    const tableName = process.env.TASK_STATUS_TABLE || "orchestrator-tasks";
+
+    // Get all tasks for this workflow
+    const command = new QueryCommand({
+      TableName: tableName,
+      IndexName: "WorkflowIdIndex",
+      KeyConditionExpression: "workflowId = :workflowId",
+      ExpressionAttributeValues: marshall({
+        ":workflowId": workflowId,
+      }),
+    });
+
+    const response = await this.dynamoClient.send(command);
+    const tasks = response.Items || [];
+
+    // Check if all tasks are completed
+    return tasks.every(
+      (task) => task.status.S === "COMPLETED" || task.status.S === "FAILED"
+    );
+  }
+
+  private async completeWorkflow(workflowId: string): Promise<void> {
+    const tableName = process.env.WORKFLOW_TABLE || "orchestrator-workflows";
+
+    const command = new UpdateItemCommand({
+      TableName: tableName,
+      Key: marshall({ workflowId }),
+      UpdateExpression: "set #status = :status, completedAt = :completedAt",
+      ExpressionAttributeNames: {
+        "#status": "status",
+      },
+      ExpressionAttributeValues: marshall({
+        ":status": "COMPLETED",
+        ":completedAt": new Date().toISOString(),
+      }),
+    });
+
+    await this.dynamoClient.send(command);
   }
 }

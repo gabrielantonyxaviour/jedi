@@ -4,9 +4,10 @@ import {
   DynamoDBClient,
   PutItemCommand,
   GetItemCommand,
+  UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { LambdaClient } from "@aws-sdk/client-lambda";
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 
 interface RepoData {
   owner: string;
@@ -19,44 +20,100 @@ class GitHubIntelligenceAgent {
   private octokit: Octokit;
   private dynamodb: DynamoDBClient;
   private s3: S3Client;
+  private sqsClient: SQSClient;
+  private orchestratorQueue: string;
 
   constructor() {
     this.octokit = new Octokit({
       auth: process.env.GITHUB_TOKEN,
     });
 
-    this.dynamodb = new DynamoDBClient({ region: "eu-central-1" });
-    this.s3 = new S3Client({ region: "eu-central-1" });
+    this.dynamodb = new DynamoDBClient({
+      region: process.env.AWS_REGION || "us-east-1",
+    });
+    this.s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
+    this.sqsClient = new SQSClient({
+      region: process.env.AWS_REGION || "us-east-1",
+    });
+    this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
   }
 
   // Main entry point
-  async analyzeRepository(repoUrl: string): Promise<RepoData> {
-    const { owner, repo } = this.parseRepoUrl(repoUrl);
+  async analyzeRepository(
+    repoUrl: string,
+    taskId?: string,
+    workflowId?: string
+  ): Promise<RepoData> {
+    try {
+      const { owner, repo } = this.parseRepoUrl(repoUrl);
 
-    // Fetch repo data
-    const repoInfo = await this.fetchRepositoryInfo(owner, repo);
-    const commits = await this.fetchRecentCommits(owner, repo);
-    const files = await this.fetchImportantFiles(owner, repo);
+      // Fetch repo data
+      const repoInfo = await this.fetchRepositoryInfo(owner, repo);
+      const commits = await this.fetchRecentCommits(owner, repo);
+      const files = await this.fetchImportantFiles(owner, repo);
 
-    // Generate summary (placeholder for now, will use Bedrock later)
-    const summary = this.generateBasicSummary(repoInfo, commits, files);
+      // Generate summary
+      const summary = this.generateBasicSummary(repoInfo, commits, files);
 
-    // Store in DynamoDB
-    await this.storeRepoData(owner, repo, summary);
+      // Store in DynamoDB
+      await this.storeRepoData(owner, repo, summary);
 
-    // Store detailed data in S3
-    await this.storeDetailedData(owner, repo, {
-      repoInfo,
-      commits,
-      files,
-    });
+      // Store detailed data in S3
+      await this.storeDetailedData(owner, repo, {
+        repoInfo,
+        commits,
+        files,
+      });
 
-    return {
-      owner,
-      repo,
-      lastAnalyzed: new Date().toISOString(),
-      summary,
-    };
+      const result = {
+        owner,
+        repo,
+        lastAnalyzed: new Date().toISOString(),
+        summary,
+      };
+
+      if (taskId && workflowId) {
+        await this.reportTaskCompletion(taskId, workflowId, result);
+      }
+
+      return result;
+    } catch (error: any) {
+      if (taskId && workflowId) {
+        await this.reportTaskCompletion(
+          taskId,
+          workflowId,
+          null,
+          error.message
+        );
+      }
+      throw error;
+    }
+  }
+
+  async getRepoData(owner: string, repo: string): Promise<RepoData> {
+    const response = await this.dynamodb.send(
+      new GetItemCommand({
+        TableName: process.env.GITHUB_PROJECTS_TABLE || "github-projects",
+        Key: {
+          projectId: { S: `${owner}/${repo}` },
+        },
+      })
+    );
+    if (response.Item) {
+      return {
+        owner: response.Item.owner.S || "",
+        repo: response.Item.projectId.S || "",
+        summary: response.Item.summary.S,
+        lastAnalyzed: response.Item.lastAnalyzed.S || "",
+      };
+    } else {
+      return {
+        owner: "",
+        repo: "",
+        summary: "",
+        lastAnalyzed: "",
+      };
+    }
   }
 
   private async fetchRepositoryInfo(owner: string, repo: string) {
@@ -156,19 +213,32 @@ Recent Activity: ${recentActivity}
     return stack;
   }
 
-  private async storeRepoData(owner: string, repo: string, summary: string) {
+  private async storeRepoData(
+    owner: string,
+    repo: string,
+    summary: string,
+    webhookUrl?: string
+  ) {
+    const item: any = {
+      projectId: { S: `${owner}/${repo}` },
+      owner: { S: owner },
+      summary: { S: summary },
+      lastAnalyzed: { S: new Date().toISOString() },
+    };
+
+    if (webhookUrl) {
+      item.webhookUrl = { S: webhookUrl };
+      item.webhookStatus = { S: "active" };
+    }
+
     await this.dynamodb.send(
       new PutItemCommand({
-        TableName: process.env.GITHUB_PROJECTS_TABLE || "github-projects", // Changed from "GitHubRepos"
-        Item: {
-          projectId: { S: `${owner}/${repo}` }, // Changed from repoId
-          owner: { S: owner }, // Add owner field
-          summary: { S: summary },
-          lastAnalyzed: { S: new Date().toISOString() },
-        },
+        TableName: process.env.GITHUB_PROJECTS_TABLE || "github-projects",
+        Item: item,
       })
     );
   }
+
   private async storeDetailedData(owner: string, repo: string, data: any) {
     await this.s3.send(
       new PutObjectCommand({
@@ -187,15 +257,203 @@ Recent Activity: ${recentActivity}
     return { owner: match[1], repo: match[2].replace(".git", "") };
   }
 
-  // Webhook handler for real-time updates
-  async handleWebhook(webhookData: any): Promise<void> {
-    const { repository, commits } = webhookData;
-    const owner = repository.owner.login;
-    const repo = repository.name;
+  async handleWebhook(
+    webhookData: any,
+    taskId?: string,
+    workflowId?: string
+  ): Promise<void> {
+    try {
+      const { repository, commits, action, pull_request, issue, release } =
+        webhookData;
+      const owner = repository.owner.login;
+      const repo = repository.name;
 
-    // Update repo data when new commits arrive
-    // This will trigger re-analysis
-    console.log(`New commits in ${owner}/${repo}:`, commits.length);
+      console.log(`🔔 Webhook received for ${owner}/${repo}:`, {
+        action,
+        commits: commits?.length || 0,
+        pullRequest: !!pull_request,
+        issue: !!issue,
+        release: !!release,
+      });
+
+      // Process different webhook events
+      if (commits && commits.length > 0) {
+        await this.processNewCommits(owner, repo, commits);
+      }
+
+      if (pull_request) {
+        await this.processPullRequest(owner, repo, pull_request, action);
+      }
+
+      if (release) {
+        await this.processRelease(owner, repo, release, action);
+      }
+
+      // Report task completion if this was triggered by orchestrator
+      if (taskId && workflowId) {
+        await this.reportTaskCompletion(taskId, workflowId, {
+          owner,
+          repo,
+          action,
+          processed: true,
+          commits: commits?.length || 0,
+          pullRequest: !!pull_request,
+          issue: !!issue,
+          release: !!release,
+        });
+      }
+    } catch (error: any) {
+      if (taskId && workflowId) {
+        await this.reportTaskCompletion(
+          taskId,
+          workflowId,
+          null,
+          error.message
+        );
+      }
+      throw error;
+    }
+  }
+
+  private async processNewCommits(owner: string, repo: string, commits: any[]) {
+    console.log(
+      `📝 Processing ${commits.length} new commits for ${owner}/${repo}`
+    );
+
+    // Update last activity
+    await this.updateLastActivity(owner, repo, "commits", commits.length);
+
+    // Optionally trigger re-analysis for significant changes
+    const significantCommits = commits.filter(
+      (commit) => commit.added?.length > 5 || commit.modified?.length > 10
+    );
+
+    if (significantCommits.length > 0) {
+      console.log(
+        `🔄 Triggering re-analysis due to ${significantCommits.length} significant commits`
+      );
+      // Could trigger partial re-analysis here
+    }
+  }
+
+  private async updateLastActivity(
+    owner: string,
+    repo: string,
+    type: string,
+    count: number
+  ) {
+    await this.dynamodb.send(
+      new UpdateItemCommand({
+        TableName: process.env.GITHUB_PROJECTS_TABLE || "github-projects",
+        Key: {
+          projectId: { S: `${owner}/${repo}` },
+        },
+        UpdateExpression:
+          "SET lastActivity = :activity, lastActivityTime = :time",
+        ExpressionAttributeValues: {
+          ":activity": { S: `${type}: ${count}` },
+          ":time": { S: new Date().toISOString() },
+        },
+      })
+    );
+  }
+
+  private async processPullRequest(
+    owner: string,
+    repo: string,
+    pullRequest: any,
+    action: string
+  ) {
+    console.log(`🔃 Processing pull request ${action} for ${owner}/${repo}:`, {
+      number: pullRequest.number,
+      title: pullRequest.title,
+      state: pullRequest.state,
+      mergeable: pullRequest.mergeable,
+    });
+
+    // Update last activity
+    await this.updateLastActivity(owner, repo, `pr_${action}`, 1);
+
+    // Handle different PR actions
+    switch (action) {
+      case "opened":
+        // New PR analysis could be triggered here
+        console.log(`📝 New PR opened: #${pullRequest.number}`);
+        break;
+      case "closed":
+        if (pullRequest.merged) {
+          console.log(`✅ PR merged: #${pullRequest.number}`);
+          // Could trigger re-analysis after merge
+        } else {
+          console.log(`❌ PR closed without merge: #${pullRequest.number}`);
+        }
+        break;
+      case "synchronize":
+        console.log(`🔄 PR updated: #${pullRequest.number}`);
+        break;
+    }
+  }
+
+  private async processRelease(
+    owner: string,
+    repo: string,
+    release: any,
+    action: string
+  ) {
+    console.log(`🚀 Processing release ${action} for ${owner}/${repo}:`, {
+      tagName: release.tag_name,
+      name: release.name,
+      prerelease: release.prerelease,
+      draft: release.draft,
+    });
+
+    // Update last activity
+    await this.updateLastActivity(owner, repo, `release_${action}`, 1);
+
+    // Handle different release actions
+    switch (action) {
+      case "published":
+        console.log(`📦 New release published: ${release.tag_name}`);
+        // Could trigger comprehensive analysis for new releases
+        break;
+      case "created":
+        console.log(`📝 Release created: ${release.tag_name}`);
+        break;
+      case "edited":
+        console.log(`✏️ Release edited: ${release.tag_name}`);
+        break;
+    }
+  }
+
+  private async reportTaskCompletion(
+    taskId: string,
+    workflowId: string,
+    result: any,
+    error?: string
+  ) {
+    try {
+      const completion = {
+        taskId,
+        workflowId,
+        status: error ? "FAILED" : "COMPLETED",
+        result,
+        error,
+        timestamp: new Date().toISOString(),
+        agent: "github-intelligence",
+      };
+
+      await this.sqsClient.send(
+        new SendMessageCommand({
+          QueueUrl: this.orchestratorQueue,
+          MessageBody: JSON.stringify({
+            type: "TASK_COMPLETION",
+            payload: completion,
+          }),
+        })
+      );
+    } catch (err) {
+      console.error("Failed to report task completion:", err);
+    }
   }
 }
 
