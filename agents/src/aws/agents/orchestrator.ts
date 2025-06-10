@@ -247,6 +247,280 @@ export class CoreOrchestratorAgent {
       }
     );
 
+    // Add these routes to the orchestrator (add to setupRoutes method)
+
+    // =============================================================================
+    // KARMA WORKFLOWS
+    // =============================================================================
+
+    // Create Karma project
+    this.app.post("/api/karma/projects", async (req: any, res: any) => {
+      try {
+        const {
+          projectId,
+          title,
+          description,
+          imageURL,
+          links,
+          tags,
+          ownerAddress,
+          members,
+          userEmail,
+          userName,
+        } = req.body;
+
+        const workflowId = uuidv4();
+
+        console.log(
+          `🎯 Orchestrator: Starting Karma project creation for ${title}`
+        );
+
+        await this.sendTaskToAgent("karma-integration", {
+          taskId: uuidv4(),
+          workflowId,
+          type: "CREATE_KARMA_PROJECT",
+          payload: {
+            projectId,
+            title,
+            description,
+            imageURL,
+            links,
+            tags,
+            ownerAddress,
+            members,
+            userEmail,
+            userName,
+          },
+          priority: "HIGH",
+        });
+
+        res.json({
+          success: true,
+          workflowId,
+          message: "Karma project creation initiated",
+          status: "PENDING",
+        });
+      } catch (error: any) {
+        console.error("🚨 Orchestrator: Karma project creation failed:", error);
+        res.status(500).json({
+          error: "Failed to create Karma project",
+          details: error.message,
+        });
+      }
+    });
+
+    // Apply for grant
+    this.app.post("/api/karma/grants/apply", async (req: any, res: any) => {
+      try {
+        const {
+          karmaProjectId,
+          grantTitle,
+          grantDescription,
+          proposalURL,
+          communityUID,
+          cycle,
+          season,
+          userEmail,
+          userName,
+        } = req.body;
+
+        const workflowId = uuidv4();
+
+        console.log(
+          `🎯 Orchestrator: Starting grant application for ${grantTitle}`
+        );
+
+        await this.sendTaskToAgent("karma-integration", {
+          taskId: uuidv4(),
+          workflowId,
+          type: "APPLY_FOR_GRANT",
+          payload: {
+            karmaProjectId,
+            grantTitle,
+            grantDescription,
+            proposalURL,
+            communityUID,
+            cycle,
+            season,
+            userEmail,
+            userName,
+          },
+          priority: "HIGH",
+        });
+
+        res.json({
+          success: true,
+          workflowId,
+          message: "Grant application initiated",
+          status: "PENDING",
+        });
+      } catch (error: any) {
+        console.error("🚨 Orchestrator: Grant application failed:", error);
+        res.status(500).json({
+          error: "Failed to apply for grant",
+          details: error.message,
+        });
+      }
+    });
+
+    // Create milestone
+    this.app.post("/api/karma/milestones", async (req: any, res: any) => {
+      try {
+        const {
+          karmaProjectId,
+          grantUID,
+          title,
+          description,
+          endsAt,
+          userEmail,
+          userName,
+        } = req.body;
+
+        const workflowId = uuidv4();
+
+        console.log(
+          `🎯 Orchestrator: Starting milestone creation for ${title}`
+        );
+
+        // Start multi-step workflow
+        await this.startKarmaMilestoneWorkflow({
+          workflowId,
+          karmaProjectId,
+          grantUID,
+          title,
+          description,
+          endsAt,
+          userEmail,
+          userName,
+        });
+
+        res.json({
+          success: true,
+          workflowId,
+          message: "Milestone creation workflow initiated",
+          status: "PENDING",
+          estimatedSteps: 3,
+        });
+      } catch (error: any) {
+        console.error("🚨 Orchestrator: Milestone creation failed:", error);
+        res.status(500).json({
+          error: "Failed to create milestone",
+          details: error.message,
+        });
+      }
+    });
+
+    // Complete milestone
+    this.app.post(
+      "/api/karma/milestones/:milestoneUID/complete",
+      async (req: any, res: any) => {
+        try {
+          const { milestoneUID } = req.params;
+          const {
+            karmaProjectId,
+            title,
+            description,
+            proofOfWork,
+            userEmail,
+            userName,
+          } = req.body;
+
+          const workflowId = uuidv4();
+
+          console.log(
+            `🎯 Orchestrator: Starting milestone completion for ${milestoneUID}`
+          );
+
+          // Start multi-step workflow
+          await this.startKarmaMilestoneCompletionWorkflow({
+            workflowId,
+            karmaProjectId,
+            milestoneUID,
+            title,
+            description,
+            proofOfWork,
+            userEmail,
+            userName,
+          });
+
+          res.json({
+            success: true,
+            workflowId,
+            message: "Milestone completion workflow initiated",
+            status: "PENDING",
+            estimatedSteps: 3,
+          });
+        } catch (error: any) {
+          console.error("🚨 Orchestrator: Milestone completion failed:", error);
+          res.status(500).json({
+            error: "Failed to complete milestone",
+            details: error.message,
+          });
+        }
+      }
+    );
+
+    // Get Karma project status
+    this.app.get(
+      "/api/karma/projects/:karmaProjectId",
+      async (req: any, res: any) => {
+        try {
+          const { karmaProjectId } = req.params;
+
+          const result = await this.sendSyncTaskToAgent("karma-integration", {
+            taskId: uuidv4(),
+            workflowId: uuidv4(),
+            type: "GET_KARMA_PROJECT",
+            payload: { karmaProjectId },
+            priority: "MEDIUM",
+          });
+
+          if (!result) {
+            return res.status(404).json({ error: "Karma project not found" });
+          }
+
+          res.json(result);
+        } catch (error: any) {
+          console.error("🚨 Orchestrator: Get Karma project failed:", error);
+          res.status(500).json({
+            error: "Failed to get Karma project",
+            details: error.message,
+          });
+        }
+      }
+    );
+
+    // Sync Karma data
+    this.app.post("/api/karma/sync", async (req: any, res: any) => {
+      try {
+        const { projectId } = req.body;
+        const workflowId = uuidv4();
+
+        console.log(`🎯 Orchestrator: Starting Karma data sync`);
+
+        await this.sendTaskToAgent("karma-integration", {
+          taskId: uuidv4(),
+          workflowId,
+          type: "SYNC_KARMA_DATA",
+          payload: { projectId },
+          priority: "MEDIUM",
+        });
+
+        res.json({
+          success: true,
+          workflowId,
+          message: "Karma data sync initiated",
+          status: "PENDING",
+        });
+      } catch (error: any) {
+        console.error("🚨 Orchestrator: Karma sync failed:", error);
+        res.status(500).json({
+          error: "Failed to sync Karma data",
+          details: error.message,
+        });
+      }
+    });
+
     // =============================================================================
     // CROSS-AGENT WORKFLOWS
     // =============================================================================
@@ -747,22 +1021,6 @@ export class CoreOrchestratorAgent {
     });
   }
 
-  private async publishEvent(eventType: string, detail: any): Promise<void> {
-    const command = new PutEventsCommand({
-      Entries: [
-        {
-          Source: "core-orchestrator",
-          DetailType: eventType,
-          Detail: JSON.stringify(detail),
-          EventBusName: process.env.EVENT_BUS_NAME || "default",
-        },
-      ],
-    });
-
-    await this.eventBridgeClient.send(command);
-    console.log(`📡 Orchestrator: Published event ${eventType}`);
-  }
-
   private async startStepFunctionWorkflow(
     stateMachineArn: string,
     input: any
@@ -778,6 +1036,220 @@ export class CoreOrchestratorAgent {
     console.log(
       `🔄 Orchestrator: Started Step Function workflow ${stateMachineArn}`
     );
+  }
+
+  // Add these private methods to the CoreOrchestratorAgent class
+
+  private async startKarmaMilestoneWorkflow(params: {
+    workflowId: string;
+    karmaProjectId: string;
+    grantUID: string;
+    title: string;
+    description: string;
+    endsAt: number;
+    userEmail?: string;
+    userName?: string;
+  }): Promise<void> {
+    console.log(`🔄 Starting Karma milestone workflow: ${params.workflowId}`);
+
+    // Step 1: Create milestone in Karma
+    await this.sendTaskToAgent("karma-integration", {
+      taskId: uuidv4(),
+      workflowId: params.workflowId,
+      type: "CREATE_MILESTONE",
+      payload: {
+        karmaProjectId: params.karmaProjectId,
+        grantUID: params.grantUID,
+        title: params.title,
+        description: params.description,
+        endsAt: params.endsAt,
+        userEmail: params.userEmail,
+        userName: params.userName,
+      },
+      priority: "HIGH",
+      metadata: { step: 1, totalSteps: 3 },
+    });
+
+    // Step 2 & 3 will be triggered by task completion handler
+  }
+
+  private async startKarmaMilestoneCompletionWorkflow(params: {
+    workflowId: string;
+    karmaProjectId: string;
+    milestoneUID: string;
+    title: string;
+    description: string;
+    proofOfWork?: string;
+    userEmail?: string;
+    userName?: string;
+  }): Promise<void> {
+    console.log(
+      `🔄 Starting Karma milestone completion workflow: ${params.workflowId}`
+    );
+
+    // Step 1: Complete milestone in Karma
+    await this.sendTaskToAgent("karma-integration", {
+      taskId: uuidv4(),
+      workflowId: params.workflowId,
+      type: "COMPLETE_MILESTONE",
+      payload: {
+        karmaProjectId: params.karmaProjectId,
+        milestoneUID: params.milestoneUID,
+        title: params.title,
+        description: params.description,
+        proofOfWork: params.proofOfWork,
+        userEmail: params.userEmail,
+        userName: params.userName,
+      },
+      priority: "HIGH",
+      metadata: { step: 1, totalSteps: 3 },
+    });
+
+    // Step 2 & 3 will be triggered by task completion handler
+  }
+
+  // Update the processCompletionMessage method to handle multi-step workflows
+  private async processCompletionMessage(message: any) {
+    try {
+      const data = JSON.parse(message.Body);
+
+      if (data.type === "TASK_COMPLETION") {
+        const completion = data.payload;
+
+        // Update task status in DynamoDB
+        await this.updateTaskStatus(completion.taskId, {
+          status: completion.status,
+          endTime: completion.timestamp,
+          result: completion.result,
+          error: completion.error,
+        });
+
+        const workflow = await this.getWorkflow(completion.workflowId);
+
+        if (workflow) {
+          // Handle multi-step Karma workflows
+          await this.handleKarmaWorkflowStep(completion, workflow);
+
+          const isComplete = await this.checkWorkflowCompletion(
+            completion.workflowId
+          );
+
+          if (isComplete) {
+            console.log(
+              `✅ Orchestrator: Completing workflow ${completion.workflowId}`
+            );
+            await this.completeWorkflow(completion.workflowId);
+          }
+
+          // Notify client
+          await this.notifyClient(completion.workflowId, {
+            type: "TASK_COMPLETED",
+            taskId: completion.taskId,
+            workflowId: completion.workflowId,
+            agent: completion.agent,
+            status: completion.status,
+            result: completion.result,
+            error: completion.error,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error processing completion:", error);
+    }
+  }
+
+  private async handleKarmaWorkflowStep(
+    completion: any,
+    workflow: any
+  ): Promise<void> {
+    if (
+      completion.agent !== "karma-integration" ||
+      completion.status !== "COMPLETED"
+    ) {
+      return;
+    }
+
+    const task = await this.getTaskDetails(completion.taskId);
+    if (!task?.metadata) return;
+
+    const { step, totalSteps } = task.metadata;
+
+    // Handle milestone creation workflow
+    if (task.type === "CREATE_MILESTONE" && step === 1) {
+      // Step 2: Trigger social media post
+      await this.sendTaskToAgent("social-media", {
+        taskId: uuidv4(),
+        workflowId: completion.workflowId,
+        type: "POST_MILESTONE_CREATED",
+        payload: {
+          projectTitle: completion.result?.projectTitle || "Project",
+          milestoneTitle: task.payload.title,
+          dueDate: new Date(task.payload.endsAt).toLocaleDateString(),
+          karmaUID: completion.result?.milestoneUID,
+        },
+        priority: "MEDIUM",
+        metadata: { step: 2, totalSteps },
+      });
+    } else if (task.type === "POST_MILESTONE_CREATED" && step === 2) {
+      // Step 3: Send confirmation email
+      await this.sendTaskToAgent("email-communication", {
+        taskId: uuidv4(),
+        workflowId: completion.workflowId,
+        type: "SEND_EMAIL",
+        payload: {
+          to: [task.payload.userEmail],
+          subject: `🎉 Milestone Workflow Complete!`,
+          body: `Hi ${task.payload.userName},\n\nYour milestone creation workflow is complete!\n\n✅ Milestone created in Karma\n✅ Social media announcement posted\n✅ Team notifications sent\n\nYou're all set!\n\nBest regards,\nKarma Integration Team`,
+        },
+        priority: "LOW",
+        metadata: { step: 3, totalSteps },
+      });
+    }
+
+    // Handle milestone completion workflow
+    else if (task.type === "COMPLETE_MILESTONE" && step === 1) {
+      // Step 2: Trigger social media post
+      await this.sendTaskToAgent("social-media", {
+        taskId: uuidv4(),
+        workflowId: completion.workflowId,
+        type: "POST_MILESTONE_COMPLETED",
+        payload: {
+          projectTitle: completion.result?.projectTitle || "Project",
+          milestoneTitle: task.payload.title,
+          proofOfWork: task.payload.proofOfWork,
+          karmaUID: completion.result?.updateUID,
+        },
+        priority: "MEDIUM",
+        metadata: { step: 2, totalSteps },
+      });
+    } else if (task.type === "POST_MILESTONE_COMPLETED" && step === 2) {
+      // Step 3: Send completion celebration email
+      await this.sendTaskToAgent("email-communication", {
+        taskId: uuidv4(),
+        workflowId: completion.workflowId,
+        type: "SEND_EMAIL",
+        payload: {
+          to: [task.payload.userEmail],
+          subject: `🚀 Milestone Completed Successfully!`,
+          body: `Hi ${task.payload.userName},\n\nCongratulations! Your milestone completion workflow is finished!\n\n✅ Milestone marked complete in Karma\n✅ Achievement shared on social media\n✅ Community notified\n\nKeep up the amazing work!\n\nBest regards,\nKarma Integration Team`,
+        },
+        priority: "LOW",
+        metadata: { step: 3, totalSteps },
+      });
+    }
+  }
+
+  private async getTaskDetails(taskId: string): Promise<any> {
+    // Retrieve task details from DynamoDB
+    const tableName = process.env.TASK_STATUS_TABLE || "orchestrator-tasks";
+
+    const command = new GetItemCommand({
+      TableName: tableName,
+      Key: marshall({ taskId }),
+    });
+
+    const response = await this.dynamoClient.send(command);
+    return response.Item ? unmarshall(response.Item) : null;
   }
 
   // =============================================================================
@@ -1000,66 +1472,6 @@ export class CoreOrchestratorAgent {
         console.error("❌ Error processing completions:", error);
       }
     }, 2000);
-  }
-
-  private async processCompletionMessage(message: any) {
-    try {
-      const data = JSON.parse(message.Body);
-
-      if (data.type === "TASK_COMPLETION") {
-        const completion = data.payload;
-
-        // Update task status in DynamoDB
-        await this.updateTaskStatus(completion.taskId, {
-          status: completion.status,
-          endTime: completion.timestamp,
-          result: completion.result,
-          error: completion.error,
-        });
-
-        const workflow = await this.getWorkflow(completion.workflowId);
-        console.log(
-          `🔍 Orchestrator: Retrieved workflow ${completion.workflowId}:`,
-          workflow ? "found" : "not found"
-        );
-
-        if (workflow) {
-          const isComplete = await this.checkWorkflowCompletion(
-            completion.workflowId
-          );
-          console.log(
-            `📊 Orchestrator: Workflow ${completion.workflowId} completion check:`,
-            isComplete ? "COMPLETE" : "PENDING"
-          );
-
-          if (isComplete) {
-            console.log(
-              `✅ Orchestrator: Completing workflow ${completion.workflowId}`
-            );
-            await this.completeWorkflow(completion.workflowId);
-          }
-
-          // Notify client
-          console.log(
-            `🔔 Orchestrator: Notifying ${this.clientWebhooks.length} client(s) about task ${completion.taskId}`
-          );
-          await this.notifyClient(completion.workflowId, {
-            type: "TASK_COMPLETED",
-            taskId: completion.taskId,
-            workflowId: completion.workflowId,
-            agent: completion.agent,
-            status: completion.status,
-            result: completion.result,
-            error: completion.error,
-          });
-          console.log(
-            `📤 Orchestrator: Client notifications sent for workflow ${completion.workflowId}`
-          );
-        }
-      }
-    } catch (error) {
-      console.error("❌ Error processing completion:", error);
-    }
   }
 
   private async updateTaskStatus(taskId: string, updates: Partial<TaskStatus>) {

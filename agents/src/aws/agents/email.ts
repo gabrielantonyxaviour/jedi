@@ -204,6 +204,15 @@ export class EmailAgent {
         case "LEAD_OPPORTUNITY":
           await this.sendLeadAlert(task.payload);
           break;
+        case "KARMA_EMAIL_ANALYSIS":
+          const emailAnalysis = await this.analyzeKarmaEmail(task.payload);
+          if (emailAnalysis.action) {
+            await this.triggerKarmaWorkflow(emailAnalysis);
+          }
+          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+            emailAnalysis,
+          });
+          break;
 
         default:
           throw new Error(`Unknown task type: ${task.type}`);
@@ -218,6 +227,170 @@ export class EmailAgent {
         );
       }
       throw error;
+    }
+  }
+
+  private async analyzeKarmaEmail(payload: {
+    fromEmail: string;
+    fromName: string;
+    subject: string;
+    body: string;
+    projectContext?: any;
+  }): Promise<{
+    intent: string;
+    action?: string;
+    confidence: number;
+    parameters?: any;
+    response: string;
+  }> {
+    const prompt = `
+  Analyze this email to determine if the user wants to perform any Karma GAP actions:
+  
+  From: ${payload.fromName} <${payload.fromEmail}>
+  Subject: ${payload.subject}
+  Body: ${payload.body}
+  
+  Available Karma actions:
+  1. CREATE_PROJECT - Create a new project on Karma GAP
+  2. APPLY_FOR_GRANT - Apply for a grant opportunity
+  3. CREATE_MILESTONE - Create a new milestone for an existing grant
+  4. COMPLETE_MILESTONE - Mark a milestone as completed
+  5. GENERAL_INQUIRY - General question about Karma or projects
+  
+  Analyze the email and determine:
+  1. The user's intent
+  2. If they want to perform a specific action
+  3. Extract any relevant parameters
+  4. Confidence level (0-100)
+  5. Generate an appropriate response
+  
+  Respond in JSON format:
+  {
+    "intent": "description of what user wants",
+    "action": "ACTION_NAME or null",
+    "confidence": 85,
+    "parameters": {
+      "title": "extracted title",
+      "description": "extracted description",
+      "other_fields": "as needed"
+    },
+    "response": "AI response to send back to user"
+  }
+  `;
+
+    try {
+      const response = await this.bedrock.send(
+        new InvokeModelCommand({
+          modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
+          body: JSON.stringify({
+            anthropic_version: "bedrock-2023-05-31",
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 1000,
+          }),
+        })
+      );
+
+      const result = JSON.parse(new TextDecoder().decode(response.body));
+      const analysis = JSON.parse(result.content[0].text);
+
+      // Send AI response back to user
+      await this.sendEmail(
+        [payload.fromEmail],
+        `Re: ${payload.subject}`,
+        analysis.response
+      );
+
+      return analysis;
+    } catch (error) {
+      console.error("Error analyzing Karma email:", error);
+
+      // Send fallback response
+      await this.sendEmail(
+        [payload.fromEmail],
+        `Re: ${payload.subject}`,
+        `Hi ${payload.fromName},\n\nThank you for your email. I'm having trouble processing your request right now, but I've forwarded it to our team for manual review.\n\nWe'll get back to you soon!\n\nBest regards,\nKarma Integration Team`
+      );
+
+      return {
+        intent: "error",
+        confidence: 0,
+        response: "Error processing email",
+      };
+    }
+  }
+
+  private async triggerKarmaWorkflow(analysis: {
+    action: string;
+    parameters: any;
+    fromEmail?: string;
+    fromName?: string;
+  }): Promise<void> {
+    const workflowId = uuidv4();
+
+    let orchestratorPayload: any = {
+      userEmail: analysis.fromEmail,
+      userName: analysis.fromName,
+      ...analysis.parameters,
+    };
+
+    let endpoint = "";
+
+    switch (analysis.action) {
+      case "CREATE_PROJECT":
+        endpoint = "/api/karma/projects";
+        break;
+      case "APPLY_FOR_GRANT":
+        endpoint = "/api/karma/grants/apply";
+        break;
+      case "CREATE_MILESTONE":
+        endpoint = "/api/karma/milestones";
+        break;
+      case "COMPLETE_MILESTONE":
+        endpoint = `/api/karma/milestones/${analysis.parameters.milestoneUID}/complete`;
+        break;
+      default:
+        console.log(`Unknown Karma action: ${analysis.action}`);
+        return;
+    }
+
+    try {
+      // Call orchestrator API to start workflow
+      const response = await fetch(
+        `${process.env.ORCHESTRATOR_BASE_URL}${endpoint}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(orchestratorPayload),
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`✅ Triggered Karma workflow: ${result.workflowId}`);
+
+        // Send confirmation email
+        await this.sendEmail(
+          [analysis.fromEmail],
+          "Karma Action Initiated",
+          `Hi ${
+            analysis.fromName
+          },\n\nI've started processing your ${analysis.action
+            .toLowerCase()
+            .replace("_", " ")} request.\n\nWorkflow ID: ${
+            result.workflowId
+          }\n\nYou'll receive updates as the process completes.\n\nBest regards,\nKarma Integration Team`
+        );
+      } else {
+        throw new Error(`API call failed: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Error triggering Karma workflow:", error);
+
+      await this.sendEmail(
+        [analysis.fromEmail],
+        "Action Processing Error",
+        `Hi ${analysis.fromName},\n\nI encountered an error while processing your request. Our team has been notified and will handle this manually.\n\nWe apologize for the inconvenience.\n\nBest regards,\nKarma Integration Team`
+      );
     }
   }
 
@@ -930,55 +1103,60 @@ Project Intelligence System | Project ID: ${project.projectId}
     await this.sendEmail([payload.userEmail], subject, textBody, htmlBody);
   }
 
-  private async generateContextualResponse(
-    emailBody: string,
-    subject: string,
-    userProjects: Project[]
-  ): Promise<{ text: string; html: string }> {
-    const projectContext = userProjects
-      .map(
-        (p) =>
-          `Project: ${p.name}\nDescription: ${p.description}\nCreated: ${
-            p.createdAt
-          }\nSummary: ${p.summary || "No analysis yet"}`
-      )
-      .join("\n\n---\n\n");
+  private async generateContextualResponse(emailData: {
+    fromEmail: string;
+    fromName: string;
+    subject: string;
+    body: string;
+    attachments?: any[];
+  }): Promise<string> {
+    // First, analyze for Karma actions
+    const karmaAnalysis = await this.analyzeKarmaEmail(emailData);
 
+    if (karmaAnalysis.action && karmaAnalysis.confidence > 70) {
+      // High confidence Karma action detected - trigger workflow
+      await this.triggerKarmaWorkflow({
+        ...karmaAnalysis,
+        fromEmail: emailData.fromEmail,
+        fromName: emailData.fromName,
+      });
+
+      return karmaAnalysis.response;
+    }
+
+    // Fall back to regular contextual response
     const prompt = `
-You are an AI assistant for a project intelligence system. A user has sent an email and you need to respond professionally and helpfully.
+  Generate a helpful response to this email:
+  
+  From: ${emailData.fromName} <${emailData.fromEmail}>
+  Subject: ${emailData.subject}
+  Body: ${emailData.body}
+  
+  This is for a Karma GAP integration system. Be helpful, professional, and informative.
+  If they're asking about Karma features, explain what's available.
+  If it's a general inquiry, provide relevant information.
+  
+  Keep the response concise but complete.
+  `;
 
-USER'S PROJECTS CONTEXT:
-${projectContext || "No projects found for this user."}
+    try {
+      const response = await this.bedrock.send(
+        new InvokeModelCommand({
+          modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
+          body: JSON.stringify({
+            anthropic_version: "bedrock-2023-05-31",
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 500,
+          }),
+        })
+      );
 
-EMAIL SUBJECT: ${subject}
-EMAIL BODY: ${emailBody}
-
-Generate a helpful, professional email response. If they're asking about their projects, use the context above. If they need technical help, provide clear guidance. Keep the tone friendly but professional. Sign off as "Your Project Intelligence Assistant".
-    `;
-
-    const response = await this.bedrock.send(
-      new InvokeModelCommand({
-        modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
-        body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 1000,
-        }),
-      })
-    );
-
-    const result = JSON.parse(new TextDecoder().decode(response.body));
-    const responseText = result.content[0].text;
-
-    const htmlResponse = responseText
-      .split("\n\n")
-      .map((paragraph: string) => `<p>${paragraph.replace(/\n/g, "<br>")}</p>`)
-      .join("");
-
-    return {
-      text: responseText,
-      html: `<div style="font-family: system-ui, sans-serif; line-height: 1.6;">${htmlResponse}</div>`,
-    };
+      const result = JSON.parse(new TextDecoder().decode(response.body));
+      return result.content[0].text;
+    } catch (error) {
+      console.error("Error generating contextual response:", error);
+      return `Hi ${emailData.fromName},\n\nThank you for your email. I've received your message and our team will review it shortly.\n\nFor immediate assistance with Karma GAP features, you can also visit our documentation or contact support directly.\n\nBest regards,\nKarma Integration Team`;
+    }
   }
 
   private async getUserProjects(email: string): Promise<Project[]> {

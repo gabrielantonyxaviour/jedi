@@ -17,7 +17,7 @@ Karma Agent
 
 1. Creating a new project - It should trigger a function in karma to create the project
 2. When the user makes any update to the project, it should update it in the DB
-3. When there is a new opp, send an email trigger to the email agent
+3. When there is a new opportunity, send an email trigger to the email agent
 
 Compliance Agent
 
@@ -41,4 +41,15 @@ Socials Agent
 1. Creating a new project - Sets up the X account and Telegram account (if the user passes its secrets)
 2. For X, listens to new relevant tweets, responds back, likes or ignores, makes new tweets periodically based on the status of the proejct and any interesting news. If anything important, sends an email for the user to know
 3. For telegram, listens to messages sent to it, or new messages in the group and responds to it. If anything important, sends an email to let the user know
-4. Every week, it gives a summary on overall social interactions and progess made
+4. Every week, it gives a summary on overall social interactions and progess made by the agent to get social metrics
+
+Agents
+
+1. Orchestrator - DONE
+2. Email - DONE & TESTED
+3. Github - DONE
+4. Karma - DONE
+5. Leads -
+6. Socials -
+7. IP -
+8. Monitoring -
