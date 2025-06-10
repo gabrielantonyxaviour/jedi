@@ -16,6 +16,7 @@ import {
   KarmaGrantData,
   KarmaMilestoneData,
 } from "../services/karma";
+import { Hex } from "viem";
 
 interface KarmaProject {
   karmaProjectId: string;
@@ -93,8 +94,8 @@ export class KarmaAgent {
           });
           break;
 
-        case "COMPLETE_MILESTONE":
-          const milestoneUpdate = await this.completeMilestone(task.payload);
+        case "UPDATE_MILESTONE":
+          const milestoneUpdate = await this.updateMilestone(task.payload);
           await this.reportTaskCompletion(task.taskId, task.workflowId, {
             milestoneUpdate,
           });
@@ -104,6 +105,14 @@ export class KarmaAgent {
           const syncResult = await this.syncKarmaData(task.payload);
           await this.reportTaskCompletion(task.taskId, task.workflowId, {
             syncResult,
+          });
+          break;
+        case "GET_KARMA_PROJECT":
+          const project = await this.getKarmaProject(
+            task.payload.karmaProjectId
+          );
+          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+            project,
           });
           break;
       }
@@ -125,8 +134,8 @@ export class KarmaAgent {
     imageURL?: string;
     links?: Array<{ type: string; url: string }>;
     tags?: Array<{ name: string }>;
-    ownerAddress: string;
-    members?: string[];
+    ownerAddress: Hex;
+    members?: Hex[];
     userEmail?: string;
     userName?: string;
   }): Promise<KarmaProject> {
@@ -181,7 +190,7 @@ export class KarmaAgent {
   }
 
   async applyForGrant(payload: {
-    karmaProjectId: string;
+    karmaProjectId: Hex;
     grantTitle: string;
     grantDescription: string;
     proposalURL?: string;
@@ -207,14 +216,14 @@ export class KarmaAgent {
       season: payload.season,
     };
 
-    const { uid, grant } = await this.karmaSDK.applyForGrant(
+    const { uids, grant, tx } = await this.karmaSDK.applyForGrant(
       grantData,
-      karmaProject.karmaUID
+      karmaProject.karmaUID as `0x${string}`
     );
 
     // Update local project
     karmaProject.grants.push({
-      uid,
+      uid: uids[0],
       title: payload.grantTitle,
       status: "pending",
       milestones: [],
@@ -231,7 +240,7 @@ export class KarmaAgent {
         projectTitle: karmaProject.title,
         grantTitle: payload.grantTitle,
         communityUID: payload.communityUID,
-        karmaUID: uid,
+        karmaUID: uids[0],
       },
     });
 
@@ -244,13 +253,13 @@ export class KarmaAgent {
         payload: {
           to: [payload.userEmail],
           subject: `🎯 Grant Application Submitted: ${payload.grantTitle}`,
-          body: `Hi ${payload.userName},\n\nYour grant application for "${payload.grantTitle}" has been successfully submitted!\n\nProject: ${karmaProject.title}\nGrant UID: ${uid}\n\nYou'll be notified of any updates.\n\nBest regards,\nKarma Integration Team`,
+          body: `Hi ${payload.userName},\n\nYour grant application for "${payload.grantTitle}" has been successfully submitted!\n\nProject: ${karmaProject.title}\nGrant UID: ${uids[0]}\n\nYou'll be notified of any updates.\n\nBest regards,\nKarma Integration Team`,
         },
       });
     }
 
     return {
-      grantUID: uid,
+      grantUID: uids[0],
       projectUID: karmaProject.karmaUID,
       status: "submitted",
       submittedAt: new Date().toISOString(),
@@ -258,8 +267,8 @@ export class KarmaAgent {
   }
 
   async createMilestone(payload: {
-    karmaProjectId: string;
-    grantUID: string;
+    karmaProjectId: Hex;
+    grantUID: Hex;
     title: string;
     description: string;
     endsAt: number;
@@ -278,9 +287,10 @@ export class KarmaAgent {
       description: payload.description,
       endsAt: payload.endsAt,
       grantUID: payload.grantUID,
+      projectUID: payload.karmaProjectId,
     };
 
-    const { uid, milestone } = await this.karmaSDK.createMilestone(
+    const { uids, milestone, tx } = await this.karmaSDK.createMilestone(
       milestoneData
     );
 
@@ -288,7 +298,7 @@ export class KarmaAgent {
     const grant = karmaProject.grants.find((g) => g.uid === payload.grantUID);
     if (grant) {
       grant.milestones.push({
-        uid,
+        uid: uids[0],
         title: payload.title,
         status: "active",
         dueDate: new Date(payload.endsAt).toISOString(),
@@ -306,7 +316,7 @@ export class KarmaAgent {
         projectTitle: karmaProject.title,
         milestoneTitle: payload.title,
         dueDate: new Date(payload.endsAt).toLocaleDateString(),
-        karmaUID: uid,
+        karmaUID: uids[0],
       },
     });
 
@@ -325,13 +335,15 @@ export class KarmaAgent {
             karmaProject.title
           }\nDue Date: ${new Date(
             payload.endsAt
-          ).toLocaleDateString()}\nMilestone UID: ${uid}\n\nGood luck achieving this milestone!\n\nBest regards,\nKarma Integration Team`,
+          ).toLocaleDateString()}\nMilestone UID: ${
+            uids[0]
+          }\n\nGood luck achieving this milestone!\n\nBest regards,\nKarma Integration Team`,
         },
       });
     }
 
     return {
-      milestoneUID: uid,
+      milestoneUID: uids[0],
       grantUID: payload.grantUID,
       projectUID: karmaProject.karmaUID,
       status: "created",
@@ -339,12 +351,13 @@ export class KarmaAgent {
     };
   }
 
-  async completeMilestone(payload: {
-    karmaProjectId: string;
-    milestoneUID: string;
+  async updateMilestone(payload: {
+    karmaProjectId: Hex;
+    grantUID: Hex;
+    milestoneUID: Hex;
     title: string;
     description: string;
-    proofOfWork?: string;
+    endsAt: number;
     userEmail?: string;
     userName?: string;
   }): Promise<any> {
@@ -355,12 +368,14 @@ export class KarmaAgent {
       throw new Error("Karma project not found");
     }
 
-    const { uid, update } = await this.karmaSDK.completeMilestone(
-      payload.milestoneUID,
+    const { uids, update } = await this.karmaSDK.updateMilestone(
+      karmaProject.karmaUID as `0x${string}`,
+      payload.grantUID as `0x${string}`,
+      payload.milestoneUID as `0x${string}`,
       {
         title: payload.title,
         description: payload.description,
-        proofOfWork: payload.proofOfWork,
+        endsAt: payload.endsAt,
       }
     );
 
@@ -385,8 +400,9 @@ export class KarmaAgent {
       payload: {
         projectTitle: karmaProject.title,
         milestoneTitle: payload.title,
-        proofOfWork: payload.proofOfWork,
-        karmaUID: uid,
+        karmaUID: uids[0],
+        grantUID: payload.grantUID,
+        milestoneUID: payload.milestoneUID,
       },
     });
 
@@ -399,13 +415,13 @@ export class KarmaAgent {
         payload: {
           to: [payload.userEmail],
           subject: `🎉 Milestone Completed: ${payload.title}`,
-          body: `Hi ${payload.userName},\n\nCongratulations! Your milestone "${payload.title}" has been marked as completed!\n\nProject: ${karmaProject.title}\nUpdate UID: ${uid}\n\nKeep up the great work!\n\nBest regards,\nKarma Integration Team`,
+          body: `Hi ${payload.userName},\n\nCongratulations! Your milestone "${payload.title}" has been marked as completed!\n\nProject: ${karmaProject.title}\nUpdate UID: ${uids[0]}\n\nKeep up the great work!\n\nBest regards,\nKarma Integration Team`,
         },
       });
     }
 
     return {
-      updateUID: uid,
+      updateUID: uids[0],
       milestoneUID: payload.milestoneUID,
       status: "completed",
       completedAt: new Date().toISOString(),
@@ -507,14 +523,18 @@ export class KarmaAgent {
           );
 
           if (isRelevant) {
+            // For now, use a placeholder email - you'll need to implement proper user email mapping
+            const userEmail = "user@example.com"; // TODO: Map ownerAddress to actual email
+            const userName = "Project Owner"; // TODO: Map to actual user name
+
             // Send grant opportunity email
             await this.sendTaskToAgent(this.emailQueue, {
               taskId: randomUUID(),
               workflowId: randomUUID(),
               type: "GRANT_OPPORTUNITY",
               payload: {
-                userEmail: project.ownerAddress, // This should be mapped to actual email
-                userName: "Project Owner", // This should be mapped to actual name
+                userEmail,
+                userName,
                 projectName: project.title,
                 grant: {
                   title: opportunity.grantTitle,
@@ -524,7 +544,7 @@ export class KarmaAgent {
                   description: opportunity.grantDescription,
                   eligibility: opportunity.requirements || [],
                   applicationUrl: `https://gap.karma.global/grants/${opportunity.grantUID}`,
-                  matchScore: Math.floor(Math.random() * 20) + 80, // AI-calculated match score
+                  matchScore: Math.floor(Math.random() * 20) + 80,
                 },
               },
             });
@@ -588,7 +608,7 @@ export class KarmaAgent {
   }
 
   private async getKarmaProject(
-    karmaProjectId: string
+    karmaProjectId: Hex
   ): Promise<KarmaProject | null> {
     const response = await this.dynamodb.send(
       new QueryCommand({

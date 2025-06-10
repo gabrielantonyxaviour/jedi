@@ -35,6 +35,7 @@ export interface KarmaMilestoneData {
   description: string;
   endsAt: number;
   grantUID: Hex;
+  projectUID: Hex;
 }
 
 export class KarmaSDKService {
@@ -130,7 +131,17 @@ export class KarmaSDKService {
 
   async createMilestone(
     milestoneData: KarmaMilestoneData
-  ): Promise<{ uid: string; milestone: Milestone }> {
+  ): Promise<{ uids: Hex[]; milestone: Milestone; tx: Hex }> {
+    const project = await this.gap.fetch.projectById(milestoneData.projectUID);
+    const grantIndex = project.grants.findIndex(
+      (grant) => grant.uid === milestoneData.grantUID
+    );
+    const grant = project.grants.splice(grantIndex, 1)[0];
+
+    if (!grant) {
+      throw new Error("Grant not found");
+    }
+
     const milestone = new Milestone({
       data: {
         title: milestoneData.title,
@@ -142,9 +153,12 @@ export class KarmaSDKService {
       refUID: milestoneData.grantUID,
     });
 
-    await milestone.attest(this.wallet);
+    grant.milestones.push(milestone);
+    project.grants.push(grant);
 
-    return { uid: milestone.uid, milestone };
+    const { uids, tx } = await project.attest(this.wallet);
+
+    return { uids: uids, milestone, tx: tx[0].hash as `0x${string}` };
   }
 
   async updateMilestone(
