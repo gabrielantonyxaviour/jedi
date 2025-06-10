@@ -18,7 +18,7 @@ import {
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
-import { randomUUID } from "crypto";
+import { randomUUID as uuidv4 } from "crypto";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 
 interface Project {
@@ -107,7 +107,7 @@ export class EmailAgent {
     htmlBody?: string,
     cc?: string[]
   ): Promise<string> {
-    const messageId = randomUUID();
+    const messageId = uuidv4();
 
     const emailParams: any = {
       Source: this.fromEmail,
@@ -164,18 +164,34 @@ export class EmailAgent {
     await this.storeEmail(emailMessage);
 
     const userProjects = await this.getUserProjects(from);
-    const response = await this.generateContextualResponse(
-      body,
-      subject,
-      userProjects
-    );
 
-    await this.sendEmail(
-      [from],
-      `Re: ${subject}`,
-      response.text,
-      response.html
-    );
+    // Extract name from email if available
+    const fromName = from.split("@")[0] || "User";
+
+    // First check for Karma actions
+    const karmaAnalysis = await this.analyzeKarmaEmail({
+      fromEmail: from,
+      fromName,
+      subject,
+      body,
+    });
+
+    let responseText: string;
+
+    if (karmaAnalysis.action && karmaAnalysis.confidence > 70) {
+      // High confidence Karma action detected - workflow already triggered in analyzeKarmaEmail
+      responseText = karmaAnalysis.response;
+    } else {
+      // Generate regular contextual response
+      const response = await this.generateContextualResponse(
+        body,
+        subject,
+        userProjects
+      );
+      responseText = response.text;
+    }
+
+    await this.sendEmail([from], `Re: ${subject}`, responseText);
   }
 
   async processEmailTask(task: any): Promise<void> {
@@ -189,28 +205,68 @@ export class EmailAgent {
             project,
           });
           break;
+
+        case "SEND_EMAIL":
+          const messageId = await this.sendEmail(
+            task.payload.to,
+            task.payload.subject,
+            task.payload.body,
+            task.payload.htmlBody,
+            task.payload.cc
+          );
+          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+            messageId,
+            sentTo: task.payload.to,
+          });
+          break;
+
         case "SOCIAL_INTERVENTION":
           await this.sendSocialInterventionEmail(task.payload);
+          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+            emailSent: true,
+          });
           break;
 
         case "COMPLIANCE_ALERT":
           await this.sendComplianceAlert(task.payload);
+          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+            emailSent: true,
+          });
           break;
 
         case "GRANT_OPPORTUNITY":
           await this.sendGrantAlert(task.payload);
+          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+            emailSent: true,
+          });
           break;
 
         case "LEAD_OPPORTUNITY":
           await this.sendLeadAlert(task.payload);
+          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+            emailSent: true,
+          });
           break;
+
         case "KARMA_EMAIL_ANALYSIS":
           const emailAnalysis = await this.analyzeKarmaEmail(task.payload);
-          if (emailAnalysis.action) {
-            await this.triggerKarmaWorkflow(emailAnalysis);
+          if (emailAnalysis.action && emailAnalysis.confidence > 70) {
+            await this.triggerKarmaWorkflow({
+              action: emailAnalysis.action,
+              parameters: emailAnalysis.parameters || {},
+              fromEmail: task.payload.fromEmail || "unknown@example.com",
+              fromName: task.payload.fromName || "Unknown User",
+            });
           }
           await this.reportTaskCompletion(task.taskId, task.workflowId, {
             emailAnalysis,
+          });
+          break;
+
+        case "PROCESS_INCOMING_EMAIL":
+          await this.processIncomingEmail(task.payload.rawEmail);
+          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+            processed: true,
           });
           break;
 
@@ -218,6 +274,7 @@ export class EmailAgent {
           throw new Error(`Unknown task type: ${task.type}`);
       }
     } catch (error: any) {
+      console.error(`Error processing email task ${task.type}:`, error);
       if (task.taskId && task.workflowId) {
         await this.reportTaskCompletion(
           task.taskId,
@@ -345,8 +402,8 @@ export class EmailAgent {
       case "CREATE_MILESTONE":
         endpoint = "/api/karma/milestones";
         break;
-      case "COMPLETE_MILESTONE":
-        endpoint = `/api/karma/milestones/${analysis.parameters.milestoneUID}/complete`;
+      case "UPDATE_MILESTONE": // Changed from COMPLETE_MILESTONE to UPDATE_MILESTONE
+        endpoint = `/api/karma/milestones/${analysis.parameters.milestoneUID}/update`;
         break;
       default:
         console.log(`Unknown Karma action: ${analysis.action}`);
@@ -370,7 +427,7 @@ export class EmailAgent {
 
         // Send confirmation email
         await this.sendEmail(
-          [analysis.fromEmail],
+          [analysis.fromEmail!],
           "Karma Action Initiated",
           `Hi ${
             analysis.fromName
@@ -387,7 +444,7 @@ export class EmailAgent {
       console.error("Error triggering Karma workflow:", error);
 
       await this.sendEmail(
-        [analysis.fromEmail],
+        [analysis.fromEmail!],
         "Action Processing Error",
         `Hi ${analysis.fromName},\n\nI encountered an error while processing your request. Our team has been notified and will handle this manually.\n\nWe apologize for the inconvenience.\n\nBest regards,\nKarma Integration Team`
       );
@@ -1103,34 +1160,41 @@ Project Intelligence System | Project ID: ${project.projectId}
     await this.sendEmail([payload.userEmail], subject, textBody, htmlBody);
   }
 
-  private async generateContextualResponse(emailData: {
-    fromEmail: string;
-    fromName: string;
-    subject: string;
-    body: string;
-    attachments?: any[];
-  }): Promise<string> {
+  private async generateContextualResponse(
+    emailBody: string,
+    subject: string,
+    userProjects: Project[]
+  ): Promise<{ text: string; html?: string }> {
     // First, analyze for Karma actions
-    const karmaAnalysis = await this.analyzeKarmaEmail(emailData);
+    const karmaAnalysis = await this.analyzeKarmaEmail({
+      fromEmail: "unknown@example.com", // This should be passed as parameter
+      fromName: "Unknown User", // This should be passed as parameter
+      subject,
+      body: emailBody,
+    });
 
     if (karmaAnalysis.action && karmaAnalysis.confidence > 70) {
       // High confidence Karma action detected - trigger workflow
       await this.triggerKarmaWorkflow({
-        ...karmaAnalysis,
-        fromEmail: emailData.fromEmail,
-        fromName: emailData.fromName,
+        action: karmaAnalysis.action,
+        parameters: karmaAnalysis.parameters || {},
+        fromEmail: "unknown@example.com",
+        fromName: "Unknown User",
       });
 
-      return karmaAnalysis.response;
+      return { text: karmaAnalysis.response };
     }
 
     // Fall back to regular contextual response
     const prompt = `
   Generate a helpful response to this email:
   
-  From: ${emailData.fromName} <${emailData.fromEmail}>
-  Subject: ${emailData.subject}
-  Body: ${emailData.body}
+  Subject: ${subject}
+  Body: ${emailBody}
+  
+  User has ${userProjects.length} projects: ${userProjects
+      .map((p) => p.name)
+      .join(", ")}
   
   This is for a Karma GAP integration system. Be helpful, professional, and informative.
   If they're asking about Karma features, explain what's available.
@@ -1152,10 +1216,12 @@ Project Intelligence System | Project ID: ${project.projectId}
       );
 
       const result = JSON.parse(new TextDecoder().decode(response.body));
-      return result.content[0].text;
+      return { text: result.content[0].text };
     } catch (error) {
       console.error("Error generating contextual response:", error);
-      return `Hi ${emailData.fromName},\n\nThank you for your email. I've received your message and our team will review it shortly.\n\nFor immediate assistance with Karma GAP features, you can also visit our documentation or contact support directly.\n\nBest regards,\nKarma Integration Team`;
+      return {
+        text: `Thank you for your email. I've received your message and our team will review it shortly.\n\nFor immediate assistance with Karma GAP features, you can also visit our documentation or contact support directly.\n\nBest regards,\nKarma Integration Team`,
+      };
     }
   }
 
@@ -1215,7 +1281,7 @@ Project Intelligence System | Project ID: ${project.projectId}
       from: rawEmail.source || rawEmail.from,
       subject: rawEmail.subject,
       body: rawEmail.body,
-      messageId: rawEmail.messageId || randomUUID(),
+      messageId: rawEmail.messageId || uuidv4(),
     };
   }
 
