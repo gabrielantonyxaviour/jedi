@@ -1050,6 +1050,9 @@ export class CoreOrchestratorAgent {
 
     const updateExpression = [];
     const expressionAttributeValues: any = {};
+    const expressionAttributeNames: any = {
+      "#status": "status",
+    };
 
     if (updates.status) {
       updateExpression.push("set #status = :status");
@@ -1060,11 +1063,13 @@ export class CoreOrchestratorAgent {
       expressionAttributeValues[":endTime"] = updates.endTime;
     }
     if (updates.result) {
-      updateExpression.push("result = :result");
+      updateExpression.push("#result = :result");
+      expressionAttributeNames["#result"] = "result";
       expressionAttributeValues[":result"] = updates.result;
     }
     if (updates.error) {
-      updateExpression.push("error = :error");
+      updateExpression.push("#error = :error");
+      expressionAttributeNames["#error"] = "error";
       expressionAttributeValues[":error"] = updates.error;
     }
 
@@ -1072,9 +1077,7 @@ export class CoreOrchestratorAgent {
       TableName: tableName,
       Key: marshall({ taskId }),
       UpdateExpression: updateExpression.join(", "),
-      ExpressionAttributeNames: {
-        "#status": "status",
-      },
+      ExpressionAttributeNames: expressionAttributeNames,
       ExpressionAttributeValues: marshall(expressionAttributeValues),
     });
 
@@ -1106,7 +1109,7 @@ export class CoreOrchestratorAgent {
     // Get all tasks for this workflow
     const command = new QueryCommand({
       TableName: tableName,
-      IndexName: "WorkflowIdIndex",
+      IndexName: "workflowId-index",
       KeyConditionExpression: "workflowId = :workflowId",
       ExpressionAttributeValues: marshall({
         ":workflowId": workflowId,

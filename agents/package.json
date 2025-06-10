@@ -6,6 +6,7 @@
   "scripts": {
     "dev:orchestrator": "tsx src/aws/index.ts",
     "dev:github": "tsx src/aws/servers/github.ts",
+    "dev:webhook": "tsx src/aws/webhook-listener.ts",
     "dev:local": "tsx src/local/server.ts",
     "test": "tsx src/local/test.ts"
   },
