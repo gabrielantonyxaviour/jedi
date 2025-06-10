@@ -12,7 +12,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
-import { KMSClient, EncryptCommand, DecryptCommand } from "@aws-sdk/client-kms";
+import { KMSClient, EncryptCommand } from "@aws-sdk/client-kms";
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
@@ -189,27 +189,34 @@ export class EmailAgent {
             project,
           });
           break;
-
-        case "SEND_EMAIL":
-          const messageId = await this.sendEmail(
-            task.payload.to,
-            task.payload.subject,
-            task.payload.body,
-            task.payload.htmlBody,
-            task.payload.cc
-          );
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            messageId,
-          });
+        case "SOCIAL_INTERVENTION":
+          await this.sendSocialInterventionEmail(task.payload);
           break;
+
+        case "COMPLIANCE_ALERT":
+          await this.sendComplianceAlert(task.payload);
+          break;
+
+        case "GRANT_OPPORTUNITY":
+          await this.sendGrantAlert(task.payload);
+          break;
+
+        case "LEAD_OPPORTUNITY":
+          await this.sendLeadAlert(task.payload);
+          break;
+
+        default:
+          throw new Error(`Unknown task type: ${task.type}`);
       }
     } catch (error: any) {
-      await this.reportTaskCompletion(
-        task.taskId,
-        task.workflowId,
-        null,
-        error.message
-      );
+      if (task.taskId && task.workflowId) {
+        await this.reportTaskCompletion(
+          task.taskId,
+          task.workflowId,
+          null,
+          error.message
+        );
+      }
       throw error;
     }
   }
@@ -313,6 +320,616 @@ Project Intelligence System | Project ID: ${project.projectId}
     await this.sendEmail([project.email], subject, textBody, htmlBody);
   }
 
+  private async sendSocialInterventionEmail(payload: {
+    userEmail: string;
+    userName: string;
+    projectName: string;
+    platform: string;
+    contentType: string;
+    content: string;
+    action: string;
+    urgency: "high" | "medium" | "low";
+    deadline?: string;
+  }): Promise<void> {
+    const subject = `🚨 Action Required: ${payload.platform} ${payload.contentType} - ${payload.projectName}`;
+
+    const urgencyColor =
+      payload.urgency === "high"
+        ? "#dc3545"
+        : payload.urgency === "medium"
+        ? "#fd7e14"
+        : "#ffc107";
+    const urgencyText =
+      payload.urgency === "high"
+        ? "URGENT"
+        : payload.urgency === "medium"
+        ? "MEDIUM"
+        : "LOW";
+
+    const htmlBody = `
+ <!DOCTYPE html>
+ <html>
+ <head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #fff5f5; }
+        .container { max-width: 600px; margin: 0 auto; background-color: white; border: 2px solid #fee; }
+        .header { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; padding: 30px; text-align: center; }
+        .urgency-badge { background-color: ${urgencyColor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .content { padding: 30px; }
+        .alert-box { background-color: #fff5f5; border-left: 4px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0; }
+        .content-preview { background-color: #f8f9fa; border-radius: 8px; padding: 15px; margin: 15px 0; font-family: monospace; border-left: 3px solid #6c757d; }
+        .action-button { display: inline-block; background-color: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; text-transform: uppercase; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 14px; color: #6c757d; border-top: 1px solid #dee2e6; }
+        .deadline { color: #dc3545; font-weight: bold; }
+    </style>
+ </head>
+ <body>
+    <div class="container">
+        <div class="header">
+            <div style="margin-bottom: 10px;">
+                <span class="urgency-badge">${urgencyText} PRIORITY</span>
+            </div>
+            <h1>🚨 Manual Action Required</h1>
+            <p>Social media intervention needed for ${payload.projectName}</p>
+        </div>
+        
+        <div class="content">
+            <div class="alert-box">
+                <h3>⚠️ Immediate Attention Needed</h3>
+                <p>Our social media monitoring has detected activity on <strong>${
+                  payload.platform
+                }</strong> that requires your manual review and action.</p>
+                ${
+                  payload.deadline
+                    ? `<p class="deadline">⏰ Deadline: ${payload.deadline}</p>`
+                    : ""
+                }
+            </div>
+            
+            <h3>📋 Details</h3>
+            <ul>
+                <li><strong>Platform:</strong> ${payload.platform}</li>
+                <li><strong>Content Type:</strong> ${payload.contentType}</li>
+                <li><strong>Project:</strong> ${payload.projectName}</li>
+                <li><strong>Required Action:</strong> ${payload.action}</li>
+            </ul>
+            
+            <h3>📄 Content Preview</h3>
+            <div class="content-preview">${payload.content}</div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="#" class="action-button">Take Action Now</a>
+            </div>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+                <li>Review the flagged content above</li>
+                <li>Determine appropriate response strategy</li>
+                <li>Take action on the ${payload.platform} platform</li>
+                <li>Monitor engagement and follow-up</li>
+            </ol>
+        </div>
+        
+        <div class="footer">
+            <p>🤖 Social Media Intelligence Alert | Project: ${
+              payload.projectName
+            }</p>
+            <p>This alert was generated automatically based on your social media monitoring rules.</p>
+        </div>
+    </div>
+ </body>
+ </html>`;
+
+    const textBody = `🚨 ACTION REQUIRED - ${urgencyText} PRIORITY
+ 
+ Social Media Intervention Needed
+ 
+ Hi ${payload.userName},
+ 
+ Our monitoring system has detected activity on ${
+   payload.platform
+ } that requires your immediate attention for project "${payload.projectName}".
+ 
+ Details:
+ - Platform: ${payload.platform}
+ - Content Type: ${payload.contentType}
+ - Required Action: ${payload.action}
+ ${payload.deadline ? `- Deadline: ${payload.deadline}` : ""}
+ 
+ Content Preview:
+ ${payload.content}
+ 
+ Next Steps:
+ 1. Review the flagged content
+ 2. Determine appropriate response strategy  
+ 3. Take action on ${payload.platform}
+ 4. Monitor engagement and follow-up
+ 
+ ---
+ Social Media Intelligence Alert | Project: ${payload.projectName}`;
+
+    await this.sendEmail([payload.userEmail], subject, textBody, htmlBody);
+  }
+
+  private async sendComplianceAlert(payload: {
+    userEmail: string;
+    userName: string;
+    projectName: string;
+    similarIdea: {
+      title: string;
+      description: string;
+      source: string;
+      url: string;
+      similarity: number;
+      dateFound: string;
+    };
+    disputeInstructions: string;
+  }): Promise<void> {
+    const subject = `⚖️ Compliance Alert: Similar Idea Found - ${payload.projectName}`;
+
+    const htmlBody = `
+ <!DOCTYPE html>
+ <html>
+ <head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #fffbf0; }
+        .container { max-width: 600px; margin: 0 auto; background-color: white; border: 2px solid #fff3cd; }
+        .header { background: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%); color: #212529; padding: 30px; text-align: center; }
+        .content { padding: 30px; }
+        .warning-box { background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .similarity-meter { background-color: #f8f9fa; border-radius: 8px; padding: 15px; margin: 15px 0; }
+        .similarity-bar { background-color: #e9ecef; height: 20px; border-radius: 10px; overflow: hidden; }
+        .similarity-fill { background: linear-gradient(90deg, #28a745 0%, #ffc107 50%, #dc3545 100%); height: 100%; border-radius: 10px; }
+        .idea-preview { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0; border-left: 4px solid #ffc107; }
+        .dispute-button { display: inline-block; background-color: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 14px; color: #6c757d; }
+    </style>
+ </head>
+ <body>
+    <div class="container">
+        <div class="header">
+            <h1>⚖️ Intellectual Property Alert</h1>
+            <p>Similar idea detected for ${payload.projectName}</p>
+        </div>
+        
+        <div class="content">
+            <div class="warning-box">
+                <h3>🔍 Compliance Monitoring Alert</h3>
+                <p>Our AI-powered compliance system has identified a potentially similar idea to your project. Review required to determine if action is needed.</p>
+            </div>
+            
+            <div class="similarity-meter">
+                <h4>📊 Similarity Analysis</h4>
+                <div class="similarity-bar">
+                    <div class="similarity-fill" style="width: ${
+                      payload.similarIdea.similarity
+                    }%"></div>
+                </div>
+                <p style="text-align: center; margin: 10px 0;"><strong>${
+                  payload.similarIdea.similarity
+                }% Similarity Match</strong></p>
+            </div>
+            
+            <div class="idea-preview">
+                <h4>💡 Similar Idea Found</h4>
+                <p><strong>Title:</strong> ${payload.similarIdea.title}</p>
+                <p><strong>Description:</strong> ${
+                  payload.similarIdea.description
+                }</p>
+                <p><strong>Source:</strong> ${payload.similarIdea.source}</p>
+                <p><strong>URL:</strong> <a href="${
+                  payload.similarIdea.url
+                }" target="_blank">${payload.similarIdea.url}</a></p>
+                <p><strong>Discovered:</strong> ${new Date(
+                  payload.similarIdea.dateFound
+                ).toLocaleDateString()}</p>
+            </div>
+            
+            <h3>🛡️ Recommended Actions</h3>
+            <ol>
+                <li><strong>Review:</strong> Examine the similar idea carefully</li>
+                <li><strong>Analyze:</strong> Compare with your project's unique aspects</li>
+                <li><strong>Document:</strong> Gather evidence of your project's originality</li>
+                <li><strong>Consult:</strong> Consider legal advice if necessary</li>
+                <li><strong>Dispute:</strong> File a dispute if you believe there's infringement</li>
+            </ol>
+            
+            <div class="warning-box">
+                <h4>📋 Dispute Instructions</h4>
+                <p>${payload.disputeInstructions}</p>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="#" class="dispute-button">Initiate Dispute Process</a>
+            </div>
+            
+            <p><em>Note: This alert is for informational purposes. The similarity detection is automated and may include false positives. Always conduct thorough analysis before taking legal action.</em></p>
+        </div>
+        
+        <div class="footer">
+            <p>🛡️ IP Compliance Monitor | Project: ${payload.projectName}</p>
+            <p>Automated similarity detection • ${
+              payload.similarIdea.similarity
+            }% match confidence</p>
+        </div>
+    </div>
+ </body>
+ </html>`;
+
+    const textBody = `⚖️ COMPLIANCE ALERT: Similar Idea Found
+ 
+ IP Monitoring Alert for ${payload.projectName}
+ 
+ Hi ${payload.userName},
+ 
+ Our compliance monitoring system has detected a potentially similar idea to your project.
+ 
+ SIMILARITY ANALYSIS:
+ ${payload.similarIdea.similarity}% Match Confidence
+ 
+ SIMILAR IDEA DETAILS:
+ Title: ${payload.similarIdea.title}
+ Description: ${payload.similarIdea.description}
+ Source: ${payload.similarIdea.source}
+ URL: ${payload.similarIdea.url}
+ Discovered: ${new Date(payload.similarIdea.dateFound).toLocaleDateString()}
+ 
+ RECOMMENDED ACTIONS:
+ 1. Review the similar idea carefully
+ 2. Analyze compared to your project's unique aspects
+ 3. Document evidence of your project's originality
+ 4. Consider legal consultation if necessary
+ 5. File dispute if infringement is suspected
+ 
+ DISPUTE INSTRUCTIONS:
+ ${payload.disputeInstructions}
+ 
+ Note: This is an automated alert. Similarity detection may include false positives. Conduct thorough analysis before legal action.
+ 
+ ---
+ IP Compliance Monitor | ${payload.similarIdea.similarity}% match confidence`;
+
+    await this.sendEmail([payload.userEmail], subject, textBody, htmlBody);
+  }
+
+  private async sendGrantAlert(payload: {
+    userEmail: string;
+    userName: string;
+    projectName: string;
+    grant: {
+      title: string;
+      organization: string;
+      amount: string;
+      deadline: string;
+      description: string;
+      eligibility: string[];
+      applicationUrl: string;
+      matchScore: number;
+    };
+  }): Promise<void> {
+    const subject = `💰 Grant Opportunity: ${payload.grant.title} - Perfect Match for ${payload.projectName}!`;
+
+    const htmlBody = `
+ <!DOCTYPE html>
+ <html>
+ <head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f0fff4; }
+        .container { max-width: 600px; margin: 0 auto; background-color: white; border: 2px solid #d4edda; }
+        .header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 30px; text-align: center; }
+        .content { padding: 30px; }
+        .opportunity-box { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); border-radius: 12px; padding: 25px; margin: 20px 0; text-align: center; }
+        .amount-highlight { font-size: 2.5em; font-weight: bold; color: #28a745; margin: 10px 0; }
+        .match-score { background-color: #28a745; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: inline-block; margin: 10px 0; }
+        .deadline-alert { background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: center; }
+        .grant-details { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0; }
+        .eligibility-list { background-color: #e8f5e8; border-radius: 8px; padding: 15px; margin: 15px 0; }
+        .apply-button { display: inline-block; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 18px 36px; text-decoration: none; border-radius: 12px; font-weight: 600; margin: 20px 0; font-size: 18px; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 14px; color: #6c757d; }
+    </style>
+ </head>
+ <body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Grant Opportunity Alert!</h1>
+            <p>Perfect funding match found for ${payload.projectName}</p>
+        </div>
+        
+        <div class="content">
+            <div class="opportunity-box">
+                <h2>${payload.grant.title}</h2>
+                <div class="amount-highlight">${payload.grant.amount}</div>
+                <p><strong>by ${payload.grant.organization}</strong></p>
+                <div class="match-score">${
+                  payload.grant.matchScore
+                }% Project Match</div>
+            </div>
+            
+            <div class="deadline-alert">
+                <h3>⏰ Application Deadline</h3>
+                <p style="font-size: 1.2em; font-weight: bold; color: #e67e22; margin: 5px 0;">${new Date(
+                  payload.grant.deadline
+                ).toLocaleDateString()}</p>
+                <p>Days remaining: <strong>${Math.ceil(
+                  (new Date(payload.grant.deadline).getTime() - Date.now()) /
+                    (1000 * 60 * 60 * 24)
+                )}</strong></p>
+            </div>
+            
+            <div class="grant-details">
+                <h3>📋 Grant Description</h3>
+                <p>${payload.grant.description}</p>
+            </div>
+            
+            <div class="eligibility-list">
+                <h3>✅ Eligibility Requirements</h3>
+                <ul>
+                    ${payload.grant.eligibility
+                      .map((req) => `<li>${req}</li>`)
+                      .join("")}
+                </ul>
+            </div>
+            
+            <h3>🚀 Why This Grant Matches Your Project</h3>
+            <ul>
+                <li>High compatibility score (${payload.grant.matchScore}%)</li>
+                <li>Aligns with ${payload.projectName}'s objectives</li>
+                <li>Funding amount suitable for your project scale</li>
+                <li>Timeline matches your development roadmap</li>
+            </ul>
+            
+            <h3>📝 Next Steps</h3>
+            <ol>
+                <li><strong>Review requirements</strong> - Ensure full eligibility</li>
+                <li><strong>Prepare documentation</strong> - Gather required materials</li>
+                <li><strong>Draft proposal</strong> - Tailor to grant objectives</li>
+                <li><strong>Submit early</strong> - Don't wait until deadline</li>
+            </ol>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${
+                  payload.grant.applicationUrl
+                }" class="apply-button" target="_blank">Apply Now 🚀</a>
+            </div>
+            
+            <p style="text-align: center; color: #28a745; font-weight: bold;">Good luck with your application! 🍀</p>
+        </div>
+        
+        <div class="footer">
+            <p>💰 Grant Intelligence System | Project: ${
+              payload.projectName
+            }</p>
+            <p>AI-powered grant matching • ${
+              payload.grant.matchScore
+            }% compatibility score</p>
+        </div>
+    </div>
+ </body>
+ </html>`;
+
+    const textBody = `💰 GRANT OPPORTUNITY ALERT!
+ 
+ Perfect Funding Match Found for ${payload.projectName}
+ 
+ Hi ${payload.userName},
+ 
+ Great news! Our grant intelligence system has found an excellent funding opportunity for your project.
+ 
+ GRANT DETAILS:
+ ${payload.grant.title}
+ Organization: ${payload.grant.organization}
+ Amount: ${payload.grant.amount}
+ Match Score: ${payload.grant.matchScore}%
+ 
+ APPLICATION DEADLINE: ${new Date(payload.grant.deadline).toLocaleDateString()}
+ Days Remaining: ${Math.ceil(
+   (new Date(payload.grant.deadline).getTime() - Date.now()) /
+     (1000 * 60 * 60 * 24)
+ )}
+ 
+ DESCRIPTION:
+ ${payload.grant.description}
+ 
+ ELIGIBILITY REQUIREMENTS:
+ ${payload.grant.eligibility.map((req, i) => `${i + 1}. ${req}`).join("\n")}
+ 
+ WHY THIS MATCHES YOUR PROJECT:
+ - High compatibility score (${payload.grant.matchScore}%)
+ - Aligns with ${payload.projectName}'s objectives
+ - Suitable funding amount for your project scale
+ - Timeline matches your development roadmap
+ 
+ NEXT STEPS:
+ 1. Review requirements - Ensure full eligibility
+ 2. Prepare documentation - Gather required materials
+ 3. Draft proposal - Tailor to grant objectives
+ 4. Submit early - Don't wait until deadline
+ 
+ APPLICATION URL: ${payload.grant.applicationUrl}
+ 
+ Good luck with your application! 🍀
+ 
+ ---
+ Grant Intelligence System | ${payload.grant.matchScore}% compatibility score`;
+
+    await this.sendEmail([payload.userEmail], subject, textBody, htmlBody);
+  }
+
+  private async sendLeadAlert(payload: {
+    userEmail: string;
+    userName: string;
+    projectName: string;
+    lead: {
+      company: string;
+      contactName: string;
+      contactEmail?: string;
+      industry: string;
+      opportunity: string;
+      value: string;
+      source: string;
+      confidence: number;
+      nextSteps: string[];
+    };
+  }): Promise<void> {
+    const subject = `🎯 New Lead Opportunity: ${payload.lead.company} - ${payload.projectName}`;
+
+    const htmlBody = `
+ <!DOCTYPE html>
+ <html>
+ <head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f0f8ff; }
+        .container { max-width: 600px; margin: 0 auto; background-color: white; border: 2px solid #cce7ff; }
+        .header { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 30px; text-align: center; }
+        .content { padding: 30px; }
+        .lead-highlight { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 12px; padding: 25px; margin: 20px 0; text-align: center; }
+        .value-highlight { font-size: 2em; font-weight: bold; color: #007bff; margin: 10px 0; }
+        .confidence-score { background-color: #007bff; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: inline-block; margin: 10px 0; }
+        .company-info { background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 15px 0; border-left: 4px solid #007bff; }
+        .opportunity-details { background-color: #e8f4f8; border-radius: 8px; padding: 20px; margin: 15px 0; }
+        .contact-info { background-color: #fff3e0; border-radius: 8px; padding: 15px; margin: 15px 0; }
+        .action-button { display: inline-block; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 10px 5px; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 14px; color: #6c757d; }
+        .next-steps { background-color: #f0f8ff; border-radius: 8px; padding: 20px; margin: 15px 0; }
+    </style>
+ </head>
+ <body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 New Lead Opportunity</h1>
+            <p>High-value prospect identified for ${payload.projectName}</p>
+        </div>
+        
+        <div class="content">
+            <div class="lead-highlight">
+                <h2>🏢 ${payload.lead.company}</h2>
+                <div class="value-highlight">${payload.lead.value}</div>
+                <p><strong>Potential Value</strong></p>
+                <div class="confidence-score">${
+                  payload.lead.confidence
+                }% Confidence</div>
+            </div>
+            
+            <div class="company-info">
+                <h3>🏭 Company Information</h3>
+                <p><strong>Company:</strong> ${payload.lead.company}</p>
+                <p><strong>Industry:</strong> ${payload.lead.industry}</p>
+                <p><strong>Lead Source:</strong> ${payload.lead.source}</p>
+                <p><strong>Contact Person:</strong> ${
+                  payload.lead.contactName
+                }</p>
+                ${
+                  payload.lead.contactEmail
+                    ? `<p><strong>Email:</strong> <a href="mailto:${payload.lead.contactEmail}">${payload.lead.contactEmail}</a></p>`
+                    : ""
+                }
+            </div>
+            
+            <div class="opportunity-details">
+                <h3>💼 Opportunity Details</h3>
+                <p>${payload.lead.opportunity}</p>
+            </div>
+            
+            <div class="next-steps">
+                <h3>🚀 Recommended Next Steps</h3>
+                <ol>
+                    ${payload.lead.nextSteps
+                      .map((step) => `<li>${step}</li>`)
+                      .join("")}
+                </ol>
+            </div>
+            
+            <h3>📊 Why This Lead Matters</h3>
+            <ul>
+                <li>High confidence score (${payload.lead.confidence}%)</li>
+                <li>Strong industry alignment with ${payload.projectName}</li>
+                <li>Significant potential value (${payload.lead.value})</li>
+                <li>Quality lead source: ${payload.lead.source}</li>
+            </ul>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                ${
+                  payload.lead.contactEmail
+                    ? `<a href="mailto:${payload.lead.contactEmail}?subject=Partnership Opportunity - ${payload.projectName}" class="action-button">Send Email 📧</a>`
+                    : ""
+                }
+                <a href="#" class="action-button">View Full Profile 👀</a>
+                <a href="#" class="action-button">Schedule Follow-up ⏰</a>
+            </div>
+            
+            <div class="contact-info">
+                <h4>📞 Contact Strategy</h4>
+                <p>Based on the lead profile, we recommend:</p>
+                <ul>
+                    <li>Professional email introduction highlighting mutual benefits</li>
+                    <li>Mention specific industry challenges your project solves</li>
+                    <li>Request brief discovery call to explore partnership</li>
+                    <li>Follow up within 3-5 business days if no response</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>🎯 Lead Intelligence System | Project: ${payload.projectName}</p>
+            <p>AI-powered lead discovery • ${
+              payload.lead.confidence
+            }% confidence score</p>
+        </div>
+    </div>
+ </body>
+ </html>`;
+
+    const textBody = `🎯 NEW LEAD OPPORTUNITY
+ 
+ High-Value Prospect for ${payload.projectName}
+ 
+ Hi ${payload.userName},
+ 
+ Excellent news! Our lead intelligence system has identified a high-potential business opportunity.
+ 
+ LEAD DETAILS:
+ Company: ${payload.lead.company}
+ Industry: ${payload.lead.industry}
+ Contact: ${payload.lead.contactName}
+ ${payload.lead.contactEmail ? `Email: ${payload.lead.contactEmail}` : ""}
+ Potential Value: ${payload.lead.value}
+ Confidence Score: ${payload.lead.confidence}%
+ Source: ${payload.lead.source}
+ 
+ OPPORTUNITY:
+ ${payload.lead.opportunity}
+ 
+ RECOMMENDED NEXT STEPS:
+ ${payload.lead.nextSteps.map((step, i) => `${i + 1}. ${step}`).join("\n")}
+ 
+ WHY THIS LEAD MATTERS:
+ - High confidence score (${payload.lead.confidence}%)
+ - Strong industry alignment with ${payload.projectName}
+ - Significant potential value (${payload.lead.value})
+ - Quality lead source: ${payload.lead.source}
+ 
+ CONTACT STRATEGY:
+ - Send professional email introduction highlighting mutual benefits
+ - Mention specific industry challenges your project solves
+ - Request brief discovery call to explore partnership
+ - Follow up within 3-5 business days if no response
+ 
+ ${
+   payload.lead.contactEmail
+     ? `Quick Email: mailto:${payload.lead.contactEmail}?subject=Partnership Opportunity - ${payload.projectName}`
+     : ""
+ }
+ 
+ ---
+ Lead Intelligence System | ${payload.lead.confidence}% confidence score`;
+
+    await this.sendEmail([payload.userEmail], subject, textBody, htmlBody);
+  }
+
   private async generateContextualResponse(
     emailBody: string,
     subject: string,
@@ -355,7 +972,7 @@ Generate a helpful, professional email response. If they're asking about their p
 
     const htmlResponse = responseText
       .split("\n\n")
-      .map((paragraph) => `<p>${paragraph.replace(/\n/g, "<br>")}</p>`)
+      .map((paragraph: string) => `<p>${paragraph.replace(/\n/g, "<br>")}</p>`)
       .join("");
 
     return {

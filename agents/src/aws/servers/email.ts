@@ -17,7 +17,7 @@ class EmailServer {
   constructor() {
     this.agent = new EmailAgent();
     this.sqsClient = new SQSClient({ region: process.env.AWS_REGION });
-    this.queueUrl = process.env.EMAIL_QUEUE_URL!;
+    this.queueUrl = process.env.EMAIL_COMMUNICATION_QUEUE_URL!;
   }
 
   async start() {
