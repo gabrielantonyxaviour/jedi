@@ -49,6 +49,7 @@
     "@aws-sdk/client-sqs": "^3.826.0",
     "@aws-sdk/util-dynamodb": "^3.826.0",
     "@octokit/rest": "^22.0.0",
+    "@opensearch-project/opensearch": "^3.5.1",
     "@show-karma/karma-gap-sdk": "^0.4.11",
     "@types/express": "^5.0.3",
     "axios": "^1.9.0",

@@ -46,8 +46,8 @@ Socials Agent
 Agents
 
 1. Orchestrator - DONE
-2. Email - DONE & TESTED
-3. Github - DONE
+2. Email - DONE
+3. Github - DONE & Tested
 4. Karma - DONE
 5. Leads -
 6. Socials -
