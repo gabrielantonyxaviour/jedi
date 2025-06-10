@@ -1017,18 +1017,32 @@ export class CoreOrchestratorAgent {
           error: completion.error,
         });
 
-        // Check if workflow is complete
         const workflow = await this.getWorkflow(completion.workflowId);
+        console.log(
+          `🔍 Orchestrator: Retrieved workflow ${completion.workflowId}:`,
+          workflow ? "found" : "not found"
+        );
+
         if (workflow) {
           const isComplete = await this.checkWorkflowCompletion(
             completion.workflowId
           );
+          console.log(
+            `📊 Orchestrator: Workflow ${completion.workflowId} completion check:`,
+            isComplete ? "COMPLETE" : "PENDING"
+          );
 
           if (isComplete) {
+            console.log(
+              `✅ Orchestrator: Completing workflow ${completion.workflowId}`
+            );
             await this.completeWorkflow(completion.workflowId);
           }
 
           // Notify client
+          console.log(
+            `🔔 Orchestrator: Notifying ${this.clientWebhooks.length} client(s) about task ${completion.taskId}`
+          );
           await this.notifyClient(completion.workflowId, {
             type: "TASK_COMPLETED",
             taskId: completion.taskId,
@@ -1038,6 +1052,9 @@ export class CoreOrchestratorAgent {
             result: completion.result,
             error: completion.error,
           });
+          console.log(
+            `📤 Orchestrator: Client notifications sent for workflow ${completion.workflowId}`
+          );
         }
       }
     } catch (error) {
