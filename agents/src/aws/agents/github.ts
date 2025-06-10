@@ -242,8 +242,7 @@ Recent Activity: ${recentActivity}
   private async storeDetailedData(owner: string, repo: string, data: any) {
     await this.s3.send(
       new PutObjectCommand({
-        Bucket:
-          process.env.GITHUB_DATA_BUCKET || "github-intelligence-data-jedi-v0",
+        Bucket: process.env.GITHUB_BUCKET || "github-intelligence-data-jedi-v0",
         Key: `${owner}/${repo}/analysis.json`,
         Body: JSON.stringify(data),
         ContentType: "application/json",
