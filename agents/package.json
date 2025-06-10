@@ -6,6 +6,13 @@
   "scripts": {
     "dev:orchestrator": "tsx src/aws/index.ts",
     "dev:github": "tsx src/aws/servers/github.ts",
+    "dev:email": "tsx src/aws/servers/email.ts",
+    "dev:social": "tsx src/aws/servers/socials.ts",
+    "dev:leads": "tsx src/aws/servers/leads.ts",
+    "dev:blockchain": "tsx src/aws/servers/ip.ts",
+    "dev:karma": "tsx src/aws/servers/karma.ts",
+    "dev:monitoring": "tsx src/aws/servers/compliance.ts",
+    "dev:all": "concurrently \"npm run dev:orchestrator\" \"npm run dev:github\" \"npm run dev:email\" \"npm run dev:social\" \"npm run dev:leads\" \"npm run dev:blockchain\" \"npm run dev:karma\" \"npm run dev:monitoring\"",
     "dev:webhook": "tsx src/aws/webhook-listener.ts",
     "dev:local": "tsx src/local/server.ts",
     "test": "tsx src/local/test.ts"
