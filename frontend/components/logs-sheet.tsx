@@ -9,6 +9,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowRight } from "lucide-react";
 
 interface LogEntry {
   id: string;
@@ -49,11 +50,16 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
         )}
       </SheetTrigger>
       <SheetContent
-        className="w-full sm:max-w-sm bg-zinc-900 border-gray-800 text-white"
+        className="w-full sm:max-w-sm bg-zinc-800 border-gray-800 text-white"
         side="right"
       >
-        <SheetHeader>
-          <SheetTitle className="text-white">Agent Logs</SheetTitle>
+        <SheetHeader className="w-full">
+          <div className="flex flex-row items-center justify-between">
+            <SheetTitle className="text-white font-custom-regular tracking-widest text-xl">
+              Agent Logs
+            </SheetTitle>
+            <ArrowRight className="h-5 w-5 text-gray-400 hover:text-white cursor-pointer" />
+          </div>
         </SheetHeader>
         <ScrollArea className="h-[calc(100vh-80px)] mt-6 pr-4">
           <div className="space-y-4">

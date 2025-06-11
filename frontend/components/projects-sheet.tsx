@@ -10,12 +10,18 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
+import { ArrowLeft } from "lucide-react";
 
-interface FalconSheetProps {
+interface ProjectsSheetProps {
   side: "light" | "dark" | null;
+  projects: Array<{
+    id: string;
+    name: string;
+    imageUrl: string;
+  }>;
 }
 
-const FalconSheet: React.FC<FalconSheetProps> = ({ side }) => {
+const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
   return (
     <Sheet>
       <SheetTrigger className="fixed left-0 top-1/2 -translate-y-1/2">
@@ -30,7 +36,7 @@ const FalconSheet: React.FC<FalconSheetProps> = ({ side }) => {
             src={
               side === "light" ? "/light-projects.png" : "/dark-projects.png"
             }
-            alt="Millennium Falcon"
+            alt="Projects"
             width={48}
             height={48}
             className="w-14 h-14"
@@ -38,25 +44,45 @@ const FalconSheet: React.FC<FalconSheetProps> = ({ side }) => {
         </div>
       </SheetTrigger>
       <SheetContent
-        className="w-full sm:max-w-sm bg-zinc-900 border-gray-800 text-white"
+        className="w-full sm:max-w-sm bg-zinc-800 border-gray-800 text-white"
         side="left"
       >
-        <SheetHeader>
-          <SheetTitle className="text-white">Millennium Falcon</SheetTitle>
+        <SheetHeader className="w-full">
+          <div className="flex flex-row items-center justify-between">
+            <ArrowLeft className="h-5 w-5 text-gray-400 hover:text-white cursor-pointer" />
+            <SheetTitle className="text-white font-custom-regular tracking-widest text-xl">
+              Projects
+            </SheetTitle>
+          </div>
         </SheetHeader>
         <ScrollArea className="h-[calc(100vh-80px)] mt-6 pr-4">
           <div className="space-y-4">
-            <div className="text-gray-300">
-              <h3 className="text-lg font-semibold mb-2">
-                Ship Specifications
-              </h3>
-              <ul className="space-y-2">
-                <li>Class: YT-1300 light freighter</li>
-                <li>Length: 34.75 meters</li>
-                <li>Max Speed: 1,050 km/h</li>
-                <li>Hyperdrive: Class 0.5</li>
-              </ul>
-            </div>
+            {projects.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No projects yet</p>
+            ) : (
+              projects.map((project) => (
+                <div
+                  key={project.id}
+                  onClick={() => {
+                    console.log("clicked");
+                    // TODO: Close the sheet
+                  }}
+                  className="flex items-center space-x-4 p-3 rounded-lg hover:bg-zinc-800/50 transition-colors  cursor-pointer"
+                >
+                  <div className="relative w-12 h-12 rounded-full overflow-hidden">
+                    <Image
+                      src={project.imageUrl}
+                      alt={project.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <span className="text-gray-200 font-medium">
+                    {project.name}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </ScrollArea>
       </SheetContent>
@@ -64,4 +90,4 @@ const FalconSheet: React.FC<FalconSheetProps> = ({ side }) => {
   );
 };
 
-export default FalconSheet;
+export default ProjectsSheet;

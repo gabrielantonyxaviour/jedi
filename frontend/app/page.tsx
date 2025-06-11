@@ -10,6 +10,7 @@ import JediLogo from "@/components/jedi-logo";
 import SideSelection from "@/components/side-selection";
 import LogsSheet from "@/components/logs-sheet";
 import FalconSheet from "@/components/projects-sheet";
+import ProjectsSheet from "@/components/projects-sheet";
 
 type UserSide = "light" | "dark" | null;
 type WalletStatus = "disconnected" | "connecting" | "connected";
@@ -166,11 +167,11 @@ export default function Home() {
                         ? "Please connect your wallet first"
                         : "Enter your GitHub repository URL"
                     }
-                    className={`w-full min-h-[120px] p-4 pr-12 bg-gray-900/50  border-none rounded-xl text-white placeholder-gray-600 resize-none focus:outline-none focus:ring-none focus-visible:ring-[0px] focus:border-transparent backdrop-blur-sm ring-offset-transparent ${
+                    className={`w-full min-h-[120px] p-4 pr-12 bg-zinc-800/40  border-none rounded-xl text-white placeholder-gray-600 resize-none focus:outline-none focus:ring-none focus-visible:ring-[0px] focus:border-transparent backdrop-blur-sm ring-offset-transparent ${
                       userSide === "light"
-                        ? "focus:ring-blue-600 focus-visible:ring-blue-600"
+                        ? "focus:ring-blue-500 focus-visible:ring-blue-500"
                         : userSide === "dark"
-                        ? "focus:ring-red-600 focus-visible:ring-red-600"
+                        ? "focus:ring-red-500 focus-visible:ring-red-500"
                         : "focus:ring-white focus-visible:ring-white"
                     }`}
                     disabled={walletStatus !== "connected" || isSubmitting}
@@ -195,20 +196,6 @@ export default function Home() {
                   </Button>
                 </div>
               </form>
-
-              <div className="mt-4 text-center">
-                <p className="text-xs text-gray-400">
-                  Press{" "}
-                  <kbd className="px-1.5 py-0.5 text-xs bg-gray-800 rounded">
-                    ⌘
-                  </kbd>{" "}
-                  +{" "}
-                  <kbd className="px-1.5 py-0.5 text-xs bg-gray-800 rounded">
-                    Enter
-                  </kbd>{" "}
-                  to send
-                </p>
-              </div>
             </>
           )}
         </div>
@@ -216,7 +203,15 @@ export default function Home() {
 
       {/* Logs button and sheet */}
       {userSide && <LogsSheet logs={logs} side={userSide} />}
-      {userSide && <FalconSheet side={userSide} />}
+      {userSide && (
+        <ProjectsSheet
+          side={userSide}
+          projects={[
+            { id: "1", name: "Project 1", imageUrl: "/light-projects.png" },
+            { id: "2", name: "Project 2", imageUrl: "/dark-projects.png" },
+          ]}
+        />
+      )}
 
       {/* Footer */}
       <div className="absolute bottom-0 left-0 right-0 z-10">
