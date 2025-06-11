@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: [
+    "@tomo-inc/tomo-evm-kit",
+    "@tomo-wallet/uikit-lite",
+    "@tomo-inc/shared-type",
+  ],
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -9,6 +14,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;

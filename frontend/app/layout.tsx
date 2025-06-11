@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "@tomo-inc/tomo-evm-kit/styles.css";
 
 export const metadata: Metadata = {
   title: "Jedi | Build your AI co-founder",
