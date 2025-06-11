@@ -26,12 +26,12 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
   return (
     <Sheet>
       <SheetTrigger
-        className={`fixed bottom-6 right-6 w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 ${
+        className={`fixed bottom-6 right-6 w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
           side === "light"
-            ? "bg-blue-500 hover:bg-blue-600"
+            ? "bg-blue-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.8)]"
             : side === "dark"
-            ? "bg-red-500 hover:bg-red-600"
-            : "bg-gray-700 hover:bg-gray-600"
+            ? "bg-red-500 hover:shadow-[0_0_30px_rgba(239,68,68,0.8)]"
+            : "bg-zinc-700 hover:shadow-[0_0_30px_rgba(161,161,170,0.8)]"
         }`}
       >
         {side === "light" ? (
@@ -49,7 +49,7 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
         )}
       </SheetTrigger>
       <SheetContent
-        className="w-full sm:max-w-md bg-gray-900 border-gray-800 text-white"
+        className="w-full sm:max-w-sm bg-zinc-900 border-gray-800 text-white"
         side="right"
       >
         <SheetHeader>
@@ -65,31 +65,25 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
               logs.map((log) => (
                 <div
                   key={log.id}
-                  className="border-l-2 pl-4 py-1 border-gray-700"
+                  className={`border-l-2 pl-4 py-1 ${
+                    side === "light"
+                      ? "border-blue-600"
+                      : side === "dark"
+                      ? "border-red-600"
+                      : "border-gray-700"
+                  }`}
                 >
                   <div className="flex justify-between items-start">
-                    <span
-                      className={`text-xs font-mono ${
-                        log.type === "error"
-                          ? "text-red-400"
-                          : log.type === "warning"
-                          ? "text-yellow-400"
-                          : log.type === "success"
-                          ? "text-green-400"
-                          : "text-gray-400"
-                      }`}
-                    >
+                    <span className="text-xs font-mono text-gray-400">
                       {log.timestamp.toLocaleTimeString()}
                     </span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full ${
-                        log.type === "error"
+                        side === "light"
+                          ? "bg-blue-900/30 text-blue-300"
+                          : side === "dark"
                           ? "bg-red-900/30 text-red-300"
-                          : log.type === "warning"
-                          ? "bg-yellow-900/30 text-yellow-300"
-                          : log.type === "success"
-                          ? "bg-green-900/30 text-green-300"
-                          : "bg-blue-900/30 text-blue-300"
+                          : "bg-zinc-900/30 text-gray-300"
                       }`}
                     >
                       {log.type}

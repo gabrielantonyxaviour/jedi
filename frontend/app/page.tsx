@@ -9,6 +9,7 @@ import { ArrowUp, Wallet } from "lucide-react";
 import JediLogo from "@/components/jedi-logo";
 import SideSelection from "@/components/side-selection";
 import LogsSheet from "@/components/logs-sheet";
+import FalconSheet from "@/components/projects-sheet";
 
 type UserSide = "light" | "dark" | null;
 type WalletStatus = "disconnected" | "connecting" | "connected";
@@ -98,13 +99,13 @@ export default function Home() {
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10">
         <div className="flex items-center justify-between p-4">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 p-2">
             <JediLogo size={48} className="rounded-md" />
           </div>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className={`text-gray-300 border-gray-700 hover:bg-gray-800 hover:text-white ${
+            className={`text-gray-300 border-gray-700 hover:bg-transparent hover:text-white ${
               walletStatus === "connected"
                 ? userSide === "light"
                   ? "border-blue-600 text-blue-400"
@@ -215,6 +216,7 @@ export default function Home() {
 
       {/* Logs button and sheet */}
       {userSide && <LogsSheet logs={logs} side={userSide} />}
+      {userSide && <FalconSheet side={userSide} />}
 
       {/* Footer */}
       <div className="absolute bottom-0 left-0 right-0 z-10">
