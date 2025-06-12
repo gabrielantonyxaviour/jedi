@@ -1,7 +1,7 @@
 "use client";
 
-import LogsSheet from "@/components/logs-sheet";
-import ProjectsSheet from "@/components/projects-sheet";
+import LogsSheet from "@/components/layout/logs-sheet";
+import ProjectsSheet from "@/components/layout/projects-sheet";
 import { useAppStore } from "@/store/app-store";
 
 export default function Sheets() {
