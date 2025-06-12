@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Wallet } from "lucide-react";
+import { LogOut, Wallet } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { useCardanoWallet } from "@/hooks/use-cardano-wallet";
 import {
@@ -14,7 +14,7 @@ import Image from "next/image";
 import { parseCardanoBalance } from "@/lib/cardano";
 
 export default function WalletButton() {
-  const { walletStatus, userSide, connectWallet } = useAppStore();
+  const { walletStatus, userSide, setWalletStatus } = useAppStore();
   const {
     availableWallets,
     connectedWallet,
@@ -27,14 +27,15 @@ export default function WalletButton() {
 
   const handleConnect = async () => {
     if (availableWallets.length > 0) {
+      setWalletStatus("connecting");
       await connect(availableWallets[0]);
-      connectWallet();
+      setWalletStatus("connected");
     }
   };
 
   const handleDisconnect = () => {
     disconnect();
-    connectWallet(); // Reset wallet status in store
+    setWalletStatus("disconnected");
   };
 
   return (
@@ -75,9 +76,16 @@ export default function WalletButton() {
           </Button>
         </DropdownMenuTrigger>
         {isConnected && (
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleDisconnect}>
-              Disconnect Wallet
+          <DropdownMenuContent
+            align="end"
+            className="bg-transparent border-none shadow-none hover:bg-transparent  focus:bg-transparent data-[state=open]:bg-transparent hover:text-red-400"
+          >
+            <DropdownMenuItem
+              onClick={handleDisconnect}
+              className="bg-transparent border-none shadow-none hover:bg-transparent  focus:bg-transparent data-[state=open]:bg-transparent text-red-400 cursor-pointer hover:text-red-400 focus:text-red-400 data-[state=open]:text-red-400"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Disconnect
             </DropdownMenuItem>
           </DropdownMenuContent>
         )}

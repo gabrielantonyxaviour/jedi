@@ -14,35 +14,16 @@ interface AppState {
   walletStatus: WalletStatus;
   userSide: UserSide;
   logs: LogEntry[];
-  connectWallet: () => Promise<void>;
   addLog: (message: string, type?: LogEntry["type"]) => void;
   setUserSide: (side: UserSide) => void;
+  setWalletStatus: (status: WalletStatus) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
   walletStatus: "disconnected",
   userSide: null,
   logs: [],
-
-  connectWallet: async () => {
-    set({ walletStatus: "connecting" });
-    // Simulate wallet connection
-    setTimeout(() => {
-      set((state) => ({
-        walletStatus: "connected",
-        logs: [
-          {
-            id: Date.now().toString(),
-            timestamp: new Date(),
-            message: "Wallet connected successfully",
-            type: "success",
-          },
-          ...state.logs,
-        ],
-      }));
-    }, 1500);
-  },
-
+  setWalletStatus: (status: WalletStatus) => set({ walletStatus: status }),
   addLog: (message: string, type: LogEntry["type"] = "info") => {
     set((state) => ({
       logs: [
