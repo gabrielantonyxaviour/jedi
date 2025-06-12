@@ -50,8 +50,8 @@ const NeonIsometricMaze: React.FC = () => {
           x.closePath();
 
           const l = x.createLinearGradient(p, q - f, p + s, q);
-          l.addColorStop(0, "rgba(80,80,80,.1)"); // Darker gray
-          l.addColorStop(1, "rgba(40,40,40,.1)"); // Even darker gray
+          l.addColorStop(0, "rgba(80,80,80,.1)"); // Darker stone
+          l.addColorStop(1, "rgba(40,40,40,.1)"); // Even darker stone
           x.fillStyle = l;
           x.fill();
           x.strokeStyle = "rgba(100,100,100,.05)"; // Darker stroke

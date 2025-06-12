@@ -36,7 +36,7 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-stone-700">
         <div className="flex items-center space-x-2">
           <TrendingUp className="w-5 h-5 text-white" />
           <span className="font-medium text-white">Socials Agent</span>
@@ -52,7 +52,7 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
         </div>
       </div>
 
-      <div className="flex border-b border-gray-700">
+      <div className="flex border-b border-stone-700">
         {["overview", "content", "analytics"].map((tab) => (
           <button
             key={tab}
@@ -62,7 +62,7 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
                 ? userSide === "light"
                   ? "border-b-2 border-blue-500 text-blue-400"
                   : "border-b-2 border-red-500 text-red-400"
-                : "text-gray-400 hover:text-white"
+                : "text-stone-400 hover:text-white"
             }`}
           >
             {tab}
@@ -74,23 +74,23 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
         {activeTab === "overview" && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
-              <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+              <div className="bg-stone-800/50 rounded-lg p-3 text-center">
                 <div className="text-white font-medium text-lg">
                   {mockData.metrics.totalReach.toLocaleString()}
                 </div>
-                <div className="text-xs text-gray-400">Total Reach</div>
+                <div className="text-xs text-stone-400">Total Reach</div>
               </div>
-              <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+              <div className="bg-stone-800/50 rounded-lg p-3 text-center">
                 <div className="text-green-400 font-medium text-lg">
                   {mockData.metrics.weeklyGrowth}
                 </div>
-                <div className="text-xs text-gray-400">Weekly Growth</div>
+                <div className="text-xs text-stone-400">Weekly Growth</div>
               </div>
-              <div className="bg-gray-800/50 rounded-lg p-3 text-center">
+              <div className="bg-stone-800/50 rounded-lg p-3 text-center">
                 <div className="text-white font-medium text-lg">
                   {mockData.metrics.avgEngagement}
                 </div>
-                <div className="text-xs text-gray-400">Avg Engagement</div>
+                <div className="text-xs text-stone-400">Avg Engagement</div>
               </div>
             </div>
 
@@ -99,7 +99,7 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
               {mockData.platforms.map((platform) => (
                 <div
                   key={platform.name}
-                  className="bg-gray-800/50 rounded-lg p-3"
+                  className="bg-stone-800/50 rounded-lg p-3"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -110,7 +110,7 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
                       <div className="text-white font-medium">
                         {platform.followers.toLocaleString()}
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-stone-400">
                         {platform.engagement} eng.
                       </div>
                     </div>
@@ -125,8 +125,8 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
           <div className="space-y-4">
             <h3 className="text-white font-medium">Content Suggestions</h3>
             {mockData.suggestions.map((suggestion, index) => (
-              <div key={index} className="bg-gray-800/50 rounded-lg p-3">
-                <p className="text-gray-300 text-sm">{suggestion}</p>
+              <div key={index} className="bg-stone-800/50 rounded-lg p-3">
+                <p className="text-stone-300 text-sm">{suggestion}</p>
                 <div className="flex space-x-2 mt-2">
                   <button
                     className={`px-3 py-1 rounded text-xs ${
@@ -137,7 +137,7 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
                   >
                     Generate
                   </button>
-                  <button className="px-3 py-1 rounded text-xs bg-gray-700 text-white">
+                  <button className="px-3 py-1 rounded text-xs bg-stone-700 text-white">
                     Schedule
                   </button>
                 </div>
@@ -148,21 +148,21 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
 
         {activeTab === "analytics" && (
           <div className="space-y-4">
-            <div className="bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-stone-800/50 rounded-lg p-4">
               <h3 className="text-white font-medium mb-3">
                 Performance Metrics
               </h3>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Impressions (7d)</span>
+                  <span className="text-stone-400">Impressions (7d)</span>
                   <span className="text-white">156K</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Clicks (7d)</span>
+                  <span className="text-stone-400">Clicks (7d)</span>
                   <span className="text-white">2.1K</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Shares (7d)</span>
+                  <span className="text-stone-400">Shares (7d)</span>
                   <span className="text-white">89</span>
                 </div>
               </div>

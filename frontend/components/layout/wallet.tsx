@@ -43,7 +43,7 @@ export default function WalletButton() {
       {isConnected && (
         <div className="flex items-center gap-2 text-sm">
           <Image src="/cardano.webp" alt="ADA" width={16} height={16} />
-          <span className="text-gray-300">
+          <span className="text-stone-300">
             {parseCardanoBalance(balance ?? "0")} ADA
           </span>
         </div>
@@ -53,7 +53,7 @@ export default function WalletButton() {
           <Button
             variant="ghost"
             size="sm"
-            className={`text-gray-300 border-gray-700 hover:bg-transparent hover:text-white ${
+            className={`text-stone-300 border-stone-700 hover:bg-transparent hover:text-white ${
               walletStatus === "connected"
                 ? userSide === "light"
                   ? "border-blue-600 text-blue-400"

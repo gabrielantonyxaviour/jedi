@@ -71,11 +71,14 @@ export default function ProjectPage() {
   }, []);
 
   const getInitialPosition = (index: number): ContainerPosition => {
-    const containerWidth = 400;
-    const containerHeight = 500;
     const padding = 20;
+    const availableWidth = window.innerWidth - padding * 2;
+    const containerWidth = Math.floor(
+      (availableWidth - padding * (maxContainers - 1)) / maxContainers
+    );
+    const containerHeight = 700;
     const startX = padding;
-    const startY = padding + 80; // Account for orb area
+    const startY = padding + 80;
 
     return {
       x: startX + index * (containerWidth + padding),
@@ -84,6 +87,20 @@ export default function ProjectPage() {
       height: containerHeight,
     };
   };
+
+  // Add window resize handler to recalculate positions
+  useEffect(() => {
+    const handleResize = () => {
+      const newPositions: Record<string, ContainerPosition> = {};
+      activeContainers.forEach((agentId, index) => {
+        newPositions[agentId] = getInitialPosition(index);
+      });
+      setContainerPositions(newPositions);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [activeContainers, maxContainers]);
 
   const handleAgentClick = (agentId: string) => {
     if (activeContainers.includes(agentId)) {
@@ -174,11 +191,11 @@ export default function ProjectPage() {
                   className={`relative p-4 rounded-full transition-all duration-300 ${
                     isActive
                       ? userSide === "light"
-                        ? "bg-gray-800/90 border-2 border-blue-500 shadow-lg shadow-blue-500/25"
-                        : "bg-gray-800/90 border-2 border-red-500 shadow-lg shadow-red-500/25"
+                        ? "bg-stone-800/90 border-2 border-blue-500 shadow-lg shadow-blue-500/25"
+                        : "bg-stone-800/90 border-2 border-red-500 shadow-lg shadow-red-500/25"
                       : isDisabled
-                      ? "bg-gray-900/50 border border-gray-700 opacity-50 cursor-not-allowed"
-                      : "bg-gray-800/80 border border-gray-600 hover:border-gray-500"
+                      ? "bg-stone-900/50 border border-stone-700 opacity-50 cursor-not-allowed"
+                      : "bg-stone-800/80 border border-stone-600 hover:border-stone-500"
                   }`}
                 >
                   <Icon
@@ -188,13 +205,13 @@ export default function ProjectPage() {
                           ? "text-blue-400"
                           : "text-red-400"
                         : isDisabled
-                        ? "text-gray-600"
-                        : "text-gray-400"
+                        ? "text-stone-600"
+                        : "text-stone-400"
                     }`}
                   />
 
                   {/* Tooltip */}
-                  <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                  <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                     {agent.name}
                   </div>
                 </button>
@@ -204,12 +221,12 @@ export default function ProjectPage() {
             {/* Chat Orb */}
             <button
               onClick={() => setIsChatOpen(true)}
-              className={`relative p-4 rounded-full transition-all duration-300 bg-gray-800/80 border border-gray-600 hover:border-gray-500 ml-8`}
+              className={`relative p-4 rounded-full transition-all duration-300 bg-stone-800/80 border border-stone-600 hover:border-stone-500 ml-8`}
             >
-              <MessageCircle className="w-6 h-6 text-gray-400" />
+              <MessageCircle className="w-6 h-6 text-stone-400" />
 
               {/* Tooltip */}
-              <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+              <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                 Chat
               </div>
             </button>

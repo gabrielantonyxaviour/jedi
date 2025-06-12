@@ -26,13 +26,13 @@ const SideSelection: React.FC<SideSelectionProps> = ({ onSelect }) => {
           className="w-full md:w-64"
         >
           <Card
-            className="border border-gray-700 bg-gray-900/50 backdrop-blur-sm overflow-hidden cursor-pointer h-80"
+            className="border border-stone-700 bg-stone-900/50 backdrop-blur-sm overflow-hidden cursor-pointer h-80"
             onClick={() => onSelect("light")}
           >
             <CardContent className="p-0 h-full flex flex-col">
               <div className="flex-1 flex items-center justify-center p-6 relative overflow-hidden">
                 {/* Placeholder for Obi-Wan image */}
-                <div className="w-32 h-32 rounded-full bg-gray-800 flex items-center justify-center">
+                <div className="w-32 h-32 rounded-full bg-stone-800 flex items-center justify-center">
                   <span className="text-blue-500 text-4xl">光</span>
                 </div>
 
@@ -40,9 +40,11 @@ const SideSelection: React.FC<SideSelectionProps> = ({ onSelect }) => {
                 <div className="absolute inset-0 bg-gradient-to-t from-blue-500/10 to-transparent opacity-50" />
               </div>
 
-              <div className="p-6 text-center border-t border-gray-700 bg-gray-800/50">
+              <div className="p-6 text-center border-t border-stone-700 bg-stone-800/50">
                 <h3 className="text-xl font-bold text-blue-400">Light Side</h3>
-                <p className="text-gray-400 mt-1">Peace, Knowledge, Serenity</p>
+                <p className="text-stone-400 mt-1">
+                  Peace, Knowledge, Serenity
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -58,13 +60,13 @@ const SideSelection: React.FC<SideSelectionProps> = ({ onSelect }) => {
           className="w-full md:w-64"
         >
           <Card
-            className="border border-gray-700 bg-gray-900/50 backdrop-blur-sm overflow-hidden cursor-pointer h-80"
+            className="border border-stone-700 bg-stone-900/50 backdrop-blur-sm overflow-hidden cursor-pointer h-80"
             onClick={() => onSelect("dark")}
           >
             <CardContent className="p-0 h-full flex flex-col">
               <div className="flex-1 flex items-center justify-center p-6 relative overflow-hidden">
                 {/* Placeholder for Darth Vader image */}
-                <div className="w-32 h-32 rounded-full bg-gray-800 flex items-center justify-center">
+                <div className="w-32 h-32 rounded-full bg-stone-800 flex items-center justify-center">
                   <span className="text-red-500 text-4xl">闇</span>
                 </div>
 
@@ -72,9 +74,9 @@ const SideSelection: React.FC<SideSelectionProps> = ({ onSelect }) => {
                 <div className="absolute inset-0 bg-gradient-to-t from-red-500/10 to-transparent opacity-50" />
               </div>
 
-              <div className="p-6 text-center border-t border-gray-700 bg-gray-800/50">
+              <div className="p-6 text-center border-t border-stone-700 bg-stone-800/50">
                 <h3 className="text-xl font-bold text-red-400">Dark Side</h3>
-                <p className="text-gray-400 mt-1">Power, Passion, Strength</p>
+                <p className="text-stone-400 mt-1">Power, Passion, Strength</p>
               </div>
             </CardContent>
           </Card>

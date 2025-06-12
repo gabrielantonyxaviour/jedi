@@ -104,7 +104,7 @@ export default function ProjectWorkspace({
         drop(node);
       }}
       className={`absolute inset-0 pt-20 pb-32 ${
-        isOver ? "bg-gray-900/20" : ""
+        isOver ? "bg-stone-900/20" : ""
       }`}
     >
       {activeContainers.map((containerId, index) => {

@@ -142,7 +142,7 @@ export default function Home() {
                       ? "text-blue-400"
                       : userSide === "dark"
                       ? "text-red-400"
-                      : "text-gray-400"
+                      : "text-stone-400"
                   }`}
                 >
                   {walletStatus !== "connected"
@@ -164,7 +164,7 @@ export default function Home() {
                         ? "Please connect your wallet first"
                         : "Enter your GitHub repository URL"
                     }
-                    className={`w-full min-h-[120px] p-4 pr-12 bg-zinc-800/40 border-none rounded-xl text-white placeholder-gray-600 resize-none focus:outline-none focus:ring-none focus-visible:ring-[0px] focus:border-transparent backdrop-blur-sm ring-offset-transparent ${
+                    className={`w-full min-h-[120px] p-4 pr-12 bg-zinc-800/40 border-none rounded-xl text-white placeholder-stone-600 resize-none focus:outline-none focus:ring-none focus-visible:ring-[0px] focus:border-transparent backdrop-blur-sm ring-offset-transparent ${
                       userSide === "light"
                         ? "focus:ring-blue-500 focus-visible:ring-blue-500"
                         : userSide === "dark"
@@ -181,7 +181,7 @@ export default function Home() {
                       walletStatus !== "connected" ||
                       isSubmitting
                     }
-                    className={`absolute bottom-3 right-3 w-8 h-8 p-0 hover:bg-gray-200 disabled:bg-gray-600 disabled:text-gray-400 rounded-lg ${
+                    className={`absolute bottom-3 right-3 w-8 h-8 p-0 hover:bg-stone-200 disabled:bg-stone-600 disabled:text-stone-400 rounded-lg ${
                       userSide === "light"
                         ? "bg-blue-600 text-white hover:bg-blue-600"
                         : userSide === "dark"
@@ -214,7 +214,7 @@ export default function Home() {
                               : "bg-red-900/20 border-red-600"
                             : step.status === "processing"
                             ? "bg-yellow-900/20 border-yellow-600"
-                            : "bg-gray-900/20 border-gray-700"
+                            : "bg-stone-900/20 border-stone-700"
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -227,14 +227,14 @@ export default function Home() {
                                     : "bg-red-500"
                                   : step.status === "processing"
                                   ? "bg-yellow-500 animate-pulse"
-                                  : "bg-gray-500"
+                                  : "bg-stone-500"
                               }`}
                             />
                             <div>
                               <h3 className="font-medium text-white text-sm">
                                 {step.title}
                               </h3>
-                              <p className="text-xs text-gray-400">
+                              <p className="text-xs text-stone-400">
                                 {step.description}
                               </p>
                             </div>

@@ -35,7 +35,7 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-stone-700">
         <div className="flex items-center space-x-2">
           <Github className="w-5 h-5 text-white" />
           <span className="font-medium text-white">GitHub Intelligence</span>
@@ -51,7 +51,7 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
         </div>
       </div>
 
-      <div className="flex border-b border-gray-700">
+      <div className="flex border-b border-stone-700">
         {["overview", "stats", "insights"].map((tab) => (
           <button
             key={tab}
@@ -61,7 +61,7 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
                 ? userSide === "light"
                   ? "border-b-2 border-blue-500 text-blue-400"
                   : "border-b-2 border-red-500 text-red-400"
-                : "text-gray-400 hover:text-white"
+                : "text-stone-400 hover:text-white"
             }`}
           >
             {tab}
@@ -72,9 +72,9 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
       <div className="flex-1 p-4 overflow-y-auto">
         {activeTab === "overview" && (
           <div className="space-y-4">
-            <div className="bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-stone-800/50 rounded-lg p-4">
               <h3 className="text-white font-medium mb-2">Repository</h3>
-              <div className="flex items-center space-x-2 text-gray-300">
+              <div className="flex items-center space-x-2 text-stone-300">
                 <Github className="w-4 h-4" />
                 <span>
                   {mockData.repo.owner}/{mockData.repo.name}
@@ -83,24 +83,24 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-800/50 rounded-lg p-3">
+              <div className="bg-stone-800/50 rounded-lg p-3">
                 <div className="flex items-center space-x-2">
                   <Star className="w-4 h-4 text-yellow-400" />
                   <span className="text-white font-medium">
                     {mockData.repo.stars}
                   </span>
                 </div>
-                <p className="text-xs text-gray-400">Stars</p>
+                <p className="text-xs text-stone-400">Stars</p>
               </div>
 
-              <div className="bg-gray-800/50 rounded-lg p-3">
+              <div className="bg-stone-800/50 rounded-lg p-3">
                 <div className="flex items-center space-x-2">
                   <GitBranch className="w-4 h-4 text-green-400" />
                   <span className="text-white font-medium">
                     {mockData.repo.forks}
                   </span>
                 </div>
-                <p className="text-xs text-gray-400">Forks</p>
+                <p className="text-xs text-stone-400">Forks</p>
               </div>
             </div>
           </div>
@@ -108,21 +108,21 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
 
         {activeTab === "stats" && (
           <div className="space-y-4">
-            <div className="bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-stone-800/50 rounded-lg p-4">
               <h3 className="text-white font-medium mb-3">Development Stats</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Total Commits</span>
+                  <span className="text-stone-400">Total Commits</span>
                   <span className="text-white">{mockData.stats.commits}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Contributors</span>
+                  <span className="text-stone-400">Contributors</span>
                   <span className="text-white">
                     {mockData.stats.contributors}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Last Commit</span>
+                  <span className="text-stone-400">Last Commit</span>
                   <span className="text-white">
                     {mockData.stats.lastCommit}
                   </span>
@@ -130,7 +130,7 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
               </div>
             </div>
 
-            <div className="bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-stone-800/50 rounded-lg p-4">
               <h3 className="text-white font-medium mb-3">Languages</h3>
               <div className="flex flex-wrap gap-2">
                 {mockData.stats.languages.map((lang) => (
@@ -156,10 +156,10 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
             {mockData.insights.map((insight, index) => (
               <div
                 key={index}
-                className="bg-gray-800/50 rounded-lg p-3 flex items-start space-x-3"
+                className="bg-stone-800/50 rounded-lg p-3 flex items-start space-x-3"
               >
                 <Activity className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                <span className="text-gray-300 text-sm">{insight}</span>
+                <span className="text-stone-300 text-sm">{insight}</span>
               </div>
             ))}
           </div>

@@ -44,12 +44,12 @@ const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
         </div>
       </SheetTrigger>
       <SheetContent
-        className="w-full sm:max-w-sm bg-zinc-800 border-gray-800 text-white"
+        className="w-full sm:max-w-sm bg-zinc-800 border-stone-800 text-white"
         side="left"
       >
         <SheetHeader className="w-full">
           <div className="flex flex-row items-center justify-between">
-            <ArrowLeft className="h-5 w-5 text-gray-400 hover:text-white cursor-pointer" />
+            <ArrowLeft className="h-5 w-5 text-stone-400 hover:text-white cursor-pointer" />
             <SheetTitle className="text-white font-custom-regular tracking-widest text-xl">
               Projects
             </SheetTitle>
@@ -58,7 +58,7 @@ const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
         <ScrollArea className="h-[calc(100vh-80px)] mt-6 pr-4">
           <div className="space-y-4">
             {projects.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No projects yet</p>
+              <p className="text-stone-500 text-center py-8">No projects yet</p>
             ) : (
               projects.map((project) => (
                 <div
@@ -77,7 +77,7 @@ const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
                       className="object-cover"
                     />
                   </div>
-                  <span className="text-gray-200 font-medium">
+                  <span className="text-stone-200 font-medium">
                     {project.name}
                   </span>
                 </div>

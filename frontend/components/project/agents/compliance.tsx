@@ -61,7 +61,7 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-stone-700">
         <div className="flex items-center space-x-2">
           <FileText className="w-5 h-5 text-white" />
           <span className="font-medium text-white">Compliance Agent</span>
@@ -77,7 +77,7 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
         </div>
       </div>
 
-      <div className="flex border-b border-gray-700">
+      <div className="flex border-b border-stone-700">
         {["status", "policies", "tasks"].map((tab) => (
           <button
             key={tab}
@@ -87,7 +87,7 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
                 ? userSide === "light"
                   ? "border-b-2 border-blue-500 text-blue-400"
                   : "border-b-2 border-red-500 text-red-400"
-                : "text-gray-400 hover:text-white"
+                : "text-stone-400 hover:text-white"
             }`}
           >
             {tab}
@@ -100,7 +100,7 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
           <div className="space-y-4">
             <h3 className="text-white font-medium">Compliance Status</h3>
             {mockData.regulations.map((reg, index) => (
-              <div key={index} className="bg-gray-800/50 rounded-lg p-3">
+              <div key={index} className="bg-stone-800/50 rounded-lg p-3">
                 <div className="flex justify-between items-start mb-2">
                   <div className="text-white font-medium">{reg.name}</div>
                   <div className="flex items-center space-x-2">
@@ -120,7 +120,7 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
                     </span>
                   </div>
                 </div>
-                <div className="text-sm text-gray-400">
+                <div className="text-sm text-stone-400">
                   Last audit: {reg.lastAudit} • Next due: {reg.nextDue}
                 </div>
               </div>
@@ -132,7 +132,7 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
           <div className="space-y-4">
             <h3 className="text-white font-medium">Policy Documents</h3>
             {mockData.policies.map((policy, index) => (
-              <div key={index} className="bg-gray-800/50 rounded-lg p-3">
+              <div key={index} className="bg-stone-800/50 rounded-lg p-3">
                 <div className="flex justify-between items-start mb-2">
                   <div className="text-white font-medium">{policy.name}</div>
                   <div className="flex items-center space-x-2">
@@ -152,7 +152,7 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
                     </span>
                   </div>
                 </div>
-                <div className="text-sm text-gray-400">
+                <div className="text-sm text-stone-400">
                   Last review: {policy.lastReview}
                 </div>
                 <button
@@ -173,7 +173,7 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
           <div className="space-y-4">
             <h3 className="text-white font-medium">Compliance Tasks</h3>
             {mockData.tasks.map((task, index) => (
-              <div key={index} className="bg-gray-800/50 rounded-lg p-3">
+              <div key={index} className="bg-stone-800/50 rounded-lg p-3">
                 <div className="flex justify-between items-start mb-2">
                   <div className="text-white font-medium">{task.task}</div>
                   <div
@@ -188,7 +188,7 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
                     {task.priority}
                   </div>
                 </div>
-                <div className="text-sm text-gray-400 mb-2">
+                <div className="text-sm text-stone-400 mb-2">
                   Due: {task.dueDate}
                 </div>
                 <button

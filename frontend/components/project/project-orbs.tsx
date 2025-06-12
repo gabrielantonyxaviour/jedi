@@ -46,7 +46,7 @@ export default function ProjectOrbs({
                 ? userSide === "light"
                   ? "bg-blue-600 shadow-[0_0_20px_rgba(59,130,246,0.6)]"
                   : "bg-red-600 shadow-[0_0_20px_rgba(239,68,68,0.6)]"
-                : "bg-gray-800 hover:bg-gray-700"
+                : "bg-stone-800 hover:bg-stone-700"
             }`}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}

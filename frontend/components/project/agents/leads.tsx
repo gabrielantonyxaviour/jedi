@@ -31,7 +31,7 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-stone-700">
         <div className="flex items-center space-x-2">
           <Target className="w-5 h-5 text-white" />
           <span className="font-medium text-white">Leads Agent</span>
@@ -47,7 +47,7 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
         </div>
       </div>
 
-      <div className="flex border-b border-gray-700">
+      <div className="flex border-b border-stone-700">
         {["pipeline", "sources", "outreach"].map((tab) => (
           <button
             key={tab}
@@ -57,7 +57,7 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
                 ? userSide === "light"
                   ? "border-b-2 border-blue-500 text-blue-400"
                   : "border-b-2 border-red-500 text-red-400"
-                : "text-gray-400 hover:text-white"
+                : "text-stone-400 hover:text-white"
             }`}
           >
             {tab}
@@ -69,28 +69,28 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
         {activeTab === "pipeline" && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-800/50 rounded-lg p-3">
+              <div className="bg-stone-800/50 rounded-lg p-3">
                 <div className="text-white font-medium text-lg">
                   {mockData.metrics.totalLeads}
                 </div>
-                <div className="text-xs text-gray-400">Total Leads</div>
+                <div className="text-xs text-stone-400">Total Leads</div>
               </div>
-              <div className="bg-gray-800/50 rounded-lg p-3">
+              <div className="bg-stone-800/50 rounded-lg p-3">
                 <div className="text-green-400 font-medium text-lg">
                   {mockData.metrics.revenue}
                 </div>
-                <div className="text-xs text-gray-400">Revenue</div>
+                <div className="text-xs text-stone-400">Revenue</div>
               </div>
             </div>
 
             <div className="space-y-3">
               <h3 className="text-white font-medium">Active Pipeline</h3>
               {mockData.pipeline.map((lead, index) => (
-                <div key={index} className="bg-gray-800/50 rounded-lg p-3">
+                <div key={index} className="bg-stone-800/50 rounded-lg p-3">
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="text-white font-medium">{lead.name}</div>
-                      <div className="text-sm text-gray-400">{lead.stage}</div>
+                      <div className="text-sm text-stone-400">{lead.stage}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-white font-medium">{lead.value}</div>
@@ -115,11 +115,11 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
           <div className="space-y-4">
             <h3 className="text-white font-medium">Lead Sources</h3>
             {mockData.sources.map((source, index) => (
-              <div key={index} className="bg-gray-800/50 rounded-lg p-3">
+              <div key={index} className="bg-stone-800/50 rounded-lg p-3">
                 <div className="flex justify-between items-center">
                   <div>
                     <div className="text-white font-medium">{source.name}</div>
-                    <div className="text-sm text-gray-400">
+                    <div className="text-sm text-stone-400">
                       {source.leads} leads
                     </div>
                   </div>
@@ -127,7 +127,7 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
                     <div className="text-green-400 font-medium">
                       {source.conversion}
                     </div>
-                    <div className="text-xs text-gray-400">conversion</div>
+                    <div className="text-xs text-stone-400">conversion</div>
                   </div>
                 </div>
               </div>
@@ -137,7 +137,7 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
 
         {activeTab === "outreach" && (
           <div className="space-y-4">
-            <div className="bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-stone-800/50 rounded-lg p-4">
               <h3 className="text-white font-medium mb-3">
                 Outreach Templates
               </h3>
@@ -151,19 +151,19 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
                 >
                   Cold Email - Developer Tools
                 </button>
-                <button className="w-full text-left p-2 rounded text-sm bg-gray-700 text-gray-300">
+                <button className="w-full text-left p-2 rounded text-sm bg-stone-700 text-stone-300">
                   LinkedIn Connection - Startup
                 </button>
-                <button className="w-full text-left p-2 rounded text-sm bg-gray-700 text-gray-300">
+                <button className="w-full text-left p-2 rounded text-sm bg-stone-700 text-stone-300">
                   Follow-up - Post Demo
                 </button>
               </div>
             </div>
 
-            <div className="bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-stone-800/50 rounded-lg p-4">
               <h3 className="text-white font-medium mb-3">Automation</h3>
               <div className="flex items-center justify-between">
-                <span className="text-gray-300">Auto-qualify leads</span>
+                <span className="text-stone-300">Auto-qualify leads</span>
                 <div
                   className={`w-10 h-6 rounded-full ${
                     userSide === "light" ? "bg-blue-600" : "bg-red-600"

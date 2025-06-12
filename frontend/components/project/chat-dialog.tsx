@@ -88,8 +88,8 @@ export default function ChatDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-[600px] p-0 flex flex-col">
-        <DialogHeader className="px-4 py-3 border-b">
+      <DialogContent className="max-w-2xl h-[600px] p-0 flex flex-col bg-stone-900/95 backdrop-blur-sm border border-stone-600/30 text-stone-100">
+        <DialogHeader className="px-4 py-3 border-b border-stone-700 bg-stone-800/50">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
               <Bot
@@ -98,7 +98,7 @@ export default function ChatDialog({
                     ? "text-blue-400"
                     : userSide === "dark"
                     ? "text-red-400"
-                    : "text-gray-400"
+                    : "text-stone-400"
                 }`}
               />
               <span>AI Assistant</span>
@@ -106,7 +106,7 @@ export default function ChatDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-900/50">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -119,16 +119,16 @@ export default function ChatDialog({
               <div
                 className={`p-2 rounded-full flex-shrink-0 ${
                   message.sender === "user"
-                    ? "bg-gray-700"
+                    ? "bg-stone-700"
                     : userSide === "light"
                     ? "bg-blue-900/30"
                     : userSide === "dark"
                     ? "bg-red-900/30"
-                    : "bg-gray-800"
+                    : "bg-stone-800"
                 }`}
               >
                 {message.sender === "user" ? (
-                  <User className="w-4 h-4 text-gray-400" />
+                  <User className="w-4 h-4 text-stone-400" />
                 ) : (
                   <Bot
                     className={`w-4 h-4 ${
@@ -136,7 +136,7 @@ export default function ChatDialog({
                         ? "text-blue-400"
                         : userSide === "dark"
                         ? "text-red-400"
-                        : "text-gray-400"
+                        : "text-stone-400"
                     }`}
                   />
                 )}
@@ -149,8 +149,8 @@ export default function ChatDialog({
                       ? "bg-blue-600 text-white"
                       : userSide === "dark"
                       ? "bg-red-600 text-white"
-                      : "bg-gray-600 text-white"
-                    : "bg-gray-800 text-gray-100"
+                      : "bg-stone-600 text-white"
+                    : "bg-stone-800 text-stone-100"
                 }`}
               >
                 <p className="text-sm">{message.text}</p>
@@ -172,7 +172,7 @@ export default function ChatDialog({
                     ? "bg-blue-900/30"
                     : userSide === "dark"
                     ? "bg-red-900/30"
-                    : "bg-gray-800"
+                    : "bg-stone-800"
                 }`}
               >
                 <Bot
@@ -181,19 +181,19 @@ export default function ChatDialog({
                       ? "text-blue-400"
                       : userSide === "dark"
                       ? "text-red-400"
-                      : "text-gray-400"
+                      : "text-stone-400"
                   }`}
                 />
               </div>
-              <div className="bg-gray-800 text-gray-100 p-3 rounded-lg">
+              <div className="bg-stone-800 text-stone-100 p-3 rounded-lg">
                 <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-stone-400 rounded-full animate-bounce" />
                   <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    className="w-2 h-2 bg-stone-400 rounded-full animate-bounce"
                     style={{ animationDelay: "0.1s" }}
                   />
                   <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    className="w-2 h-2 bg-stone-400 rounded-full animate-bounce"
                     style={{ animationDelay: "0.2s" }}
                   />
                 </div>
@@ -204,14 +204,15 @@ export default function ChatDialog({
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="p-4 border-t">
-          <div className="flex space-x-2">
+        <div className="p-4 border-t border-stone-700 bg-stone-800/30">
+          <div className="flex space-x-2 ">
             <Input
               ref={inputRef}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type your message..."
+              className="placeholder:bg-stone-600 bg-stone-600 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             <Button
               onClick={handleSendMessage}
