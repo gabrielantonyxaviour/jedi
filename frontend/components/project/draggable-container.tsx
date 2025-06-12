@@ -144,7 +144,7 @@ export default function DraggableContainer({
         drag(node);
       }}
       style={containerStyle}
-      className={`bg-stone-900/85 backdrop-blur-sm border rounded-lg shadow-2xl transition-all duration-200 ${
+      className={`bg-stone-800/85 backdrop-blur-sm border rounded-lg shadow-2xl transition-all duration-200 ${
         isDragPreview ? "opacity-60" : "opacity-100"
       } ${
         userSide === "light"

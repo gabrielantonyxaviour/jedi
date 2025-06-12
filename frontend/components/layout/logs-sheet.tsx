@@ -27,7 +27,7 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
   return (
     <Sheet>
       <SheetTrigger
-        className={`fixed bottom-6 right-6 w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
+        className={`fixed z-50 bottom-6 right-6 w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
           side === "light"
             ? "bg-blue-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.8)]"
             : side === "dark"

@@ -26,7 +26,7 @@ const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
     <Sheet>
       <SheetTrigger className="fixed left-0 top-1/2 -translate-y-1/2">
         <div
-          className={`p-2 rounded-md bg-zinc-700 border-y-2 border-r-2 rounded-l-none transition-all duration-300 ${
+          className={`p-2 rounded-md bg-stone-700 border-y-2 border-r-2 rounded-l-none transition-all duration-300 ${
             side === "light"
               ? "border-blue-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.8)]"
               : "border-red-500 hover:shadow-[0_0_30px_rgba(239,68,68,0.8)]"
@@ -44,7 +44,7 @@ const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
         </div>
       </SheetTrigger>
       <SheetContent
-        className="w-full sm:max-w-sm bg-zinc-800 border-stone-800 text-white"
+        className="w-full sm:max-w-sm bg-stone-800 border-stone-800 text-white"
         side="left"
       >
         <SheetHeader className="w-full">

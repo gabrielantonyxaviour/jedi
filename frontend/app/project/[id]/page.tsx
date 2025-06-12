@@ -194,7 +194,7 @@ export default function ProjectPage() {
                         ? "bg-stone-800/90 border-2 border-blue-500 shadow-lg shadow-blue-500/25"
                         : "bg-stone-800/90 border-2 border-red-500 shadow-lg shadow-red-500/25"
                       : isDisabled
-                      ? "bg-stone-900/50 border border-stone-700 opacity-50 cursor-not-allowed"
+                      ? "bg-stone-800/50 border border-stone-700 opacity-50 cursor-not-allowed"
                       : "bg-stone-800/80 border border-stone-600 hover:border-stone-500"
                   }`}
                 >
@@ -211,7 +211,7 @@ export default function ProjectPage() {
                   />
 
                   {/* Tooltip */}
-                  <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                  <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                     {agent.name}
                   </div>
                 </button>
@@ -226,7 +226,7 @@ export default function ProjectPage() {
               <MessageCircle className="w-6 h-6 text-stone-400" />
 
               {/* Tooltip */}
-              <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+              <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                 Chat
               </div>
             </button>

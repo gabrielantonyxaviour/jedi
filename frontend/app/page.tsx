@@ -214,7 +214,7 @@ export default function Home() {
                               : "bg-red-900/20 border-red-600"
                             : step.status === "processing"
                             ? "bg-yellow-900/20 border-yellow-600"
-                            : "bg-stone-900/20 border-stone-700"
+                            : "bg-stone-800/20 border-stone-700"
                         }`}
                       >
                         <div className="flex items-center justify-between">

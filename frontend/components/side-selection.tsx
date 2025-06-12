@@ -26,7 +26,7 @@ const SideSelection: React.FC<SideSelectionProps> = ({ onSelect }) => {
           className="w-full md:w-64"
         >
           <Card
-            className="border border-stone-700 bg-stone-900/50 backdrop-blur-sm overflow-hidden cursor-pointer h-80"
+            className="border border-stone-700 bg-stone-800/50 backdrop-blur-sm overflow-hidden cursor-pointer h-80"
             onClick={() => onSelect("light")}
           >
             <CardContent className="p-0 h-full flex flex-col">
@@ -60,7 +60,7 @@ const SideSelection: React.FC<SideSelectionProps> = ({ onSelect }) => {
           className="w-full md:w-64"
         >
           <Card
-            className="border border-stone-700 bg-stone-900/50 backdrop-blur-sm overflow-hidden cursor-pointer h-80"
+            className="border border-stone-700 bg-stone-800/50 backdrop-blur-sm overflow-hidden cursor-pointer h-80"
             onClick={() => onSelect("dark")}
           >
             <CardContent className="p-0 h-full flex flex-col">

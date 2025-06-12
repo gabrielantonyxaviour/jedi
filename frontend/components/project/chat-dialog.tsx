@@ -88,7 +88,7 @@ export default function ChatDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-[600px] p-0 flex flex-col bg-stone-900/95 backdrop-blur-sm border border-stone-600/30 text-stone-100">
+      <DialogContent className="max-w-2xl h-[600px] p-0 flex flex-col bg-stone-800/95 backdrop-blur-sm border border-stone-600/30 text-stone-100">
         <DialogHeader className="px-4 py-3 border-b border-stone-700 bg-stone-800/50">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
@@ -106,7 +106,7 @@ export default function ChatDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-900/50">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-800/50">
           {messages.map((message) => (
             <div
               key={message.id}
