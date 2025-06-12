@@ -144,14 +144,14 @@ export default function DraggableContainer({
         drag(node);
       }}
       style={containerStyle}
-      className={`bg-gray-900/95 backdrop-blur-sm border rounded-lg shadow-2xl transition-all duration-200 ${
+      className={`bg-stone-900/95 backdrop-blur-sm border rounded-lg shadow-2xl transition-all duration-200 ${
         isDragPreview ? "opacity-60" : "opacity-100"
       } ${
         userSide === "light"
           ? "border-blue-600/30 shadow-blue-900/20"
           : userSide === "dark"
           ? "border-red-600/30 shadow-red-900/20"
-          : "border-gray-600/30"
+          : "border-stone-600/30"
       }`}
     >
       {/* Header */}
@@ -161,13 +161,13 @@ export default function DraggableContainer({
             ? "border-blue-600/20 bg-blue-900/10"
             : userSide === "dark"
             ? "border-red-600/20 bg-red-900/10"
-            : "border-gray-600/20 bg-gray-800/20"
+            : "border-stone-600/20 bg-stone-800/20"
         }`}
         onMouseDown={handleMouseDown}
       >
         <div className="flex items-center space-x-2">
-          <Move className="w-4 h-4 text-gray-400" />
-          <span className="text-sm font-medium text-gray-300 capitalize">
+          <Move className="w-4 h-4 text-stone-400" />
+          <span className="text-sm font-medium text-stone-300 capitalize">
             {id.replace("-", " ")} Agent
           </span>
         </div>
@@ -175,19 +175,19 @@ export default function DraggableContainer({
         <div className="flex items-center space-x-1">
           <button
             onClick={toggleMaximize}
-            className="p-1 hover:bg-gray-700 rounded transition-colors"
+            className="p-1 hover:bg-stone-700 rounded transition-colors"
           >
             {isMaximized ? (
-              <Minimize2 className="w-4 h-4 text-gray-400" />
+              <Minimize2 className="w-4 h-4 text-stone-400" />
             ) : (
-              <Maximize2 className="w-4 h-4 text-gray-400" />
+              <Maximize2 className="w-4 h-4 text-stone-400" />
             )}
           </button>
           <button
             onClick={onClose}
             className="p-1 hover:bg-red-600 rounded transition-colors"
           >
-            <X className="w-4 h-4 text-gray-400 hover:text-white" />
+            <X className="w-4 h-4 text-stone-400 hover:text-white" />
           </button>
         </div>
       </div>
@@ -201,7 +201,7 @@ export default function DraggableContainer({
           className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
           onMouseDown={handleResizeMouseDown}
         >
-          <div className="absolute bottom-1 right-1 w-2 h-2 bg-gray-500 rounded-sm opacity-50" />
+          <div className="absolute bottom-1 right-1 w-2 h-2 bg-stone-500 rounded-sm opacity-50" />
         </div>
       )}
     </div>

@@ -1,45 +1,221 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import ProjectOrbs from "@/components/project/project-orbs";
-import ProjectWorkspace from "@/components/project/project-workspace";
-import { useAppStore } from "@/store/app-store";
+import NeonIsometricMaze from "@/components/neon-isometric-maze";
+import DraggableContainer from "@/components/project/draggable-container";
+import GitHubAgent from "@/components/project/agents/github";
+import SocialsAgent from "@/components/project/agents/socials";
+import LeadsAgent from "@/components/project/agents/leads";
+import IPAgent from "@/components/project/agents/ip";
+import ComplianceAgent from "@/components/project/agents/compliance";
+import KarmaAgent from "@/components/project/agents/karma";
+import ChatDialog from "@/components/project/chat-dialog";
+import {
+  Github,
+  TrendingUp,
+  Target,
+  Shield,
+  FileText,
+  Heart,
+  MessageCircle,
+} from "lucide-react";
+
+interface AgentConfig {
+  id: string;
+  name: string;
+  icon: React.ComponentType<any>;
+  component: React.ComponentType<any>;
+}
+
+interface ContainerPosition {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const agents: AgentConfig[] = [
+  { id: "github", name: "GitHub", icon: Github, component: GitHubAgent },
+  { id: "socials", name: "Socials", icon: TrendingUp, component: SocialsAgent },
+  { id: "leads", name: "Leads", icon: Target, component: LeadsAgent },
+  { id: "ip", name: "IP", icon: Shield, component: IPAgent },
+  {
+    id: "compliance",
+    name: "Compliance",
+    icon: FileText,
+    component: ComplianceAgent,
+  },
+  { id: "karma", name: "Karma", icon: Heart, component: KarmaAgent },
+];
 
 export default function ProjectPage() {
-  const { userSide } = useAppStore();
+  const searchParams = useSearchParams();
+  const userSide = (searchParams?.get("side") as "light" | "dark") || null;
   const [activeContainers, setActiveContainers] = useState<string[]>([]);
-  const [showChat, setShowChat] = useState(false);
+  const [containerPositions, setContainerPositions] = useState<
+    Record<string, ContainerPosition>
+  >({});
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [maxContainers] = useState(3);
 
-  const handleOrbClick = (orbId: string) => {
-    if (activeContainers.includes(orbId)) {
-      setActiveContainers((prev) => prev.filter((id) => id !== orbId));
-    } else {
-      setActiveContainers((prev) => [...prev, orbId]);
+  useEffect(() => {
+    const handleResize = () => {
+      // Recalculate positions if needed
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const getInitialPosition = (index: number): ContainerPosition => {
+    const containerWidth = 400;
+    const containerHeight = 500;
+    const padding = 20;
+    const startX = padding;
+    const startY = padding + 80; // Account for orb area
+
+    return {
+      x: startX + index * (containerWidth + padding),
+      y: startY,
+      width: containerWidth,
+      height: containerHeight,
+    };
+  };
+
+  const handleAgentClick = (agentId: string) => {
+    if (activeContainers.includes(agentId)) {
+      // Close container
+      setActiveContainers((prev) => prev.filter((id) => id !== agentId));
+      setContainerPositions((prev) => {
+        const newPositions = { ...prev };
+        delete newPositions[agentId];
+        return newPositions;
+      });
+    } else if (activeContainers.length < maxContainers) {
+      // Open container
+      const newIndex = activeContainers.length;
+      setActiveContainers((prev) => [...prev, agentId]);
+      setContainerPositions((prev) => ({
+        ...prev,
+        [agentId]: getInitialPosition(newIndex),
+      }));
     }
   };
 
+  const handleContainerClose = (agentId: string) => {
+    setActiveContainers((prev) => prev.filter((id) => id !== agentId));
+    setContainerPositions((prev) => {
+      const newPositions = { ...prev };
+      delete newPositions[agentId];
+      return newPositions;
+    });
+  };
+
+  const isAgentDisabled = (agentId: string) => {
+    return (
+      !activeContainers.includes(agentId) &&
+      activeContainers.length >= maxContainers
+    );
+  };
+
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="min-h-screen bg-black relative overflow-hidden">
-        {/* Background with neon effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black" />
+    <>
+      <NeonIsometricMaze />
+      <div className="absolute w-screen inset-0 min-h-screen">
+        <DndProvider backend={HTML5Backend}>
+          {/* Agent Orbs */}
 
-        {/* Main workspace */}
-        <ProjectWorkspace
-          activeContainers={activeContainers}
-          userSide={userSide}
-        />
+          {/* Workspace */}
+          <div id="workspace" className="relative w-full h-screen pt-20">
+            {activeContainers.map((agentId) => {
+              const agent = agents.find((a) => a.id === agentId);
+              if (!agent) return null;
 
-        {/* Bottom orbs navigation */}
-        <ProjectOrbs
-          onOrbClick={handleOrbClick}
-          onChatClick={() => setShowChat(true)}
-          activeContainers={activeContainers}
-          userSide={userSide}
-        />
+              const AgentComponent = agent.component;
+              const position = containerPositions[agentId];
+
+              return (
+                <DraggableContainer
+                  key={agentId}
+                  id={agentId}
+                  position={position}
+                  userSide={userSide}
+                  onClose={() => handleContainerClose(agentId)}
+                >
+                  <AgentComponent userSide={userSide} />
+                </DraggableContainer>
+              );
+            })}
+          </div>
+
+          {/* Chat Dialog */}
+          {isChatOpen && (
+            <ChatDialog
+              isOpen={isChatOpen}
+              onClose={() => setIsChatOpen(false)}
+              userSide={userSide}
+            />
+          )}
+
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center space-x-4 z-20">
+            {agents.map((agent, index) => {
+              const Icon = agent.icon;
+              const isActive = activeContainers.includes(agent.id);
+              const isDisabled = isAgentDisabled(agent.id);
+
+              return (
+                <button
+                  key={agent.id}
+                  onClick={() => handleAgentClick(agent.id)}
+                  disabled={isDisabled}
+                  className={`relative p-4 rounded-full transition-all duration-300 ${
+                    isActive
+                      ? userSide === "light"
+                        ? "bg-gray-800/90 border-2 border-blue-500 shadow-lg shadow-blue-500/25"
+                        : "bg-gray-800/90 border-2 border-red-500 shadow-lg shadow-red-500/25"
+                      : isDisabled
+                      ? "bg-gray-900/50 border border-gray-700 opacity-50 cursor-not-allowed"
+                      : "bg-gray-800/80 border border-gray-600 hover:border-gray-500"
+                  }`}
+                >
+                  <Icon
+                    className={`w-6 h-6 ${
+                      isActive
+                        ? userSide === "light"
+                          ? "text-blue-400"
+                          : "text-red-400"
+                        : isDisabled
+                        ? "text-gray-600"
+                        : "text-gray-400"
+                    }`}
+                  />
+
+                  {/* Tooltip */}
+                  <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    {agent.name}
+                  </div>
+                </button>
+              );
+            })}
+
+            {/* Chat Orb */}
+            <button
+              onClick={() => setIsChatOpen(true)}
+              className={`relative p-4 rounded-full transition-all duration-300 bg-gray-800/80 border border-gray-600 hover:border-gray-500 ml-8`}
+            >
+              <MessageCircle className="w-6 h-6 text-gray-400" />
+
+              {/* Tooltip */}
+              <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                Chat
+              </div>
+            </button>
+          </div>
+        </DndProvider>
       </div>
-    </DndProvider>
+    </>
   );
 }

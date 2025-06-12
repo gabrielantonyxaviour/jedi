@@ -3,7 +3,7 @@
 import type React from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import NeonIsometricMaze from "../neon-isometric-maze";
+import NeonIsometricMaze from "@/components/neon-isometric-maze";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowUp } from "lucide-react";
@@ -25,6 +25,7 @@ export default function Home() {
   const [showSideSelection, setShowSideSelection] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [creationSteps, setCreationSteps] = useState<CreationStep[]>([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(-1);
   const { walletStatus, userSide, addLog, setUserSide } = useAppStore();
 
   const initializeSteps = (): CreationStep[] => [
@@ -83,12 +84,14 @@ export default function Home() {
 
     const steps = initializeSteps();
     setCreationSteps(steps);
+    setCurrentStepIndex(-1);
 
     addLog(`Processing GitHub URL: ${prompt}`, "info");
 
     // Process steps one by one
     for (let i = 0; i < steps.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setCurrentStepIndex(i);
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       setCreationSteps((prev) =>
         prev.map((step, index) =>
@@ -124,11 +127,11 @@ export default function Home() {
     <>
       <NeonIsometricMaze />
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-3xl">
-          {showSideSelection ? (
+        <div className="w-full max-w-3xl flex flex-col items-center">
+          {walletStatus == "connected" && userSide == null ? (
             <SideSelection onSelect={handleSideSelection} />
           ) : (
-            <>
+            <div className="flex flex-col items-center w-full">
               <div className="text-center mb-8">
                 <h1 className="text-5xl font-bold text-zinc-400 mb-2 font-custom-regular tracking-wide">
                   Build your AI co-founder
@@ -150,7 +153,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="relative mb-8">
+              <form onSubmit={handleSubmit} className="relative mb-8 w-full">
                 <div className="relative">
                   <Textarea
                     value={prompt}
@@ -191,57 +194,62 @@ export default function Home() {
                 </div>
               </form>
 
-              {/* Creation Steps */}
+              {/* Creation Steps - Show one by one */}
               {isCreating && (
-                <div className="space-y-3 max-w-2xl mx-auto">
-                  {creationSteps.map((step, index) => (
-                    <motion.div
-                      key={step.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`p-4 rounded-lg border backdrop-blur-sm ${
-                        step.status === "completed"
-                          ? userSide === "light"
-                            ? "bg-blue-900/20 border-blue-600"
-                            : "bg-red-900/20 border-red-600"
-                          : step.status === "processing"
-                          ? "bg-yellow-900/20 border-yellow-600"
-                          : "bg-gray-900/20 border-gray-700"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className={`w-3 h-3 rounded-full ${
-                              step.status === "completed"
-                                ? userSide === "light"
-                                  ? "bg-blue-500"
-                                  : "bg-red-500"
-                                : step.status === "processing"
-                                ? "bg-yellow-500 animate-pulse"
-                                : "bg-gray-500"
-                            }`}
-                          />
-                          <div>
-                            <h3 className="font-medium text-white text-sm">
-                              {step.title}
-                            </h3>
-                            <p className="text-xs text-gray-400">
-                              {step.description}
-                            </p>
-                          </div>
-                        </div>
+                <div className="space-y-3 w-full max-w-2xl overflow-y-auto max-h-[40vh] pr-2 fixed bottom-8">
+                  {creationSteps.map((step, index) => {
+                    // Only show current step and completed steps
+                    if (index > currentStepIndex) return null;
 
-                        {step.status === "processing" && (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
+                    return (
+                      <motion.div
+                        key={step.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className={`p-4 rounded-lg border backdrop-blur-sm ${
+                          step.status === "completed"
+                            ? userSide === "light"
+                              ? "bg-blue-900/20 border-blue-600"
+                              : "bg-red-900/20 border-red-600"
+                            : step.status === "processing"
+                            ? "bg-yellow-900/20 border-yellow-600"
+                            : "bg-gray-900/20 border-gray-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div
+                              className={`w-3 h-3 rounded-full ${
+                                step.status === "completed"
+                                  ? userSide === "light"
+                                    ? "bg-blue-500"
+                                    : "bg-red-500"
+                                  : step.status === "processing"
+                                  ? "bg-yellow-500 animate-pulse"
+                                  : "bg-gray-500"
+                              }`}
+                            />
+                            <div>
+                              <h3 className="font-medium text-white text-sm">
+                                {step.title}
+                              </h3>
+                              <p className="text-xs text-gray-400">
+                                {step.description}
+                              </p>
+                            </div>
+                          </div>
+
+                          {step.status === "processing" && (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
