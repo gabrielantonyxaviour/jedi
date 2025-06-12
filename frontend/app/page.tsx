@@ -5,54 +5,15 @@ import { useState } from "react";
 import NeonIsometricMaze from "../neon-isometric-maze";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowUp, Wallet } from "lucide-react";
-import JediLogo from "@/components/jedi-logo";
+import { ArrowUp } from "lucide-react";
 import SideSelection from "@/components/side-selection";
-import LogsSheet from "@/components/logs-sheet";
-import FalconSheet from "@/components/projects-sheet";
-import ProjectsSheet from "@/components/projects-sheet";
-
-type UserSide = "light" | "dark" | null;
-type WalletStatus = "disconnected" | "connecting" | "connected";
-
-interface LogEntry {
-  id: string;
-  timestamp: Date;
-  message: string;
-  type: "info" | "success" | "error" | "warning";
-}
+import { useAppStore } from "@/store/app-store";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [walletStatus, setWalletStatus] =
-    useState<WalletStatus>("disconnected");
-  const [userSide, setUserSide] = useState<UserSide>(null);
   const [showSideSelection, setShowSideSelection] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-
-  // Add a log entry
-  const addLog = (message: string, type: LogEntry["type"] = "info") => {
-    const newLog: LogEntry = {
-      id: Date.now().toString(),
-      timestamp: new Date(),
-      message,
-      type,
-    };
-    setLogs((prev) => [newLog, ...prev]);
-  };
-
-  // Handle wallet connection
-  const connectWallet = async () => {
-    setWalletStatus("connecting");
-
-    // Simulate wallet connection
-    setTimeout(() => {
-      setWalletStatus("connected");
-      setShowSideSelection(true);
-      addLog("Wallet connected successfully", "success");
-    }, 1500);
-  };
+  const { walletStatus, userSide, addLog, setUserSide } = useAppStore();
 
   // Handle side selection
   const handleSideSelection = (side: "light" | "dark") => {
@@ -84,51 +45,9 @@ export default function Home() {
     }
   };
 
-  // Get accent color based on user's side
-  const getAccentColor = () => {
-    if (userSide === "light") return "blue";
-    if (userSide === "dark") return "red";
-    return "gray";
-  };
-
-  const accentColor = getAccentColor();
-
   return (
-    <main className="w-full h-screen overflow-hidden bg-black relative">
+    <>
       <NeonIsometricMaze />
-
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center space-x-2 p-2">
-            <JediLogo size={48} className="rounded-md" />
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`text-gray-300 border-gray-700 hover:bg-transparent hover:text-white ${
-              walletStatus === "connected"
-                ? userSide === "light"
-                  ? "border-blue-600 text-blue-400"
-                  : userSide === "dark"
-                  ? "border-red-600 text-red-400"
-                  : ""
-                : ""
-            }`}
-            onClick={connectWallet}
-            disabled={walletStatus !== "disconnected"}
-          >
-            <Wallet className="w-4 h-4 mr-2" />
-            {walletStatus === "disconnected"
-              ? "Connect Wallet"
-              : walletStatus === "connecting"
-              ? "Connecting..."
-              : "Connected"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Main content */}
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div className="w-full max-w-3xl">
           {showSideSelection ? (
@@ -200,27 +119,6 @@ export default function Home() {
           )}
         </div>
       </div>
-
-      {/* Logs button and sheet */}
-      {userSide && <LogsSheet logs={logs} side={userSide} />}
-      {userSide && (
-        <ProjectsSheet
-          side={userSide}
-          projects={[
-            { id: "1", name: "Project 1", imageUrl: "/light-projects.png" },
-            { id: "2", name: "Project 2", imageUrl: "/dark-projects.png" },
-          ]}
-        />
-      )}
-
-      {/* Footer */}
-      <div className="absolute bottom-0 left-0 right-0 z-10">
-        <div className="p-4 text-center">
-          <p className="text-xs text-gray-600">
-            Powered by AI • Built for developers
-          </p>
-        </div>
-      </div>
-    </main>
+    </>
   );
 }
