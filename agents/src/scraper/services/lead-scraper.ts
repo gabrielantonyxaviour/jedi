@@ -26,8 +26,8 @@ export class LeadScrapingService {
       try {
         let leads: Lead[] = [];
         switch (source) {
-          case "yc":
           case "all":
+          case "yc":
             leads = await this.scrapeYCombinator(project, keywords);
             if (source !== "all") break;
 
@@ -158,9 +158,11 @@ export class LeadScrapingService {
     console.log("🚀 Scraping Product Hunt...");
 
     try {
-      const searchTerm = keywords.slice(0, 2).join("+");
+      const searchTerm = keywords.slice(0, 2).join(" ");
       const response = await axios.get(
-        `https://www.producthunt.com/search?q=${searchTerm}`,
+        `https://www.producthunt.com/search?q=${encodeURIComponent(
+          searchTerm
+        )}`,
         {
           headers: {
             "User-Agent":
@@ -172,30 +174,45 @@ export class LeadScrapingService {
       const $ = cheerio.load(response.data);
       const products: any[] = [];
 
-      $('[data-test*="product-item"]').each((i, el) => {
-        if (i >= 15) return false; // Limit results
+      $('button[data-test*="spotlight-result-product"]').each((i, el) => {
+        if (i >= 15) return false;
 
         const $el = $(el);
-        const name = $el.find("h3, .product-name").first().text().trim();
+        const name = $el
+          .find(".text-16.font-semibold.text-dark-gray")
+          .text()
+          .trim();
         const description = $el
-          .find(".product-description, p")
+          .find(".text-14.font-normal.text-light-gray")
           .first()
           .text()
           .trim();
-        const makerLink = $el.find('a[href*="/makers/"]').first().attr("href");
+        const reviews = $el.find(".text-brand-500").text().trim();
+        const productId = $el
+          .attr("data-test")
+          ?.replace("spotlight-result-product-", "");
 
         if (name) {
           products.push({
-            name,
-            description,
-            website: `https://www.producthunt.com${makerLink || ""}`,
+            name: name,
+            company: name,
+            description: description || `Product Hunt product with ${reviews}`,
+            website: productId
+              ? `https://www.producthunt.com/products/${productId}`
+              : "https://www.producthunt.com",
             industry: "Product/SaaS",
+            reviews: reviews || "0 reviews",
+            source: "ProductHunt",
           });
         }
       });
 
+      console.log(`Found ${products.length} Product Hunt products`);
       return products.map((product) =>
-        this.createLead(product, "product_hunt", project.projectId)
+        this.createLead(product, "product_hunt", project.projectId, {
+          reviews: product.reviews,
+          source: product.source,
+        })
       );
     } catch (error) {
       console.error("Product Hunt scraping error:", error);
@@ -223,31 +240,36 @@ export class LeadScrapingService {
       const $ = cheerio.load(response.data);
       const products: any[] = [];
 
-      $(".product-card, .product-item").each((i, el) => {
-        if (i >= 10) return false;
+      $(".product-card").each((i, el) => {
+        if (i >= 15) return false;
 
         const $el = $(el);
-        const name = $el.find(".product-name, h3").first().text().trim();
-        const description = $el
-          .find(".product-description, p")
-          .first()
-          .text()
-          .trim();
-        const founder = $el.find(".founder-name, .maker").first().text().trim();
+        const name = $el.find(".product-card__name").text().trim();
+        const tagline = $el.find(".product-card__tagline").text().trim();
+        const revenue = $el.find(".product-card__revenue-number").text().trim();
+        const link = $el.find(".product-card__link").attr("href");
 
         if (name) {
           products.push({
-            name: founder || name,
+            name: name,
             company: name,
-            description,
-            website: "https://www.indiehackers.com",
+            description: tagline || `Indie product with ${revenue} revenue`,
+            website: link
+              ? `https://www.indiehackers.com${link}`
+              : "https://www.indiehackers.com",
             industry: "Indie/Bootstrap",
+            revenue: revenue || "$0/month",
+            source: "IndieHackers",
           });
         }
       });
 
+      console.log(`Found ${products.length} Indie Hackers products`);
       return products.map((product) =>
-        this.createLead(product, "indie_hackers", project.projectId)
+        this.createLead(product, "indie_hackers", project.projectId, {
+          revenue: product.revenue,
+          source: product.source,
+        })
       );
     } catch (error) {
       console.error("Indie Hackers scraping error:", error);
