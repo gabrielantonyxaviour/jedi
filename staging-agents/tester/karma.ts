@@ -44,6 +44,7 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     // 4. Apply for a grant (if communities exist)
+
     if (communities.length > 0) {
       console.log("\n=== APPLYING FOR GRANT ===");
       const grantApplication = await karma.applyForGrant(
