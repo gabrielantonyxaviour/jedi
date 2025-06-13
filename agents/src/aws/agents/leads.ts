@@ -1,15 +1,9 @@
-// src/agents/lead-generation.ts
 import {
   DynamoDBClient,
   PutItemCommand,
   QueryCommand,
-  ScanCommand,
 } from "@aws-sdk/client-dynamodb";
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
@@ -17,9 +11,7 @@ import {
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
-import { Client } from "@opensearch-project/opensearch";
-import { defaultProvider } from "@aws-sdk/credential-provider-node";
-import { AwsSigv4Signer } from "@opensearch-project/opensearch/aws";
+import { LeadScrapingService } from "../services/lead-scraper";
 
 interface Lead {
   leadId: string;
@@ -41,19 +33,12 @@ interface Lead {
   matchReason?: string;
 }
 
-interface LeadOpportunity {
-  type: "partnership" | "client" | "investor" | "collaborator";
-  description: string;
-  potentialValue: string;
-  confidence: number;
-}
-
 export class LeadsAgent {
   private dynamodb: DynamoDBClient;
   private s3: S3Client;
   private bedrock: BedrockRuntimeClient;
   private sqs: SQSClient;
-  private opensearch: Client;
+  private leadScraper: LeadScrapingService;
   private leadsTableName: string;
   private projectsTableName: string;
   private bucketName: string;
@@ -64,16 +49,7 @@ export class LeadsAgent {
     this.s3 = new S3Client({ region: process.env.AWS_REGION });
     this.bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
     this.sqs = new SQSClient({ region: process.env.AWS_REGION });
-
-    // Initialize OpenSearch client with AWS auth
-    this.opensearch = new Client({
-      ...AwsSigv4Signer({
-        region: process.env.AWS_REGION!,
-        service: "es",
-        getCredentials: () => defaultProvider()(),
-      }),
-      node: process.env.OPENSEARCH_ENDPOINT!,
-    });
+    this.leadScraper = new LeadScrapingService();
 
     this.leadsTableName = process.env.LEADS_TABLE!;
     this.projectsTableName = process.env.PROJECTS_TABLE_NAME!;
@@ -90,6 +66,7 @@ export class LeadsAgent {
           const leads = await this.discoverLeads(task.payload);
           await this.reportTaskCompletion(task.taskId, task.workflowId, {
             leads,
+            count: leads.length,
           });
           break;
 
@@ -103,6 +80,7 @@ export class LeadsAgent {
           }
           await this.reportTaskCompletion(task.taskId, task.workflowId, {
             leads: newProjectLeads,
+            count: newProjectLeads.length,
           });
           break;
 
@@ -147,225 +125,68 @@ export class LeadsAgent {
     description: string;
     industry?: string;
     keywords?: string[];
+    sources?: string[];
+    maxResults?: number;
   }): Promise<Lead[]> {
     console.log(
       `🔍 Starting lead search for new project: ${payload.projectName}`
     );
 
-    const searchCriteria = {
-      projectKeywords: payload.keywords || [],
-      industry: payload.industry,
-      description: payload.description,
-    };
-
     return await this.discoverLeads({
       projectId: payload.projectId,
-      criteria: searchCriteria,
-      sources: ["business_directory", "company_database", "industry_contacts"],
+      sources: payload.sources || ["all"],
+      maxResults: payload.maxResults || 50,
     });
   }
 
   async discoverLeads(payload: {
     projectId: string;
-    criteria: any;
-    sources: string[];
+    sources?: string[];
+    maxResults?: number;
   }): Promise<Lead[]> {
     const project = await this.getProject(payload.projectId);
-    const discoveredLeads: Lead[] = [];
-
-    // Search OpenSearch for potential leads
-    const searchQuery = await this.buildSearchQuery(project, payload.criteria);
-    const searchResults = await this.searchOpenSearch(searchQuery);
-
-    // Process search results into leads
-    for (const result of searchResults) {
-      const lead = await this.processSearchResult(result, project);
-      if (lead) {
-        discoveredLeads.push(lead);
-        await this.storeLead(lead);
-        await this.indexLead(lead);
-      }
+    if (!project) {
+      throw new Error(`Project not found: ${payload.projectId}`);
     }
 
+    console.log(`🎯 Discovering leads for project: ${project.name}`);
+
+    // Generate search keywords using Bedrock
+    const searchKeywords = await this.generateSearchKeywords(project);
+    console.log(`📝 Generated keywords:`, searchKeywords);
+
+    // Use the working scraper
+    const discoveredLeads = await this.leadScraper.scrapeLeads(
+      project,
+      payload.sources || ["all"],
+      payload.maxResults || 50
+    );
+
+    // Store all leads in DynamoDB
+    for (const lead of discoveredLeads) {
+      await this.storeLead(lead);
+    }
+
+    console.log(`✅ Discovered and stored ${discoveredLeads.length} leads`);
     return discoveredLeads;
   }
 
-  private async buildSearchQuery(project: any, criteria: any): Promise<any> {
-    // Extract keywords from project description
+  private async generateSearchKeywords(project: any): Promise<string[]> {
     const prompt = `
-Extract search keywords for finding business leads for this project:
+Generate search keywords for finding business leads for this project:
 
 Project: ${project.name}
 Description: ${project.description}
-Industry: ${criteria.industry || "Any"}
+Industry: ${project.industry || "Any"}
 
-Generate search terms that would help find:
+Generate 5-10 relevant keywords that would help find:
 1. Potential clients who might need this solution
-2. Companies in related industries
+2. Companies in related industries  
 3. Business partners or collaborators
-4. Investors interested in this space
+4. Competitors or similar products
 
-Return as JSON with arrays: clientKeywords, partnerKeywords, investorKeywords, industryTerms
-`;
-
-    const response = await this.bedrock.send(
-      new InvokeModelCommand({
-        modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
-        body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 300,
-        }),
-      })
-    );
-
-    const result = JSON.parse(new TextDecoder().decode(response.body));
-    const keywords = JSON.parse(result.content[0].text);
-
-    // Build OpenSearch query
-    return {
-      index: "business_leads",
-      body: {
-        size: 50,
-        query: {
-          bool: {
-            should: [
-              {
-                multi_match: {
-                  query: keywords.clientKeywords.join(" "),
-                  fields: ["company_description", "industry", "services"],
-                  boost: 3,
-                },
-              },
-              {
-                multi_match: {
-                  query: keywords.partnerKeywords.join(" "),
-                  fields: [
-                    "company_description",
-                    "technologies",
-                    "focus_areas",
-                  ],
-                  boost: 2,
-                },
-              },
-              {
-                multi_match: {
-                  query: keywords.investorKeywords.join(" "),
-                  fields: [
-                    "investment_focus",
-                    "portfolio_companies",
-                    "sectors",
-                  ],
-                  boost: 2,
-                },
-              },
-              {
-                terms: {
-                  industry: keywords.industryTerms,
-                  boost: 1.5,
-                },
-              },
-            ],
-            minimum_should_match: 1,
-          },
-        },
-        sort: [{ _score: { order: "desc" } }],
-      },
-    };
-  }
-
-  private async searchOpenSearch(query: any): Promise<any[]> {
-    try {
-      const response = await this.opensearch.search(query);
-      return response.body.hits.hits.map((hit: any) => ({
-        score: hit._score,
-        source: hit._source,
-      }));
-    } catch (error) {
-      console.error("OpenSearch error:", error);
-      return [];
-    }
-  }
-
-  private async processSearchResult(
-    result: any,
-    project: any
-  ): Promise<Lead | null> {
-    const source = result.source;
-
-    // Analyze if this is a good lead
-    const analysis = await this.analyzeLeadPotential(source, project);
-
-    if (analysis.confidence < 60) {
-      return null; // Skip low-confidence leads
-    }
-
-    const lead: Lead = {
-      leadId: randomUUID(),
-      projectId: project.projectId,
-      name: source.contact_name || source.company_name || "Unknown",
-      email: source.email,
-      company: source.company_name,
-      title: source.title || source.position,
-      website: source.website,
-      industry: source.industry,
-      location: source.location,
-      score: Math.round(result.score * 10), // Convert relevance to 0-100 scale
-      status: "new",
-      source: "opensearch_business_directory",
-      discoveredAt: new Date().toISOString(),
-      matchReason: analysis.reason,
-      metadata: {
-        opportunity: analysis.opportunity,
-        searchScore: result.score,
-        confidence: analysis.confidence,
-      },
-    };
-
-    return lead;
-  }
-
-  private async analyzeLeadPotential(
-    leadData: any,
-    project: any
-  ): Promise<{
-    confidence: number;
-    reason: string;
-    opportunity: LeadOpportunity;
-  }> {
-    const prompt = `
-Analyze this potential business lead for the given project:
-
-Lead Information:
-- Company: ${leadData.company_name || "Unknown"}
-- Industry: ${leadData.industry || "Unknown"}
-- Description: ${leadData.company_description || "No description"}
-- Services: ${leadData.services || "Unknown"}
-- Size: ${leadData.company_size || "Unknown"}
-- Location: ${leadData.location || "Unknown"}
-
-Project:
-- Name: ${project.name}
-- Description: ${project.description}
-
-Analyze and determine:
-1. Confidence level (0-100) that this is a valuable lead
-2. Type of opportunity (partnership, client, investor, collaborator)
-3. Reason for the match
-4. Potential value description
-5. Brief opportunity description
-
-Respond in JSON format:
-{
-  "confidence": 85,
-  "reason": "Strong industry alignment and complementary services",
-  "opportunity": {
-    "type": "client",
-    "description": "Potential client for project services",
-    "potentialValue": "High-value enterprise client",
-    "confidence": 85
-  }
-}
+Return as a JSON array of strings, e.g. ["keyword1", "keyword2", "keyword3"]
+Focus on specific, actionable terms rather than generic ones.
 `;
 
     try {
@@ -375,25 +196,19 @@ Respond in JSON format:
           body: JSON.stringify({
             anthropic_version: "bedrock-2023-05-31",
             messages: [{ role: "user", content: prompt }],
-            max_tokens: 400,
+            max_tokens: 300,
           }),
         })
       );
 
       const result = JSON.parse(new TextDecoder().decode(response.body));
-      return JSON.parse(result.content[0].text);
+      const keywords = JSON.parse(result.content[0].text);
+
+      return Array.isArray(keywords) ? keywords : [project.name];
     } catch (error) {
-      console.error("Error analyzing lead potential:", error);
-      return {
-        confidence: 50,
-        reason: "Error in analysis",
-        opportunity: {
-          type: "client",
-          description: "Potential opportunity",
-          potentialValue: "Unknown",
-          confidence: 50,
-        },
-      };
+      console.error("Error generating keywords:", error);
+      // Fallback to basic keywords
+      return [project.name, project.industry || "business"].filter(Boolean);
     }
   }
 
@@ -419,12 +234,8 @@ Respond in JSON format:
                 contactName: lead.name,
                 contactEmail: lead.email,
                 industry: lead.industry,
-                opportunity:
-                  lead.metadata?.opportunity?.description ||
-                  "Business opportunity",
-                value:
-                  lead.metadata?.opportunity?.potentialValue ||
-                  "High potential",
+                opportunity: "Business opportunity",
+                value: "High potential",
                 source: lead.source,
                 confidence: lead.score,
                 nextSteps: [
@@ -445,6 +256,7 @@ Respond in JSON format:
     }
   }
 
+  // Keep existing methods for scoring, qualifying, and outreach generation
   async scoreLeads(payload: {
     projectId: string;
     leadIds?: string[];
@@ -486,7 +298,6 @@ Lead Information:
 - Industry: ${lead.industry || "Unknown"}
 - Website: ${lead.website || "Not available"}
 - Source: ${lead.source}
-- Match Reason: ${lead.matchReason || "N/A"}
 
 Project Context:
 - Project: ${project.name}
@@ -541,7 +352,6 @@ Lead: ${lead.name} at ${lead.company || "their company"}
 Title: ${lead.title || "Business Professional"}
 Industry: ${lead.industry || "Unknown"}
 Source: ${lead.source}
-Match Reason: ${lead.matchReason || "Business opportunity"}
 
 Project: ${project.name}
 Description: ${project.description}
@@ -637,7 +447,7 @@ Return only a number between 0-100.
     return Math.max(0, Math.min(100, score));
   }
 
-  // ... rest of the helper methods remain the same
+  // Helper methods
   private async getProject(projectId: string): Promise<any> {
     const response = await this.dynamodb.send(
       new QueryCommand({
@@ -686,22 +496,6 @@ Return only a number between 0-100.
 
   private async updateLead(lead: Lead): Promise<void> {
     await this.storeLead(lead);
-  }
-
-  private async indexLead(lead: Lead): Promise<void> {
-    try {
-      await this.opensearch.index({
-        index: "leads",
-        id: lead.leadId,
-        body: {
-          ...lead,
-          searchableText: `${lead.name} ${lead.company} ${lead.title} ${lead.industry}`,
-        },
-      });
-      console.log(`📇 Indexed lead ${lead.name} in OpenSearch`);
-    } catch (error) {
-      console.error("Failed to index lead:", error);
-    }
   }
 
   private async reportTaskCompletion(
