@@ -1,19 +1,14 @@
 import puppeteer from "puppeteer";
 import axios from "axios";
 import * as cheerio from "cheerio";
-import { Octokit } from "@octokit/rest";
-import { Lead, ScrapingResult } from "../types/lead";
+import { Lead } from "../types/lead";
 import { KeywordExtractor } from "../utils/keyword-extractor";
 import { sleep } from "../utils/helper";
 
 export class LeadScrapingService {
-  private octokit: Octokit;
   private keywordExtractor: KeywordExtractor;
 
   constructor() {
-    this.octokit = new Octokit({
-      auth: process.env.GITHUB_TOKEN,
-    });
     this.keywordExtractor = new KeywordExtractor();
   }
 
@@ -41,10 +36,6 @@ export class LeadScrapingService {
               ...leads,
               ...(await this.scrapeProductHunt(project, keywords)),
             ];
-            if (source !== "all") break;
-
-          case "github":
-            leads = [...leads, ...(await this.scrapeGitHub(project, keywords))];
             if (source !== "all") break;
 
           case "indiehackers":
@@ -208,63 +199,6 @@ export class LeadScrapingService {
       );
     } catch (error) {
       console.error("Product Hunt scraping error:", error);
-      return [];
-    }
-  }
-
-  private async scrapeGitHub(
-    project: any,
-    keywords: string[]
-  ): Promise<Lead[]> {
-    console.log("👨‍💻 Scraping GitHub...");
-
-    try {
-      const searchQuery = `${keywords.join(" ")} language:javascript stars:>50`;
-
-      const { data } = await this.octokit.rest.search.repos({
-        q: searchQuery,
-        sort: "stars",
-        per_page: 20,
-      });
-
-      const leads: Lead[] = [];
-
-      for (const repo of data.items.slice(0, 10)) {
-        await sleep(500); // Rate limiting
-
-        try {
-          const owner = await this.octokit.rest.users.getByUsername({
-            username: repo.owner?.login || "",
-          });
-
-          leads.push(
-            this.createLead(
-              {
-                name: owner.data.name || repo.owner?.login,
-                email: owner.data.email,
-                company: owner.data.company,
-                website: owner.data.blog || repo.html_url,
-                description: `Developer: ${repo.name} - ${repo.description}`,
-                industry: "Software Development",
-              },
-              "github_developers",
-              project.projectId,
-              {
-                githubProfile: owner.data.html_url,
-                topRepo: repo.name,
-                stars: repo.stargazers_count,
-                followers: owner.data.followers,
-              }
-            )
-          );
-        } catch (userError) {
-          console.log(`Skipped user ${repo.owner?.login}:`, userError);
-        }
-      }
-
-      return leads;
-    } catch (error) {
-      console.error("GitHub scraping error:", error);
       return [];
     }
   }
