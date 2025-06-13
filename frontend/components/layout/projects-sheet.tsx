@@ -11,6 +11,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
+import { useState } from "react";
 
 interface ProjectsSheetProps {
   side: "light" | "dark" | null;
@@ -22,8 +23,10 @@ interface ProjectsSheetProps {
 }
 
 const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger className="fixed left-0 top-1/2 -translate-y-1/2">
         <div
           className={`p-2 rounded-md bg-stone-700 border-y-2 border-r-2 rounded-l-none transition-all duration-300 ${
@@ -49,7 +52,12 @@ const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
       >
         <SheetHeader className="w-full">
           <div className="flex flex-row items-center justify-between">
-            <ArrowLeft className="h-5 w-5 text-stone-400 hover:text-white cursor-pointer" />
+            <ArrowLeft
+              className="h-5 w-5 text-stone-400 hover:text-white cursor-pointer"
+              onClick={() => {
+                setIsOpen(false);
+              }}
+            />
             <SheetTitle className="text-white font-custom-regular tracking-widest text-xl">
               Projects
             </SheetTitle>

@@ -196,7 +196,7 @@ export default function Home() {
 
               {/* Creation Steps - Show one by one */}
               {isCreating && (
-                <div className="space-y-3 w-full max-w-2xl overflow-y-auto max-h-[40vh] pr-2 fixed bottom-8">
+                <div className="space-y-3 w-full max-w-2xl overflow-y-auto max-h-[30vh] pr-2 fixed bottom-8">
                   {creationSteps.map((step, index) => {
                     // Only show current step and completed steps
                     if (index > currentStepIndex) return null;

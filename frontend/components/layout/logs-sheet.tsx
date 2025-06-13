@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowRight } from "lucide-react";
+import { useState } from "react";
 
 interface LogEntry {
   id: string;
@@ -24,8 +25,10 @@ interface LogsSheetProps {
 }
 
 const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger
         className={`fixed z-50 bottom-6 right-6 w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
           side === "light"
@@ -37,13 +40,13 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
       >
         {side === "light" ? (
           <img
-            src="/light.png"
+            src="/light/logs.png"
             alt="Light Side"
             className="w-full h-full rounded-full object-cover"
           />
         ) : (
           <img
-            src="/dark.png"
+            src="/dark/logs.png"
             alt="Dark Side"
             className="w-full h-full rounded-full object-cover"
           />
@@ -58,7 +61,12 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
             <SheetTitle className="text-white font-custom-regular tracking-widest text-xl">
               Agent Logs
             </SheetTitle>
-            <ArrowRight className="h-5 w-5 text-stone-400 hover:text-white cursor-pointer" />
+            <ArrowRight
+              className="h-5 w-5 text-stone-400 hover:text-white cursor-pointer"
+              onClick={() => {
+                setIsOpen(false);
+              }}
+            />
           </div>
         </SheetHeader>
         <ScrollArea className="h-[calc(100vh-80px)] mt-6 pr-4">
