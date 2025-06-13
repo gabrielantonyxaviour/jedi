@@ -212,7 +212,7 @@ export default function ChatDialog({
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type your message..."
-              className="placeholder:bg-stone-600 bg-stone-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="placeholder:bg-stone-700 bg-stone-700 focus-visible:ring-0 focus-visible:ring-offset-0 border-none"
             />
             <Button
               onClick={handleSendMessage}
