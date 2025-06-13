@@ -30,7 +30,6 @@ export class LeadScrapingService {
     for (const source of sources) {
       try {
         let leads: Lead[] = [];
-
         switch (source) {
           case "yc":
           case "all":
@@ -46,10 +45,6 @@ export class LeadScrapingService {
 
           case "github":
             leads = [...leads, ...(await this.scrapeGitHub(project, keywords))];
-            if (source !== "all") break;
-
-          case "f6s":
-            leads = [...leads, ...(await this.scrapeF6S(project, keywords))];
             if (source !== "all") break;
 
           case "indiehackers":
@@ -93,28 +88,57 @@ export class LeadScrapingService {
         waitUntil: "networkidle0",
       });
 
-      // Search by keywords
+      // Wait for the correct search input
+      await page.waitForSelector('._searchBox_i9oky_202 input[type="text"]', {
+        timeout: 10000,
+      });
+
+      // Search for companies
       const searchTerm = keywords.slice(0, 3).join(" ");
-      await page.type('input[name="q"]', searchTerm);
+      await page.click('._searchBox_i9oky_202 input[type="text"]');
+      await page.keyboard.down("Control");
+      await page.keyboard.press("A");
+      await page.keyboard.up("Control");
+      await page.type('._searchBox_i9oky_202 input[type="text"]', searchTerm);
       await page.keyboard.press("Enter");
+
+      // Wait for results to load
       await page.waitForTimeout(3000);
 
+      // Extract companies using the correct selectors from your HTML
       const companies = await page.evaluate(() => {
-        const cards = document.querySelectorAll(
-          '[data-page="companies"] .space-y-2'
-        );
-        return Array.from(cards)
+        const companyCards = document.querySelectorAll("a._company_i9oky_355");
+
+        return Array.from(companyCards)
           .slice(0, 20)
           .map((card) => {
-            const nameEl = card.querySelector("a h3");
-            const descEl = card.querySelector("p");
-            const link = card.querySelector("a")?.getAttribute("href");
+            const nameEl = card.querySelector("._coName_i9oky_470");
+            const descEl = card.querySelector("._coDescription_i9oky_495");
+            const locationEl = card.querySelector("._coLocation_i9oky_486");
+            const link = card.getAttribute("href");
+
+            // Extract industry from pills
+            const industryPills = card.querySelectorAll(".pill._pill_i9oky_33");
+            const industries = Array.from(industryPills)
+              .map((pill) => pill.textContent?.trim())
+              .filter(
+                (text) =>
+                  text &&
+                  !text.includes("20") &&
+                  !text.includes("Winter") &&
+                  !text.includes("Summer")
+              );
 
             return {
               name: nameEl?.textContent?.trim() || "",
               description: descEl?.textContent?.trim() || "",
+              location: locationEl?.textContent?.trim() || "",
+              industry: industries[0] || "Startup",
               website: link ? `https://www.ycombinator.com${link}` : "",
-              industry: "Startup",
+              batch:
+                Array.from(industryPills)
+                  .find((pill) => pill.textContent?.includes("20"))
+                  ?.textContent?.trim() || "",
             };
           })
           .filter((c) => c.name);
@@ -122,11 +146,16 @@ export class LeadScrapingService {
 
       await browser.close();
 
+      console.log(`Found ${companies.length} YC companies`);
       return companies.map((company) =>
-        this.createLead(company, "yc_companies", project.projectId)
+        this.createLead(company, "yc_companies", project.projectId, {
+          batch: company.batch,
+          ycProfile: company.website,
+        })
       );
     } catch (error) {
       await browser.close();
+      console.error("YC scraping error:", error);
       throw error;
     }
   }
@@ -237,57 +266,6 @@ export class LeadScrapingService {
     } catch (error) {
       console.error("GitHub scraping error:", error);
       return [];
-    }
-  }
-
-  private async scrapeF6S(project: any, keywords: string[]): Promise<Lead[]> {
-    console.log("💼 Scraping F6S...");
-
-    const browser = await puppeteer.launch({ headless: "new" });
-
-    try {
-      const page = await browser.newPage();
-      await page.goto("https://www.f6s.com/companies", {
-        waitUntil: "networkidle0",
-      });
-
-      const companies = await page.evaluate(() => {
-        const cards = document.querySelectorAll(".company-card, .startup-card");
-        return Array.from(cards)
-          .slice(0, 15)
-          .map((card) => {
-            const name = card
-              .querySelector(".company-name, .startup-name")
-              ?.textContent?.trim();
-            const description = card
-              .querySelector(".description, .company-description")
-              ?.textContent?.trim();
-            const location = card
-              .querySelector(".location")
-              ?.textContent?.trim();
-            const link = card.querySelector("a")?.getAttribute("href");
-
-            return {
-              name: name || "",
-              description: description || "",
-              location: location || "",
-              website: link?.startsWith("http")
-                ? link
-                : `https://www.f6s.com${link}`,
-              industry: "Startup/Funding",
-            };
-          })
-          .filter((c) => c.name);
-      });
-
-      await browser.close();
-
-      return companies.map((company) =>
-        this.createLead(company, "f6s_startups", project.projectId)
-      );
-    } catch (error) {
-      await browser.close();
-      throw error;
     }
   }
 
