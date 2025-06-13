@@ -5,9 +5,11 @@ import {
   PutItemCommand,
   GetItemCommand,
   UpdateItemCommand,
+  QueryCommand,
 } from "@aws-sdk/client-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
+import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 
 interface RepoData {
   owner: string;
@@ -38,7 +40,268 @@ class GitHubIntelligenceAgent {
     this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
   }
 
-  // Main entry point
+  // UPDATED processTask method for new task types
+  async processTask(task: any): Promise<void> {
+    const characterInfo = task.characterInfo;
+    let characterResponse = "";
+
+    try {
+      let result;
+
+      switch (task.type) {
+        case "ANALYZE_REPOSITORY":
+          result = await this.analyzeRepository(
+            task.payload.repoUrl,
+            task.taskId,
+            task.workflowId
+          );
+          break;
+
+        case "ANALYZE_AND_SETUP_PROJECT": // NEW
+          result = await this.analyzeAndSetupProject(task.payload);
+          break;
+
+        case "GET_LATEST_COMMITS": // NEW
+          result = await this.getLatestCommits(task.payload);
+          break;
+
+        case "FETCH_REPO_INFO": // NEW
+          result = await this.fetchRepoInfo(task.payload);
+          break;
+
+        case "FETCH_IMPORTANT_FILES": // NEW
+          result = await this.fetchImportantFilesForProject(task.payload);
+          break;
+
+        case "UPDATE_IMPORTANT_FILES": // NEW
+          result = await this.updateImportantFiles(task.payload);
+          break;
+
+        case "PROCESS_WEBHOOK":
+          result = await this.handleWebhook(
+            task.payload.body,
+            task.taskId,
+            task.workflowId
+          );
+          break;
+
+        default:
+          throw new Error(`Unknown task type: ${task.type}`);
+      }
+
+      // Generate character response
+      if (characterInfo?.agentCharacter) {
+        if (characterInfo.side === "light") {
+          characterResponse =
+            "Repository analysis complete, it is. Served you well, I have. The odds of successful deployment are... quite good!";
+        } else {
+          characterResponse =
+            "*mechanical breathing* Your repository has been processed efficiently. The Empire's code standards, it meets.";
+        }
+      }
+
+      // Don't call reportTaskCompletion here if it's already called in the methods above
+      if (
+        !task.type.includes("ANALYZE_REPOSITORY") &&
+        !task.type.includes("PROCESS_WEBHOOK")
+      ) {
+        await this.reportTaskCompletion(task.taskId, task.workflowId, {
+          ...result,
+          characterResponse,
+        });
+      }
+    } catch (error: any) {
+      if (characterInfo?.agentCharacter) {
+        characterResponse =
+          characterInfo.side === "light"
+            ? "Failed to complete the task, I have. Most unfortunate, this is."
+            : "*mechanical coughing* This failure will not be tolerated. Try again, I must.";
+      }
+
+      await this.reportTaskCompletion(
+        task.taskId,
+        task.workflowId,
+        null,
+        error.message,
+        characterResponse
+      );
+      throw error;
+    }
+  }
+
+  // NEW METHODS
+  async analyzeAndSetupProject(payload: any): Promise<any> {
+    const repoAnalysis = await this.analyzeRepository(payload.repoUrl);
+
+    // Extract project info and store with character context
+    const projectInfo = {
+      projectId: payload.projectId,
+      name: this.extractProjectName(payload.repoUrl),
+      description: repoAnalysis.summary,
+      githubUrl: payload.repoUrl,
+      side: payload.side,
+      walletAddress: payload.walletAddress,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Store in projects table
+    await this.storeProject(projectInfo);
+
+    return {
+      projectInfo,
+      repoAnalysis,
+      characterName: payload.characterName,
+    };
+  }
+
+  async getLatestCommits(payload: {
+    projectId: string;
+    count?: number;
+  }): Promise<any> {
+    const project = await this.getProject(payload.projectId);
+    if (!project) {
+      throw new Error(`Project not found: ${payload.projectId}`);
+    }
+
+    const { owner, repo } = this.parseRepoUrl(project.githubUrl);
+    return await this.fetchRecentCommits(owner, repo, payload.count || 10);
+  }
+
+  async fetchRepoInfo(payload: { projectId: string }): Promise<any> {
+    const project = await this.getProject(payload.projectId);
+    if (!project) {
+      throw new Error(`Project not found: ${payload.projectId}`);
+    }
+
+    const { owner, repo } = this.parseRepoUrl(project.githubUrl);
+    return await this.fetchRepositoryInfo(owner, repo);
+  }
+
+  async fetchImportantFilesForProject(payload: {
+    projectId: string;
+  }): Promise<any> {
+    const project = await this.getProject(payload.projectId);
+    if (!project) {
+      throw new Error(`Project not found: ${payload.projectId}`);
+    }
+
+    const { owner, repo } = this.parseRepoUrl(project.githubUrl);
+    return await this.fetchImportantFiles(owner, repo);
+  }
+
+  async updateImportantFiles(payload: {
+    projectId: string;
+    files: any[];
+  }): Promise<any> {
+    const project = await this.getProject(payload.projectId);
+    if (!project) {
+      throw new Error(`Project not found: ${payload.projectId}`);
+    }
+
+    const { owner, repo } = this.parseRepoUrl(project.githubUrl);
+
+    const results = [];
+    for (const file of payload.files) {
+      try {
+        // Update file via GitHub API
+        const result = await this.updateFile(
+          owner,
+          repo,
+          file.path,
+          file.content,
+          file.message
+        );
+        results.push(result);
+      } catch (error: any) {
+        console.error(`Failed to update file ${file.path}:`, error);
+        results.push({ path: file.path, error: error.message });
+      }
+    }
+
+    return { updatedFiles: results };
+  }
+
+  private async updateFile(
+    owner: string,
+    repo: string,
+    path: string,
+    content: string,
+    message: string
+  ): Promise<any> {
+    // First get the current file to get its SHA
+    try {
+      const { data: currentFile } = await this.octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path,
+      });
+
+      // Update the file
+      const { data } = await this.octokit.rest.repos.createOrUpdateFileContents(
+        {
+          owner,
+          repo,
+          path,
+          message,
+          content: Buffer.from(content).toString("base64"),
+          sha: Array.isArray(currentFile) ? undefined : currentFile.sha,
+        }
+      );
+
+      return {
+        path,
+        sha: data.commit.sha,
+        message,
+        updated: true,
+      };
+    } catch (error) {
+      // If file doesn't exist, create it
+      const { data } = await this.octokit.rest.repos.createOrUpdateFileContents(
+        {
+          owner,
+          repo,
+          path,
+          message,
+          content: Buffer.from(content).toString("base64"),
+        }
+      );
+
+      return {
+        path,
+        sha: data.commit.sha,
+        message,
+        created: true,
+      };
+    }
+  }
+
+  private extractProjectName(repoUrl: string): string {
+    const { repo } = this.parseRepoUrl(repoUrl);
+    return repo.charAt(0).toUpperCase() + repo.slice(1);
+  }
+
+  private async storeProject(project: any): Promise<void> {
+    await this.dynamodb.send(
+      new PutItemCommand({
+        TableName: process.env.PROJECTS_TABLE_NAME || "projects",
+        Item: marshall(project),
+      })
+    );
+  }
+
+  private async getProject(projectId: string): Promise<any> {
+    const response = await this.dynamodb.send(
+      new QueryCommand({
+        TableName: process.env.PROJECTS_TABLE_NAME || "projects",
+        KeyConditionExpression: "projectId = :projectId",
+        ExpressionAttributeValues: marshall({ ":projectId": projectId }),
+      })
+    );
+
+    return response.Items ? unmarshall(response.Items[0]) : null;
+  }
+
+  // EXISTING METHODS (unchanged)
   async analyzeRepository(
     repoUrl: string,
     taskId?: string,
@@ -428,14 +691,15 @@ Recent Activity: ${recentActivity}
     taskId: string,
     workflowId: string,
     result: any,
-    error?: string
+    error?: string,
+    characterResponse?: string
   ) {
     try {
       const completion = {
         taskId,
         workflowId,
         status: error ? "FAILED" : "COMPLETED",
-        result,
+        result: result ? { ...result, characterResponse } : null,
         error,
         timestamp: new Date().toISOString(),
         agent: "github-intelligence",

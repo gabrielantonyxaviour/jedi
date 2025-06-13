@@ -42,16 +42,21 @@ export class ComplianceAgent {
   async processTask(task: any): Promise<void> {
     console.log(`🔒 Processing compliance task: ${task.type}`);
 
+    const characterInfo = task.characterInfo;
+    let characterResponse = "";
+
     try {
+      let result;
+
       switch (task.type) {
         case "SCAN_SIMILAR_PROJECTS":
           const similarProjects = await this.scanSimilarProjects(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+          result = {
             similarProjects,
             count: similarProjects.length,
             flaggedCount: similarProjects.filter((p) => p.similarity > 85)
               .length,
-          });
+          };
           break;
 
         case "PROJECT_CREATED_COMPLIANCE_CHECK":
@@ -64,40 +69,111 @@ export class ComplianceAgent {
           )) {
             await this.flagProject(project, "High similarity detected");
           }
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+          result = {
             complianceResults,
             count: complianceResults.length,
-          });
+          };
+          break;
+
+        case "GET_SIMILAR_PROJECTS": // NEW
+          const getSimilarResults = await this.getSimilarProjects(task.payload);
+          result = { similarProjects: getSimilarResults };
+          break;
+
+        case "SEARCH_SIMILAR_PROJECTS": // NEW
+          const searchResults = await this.searchSimilarProjects(task.payload);
+          result = { searchResults };
           break;
 
         case "ANALYZE_SIMILARITY":
           const analysis = await this.analyzeSimilarity(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            analysis,
-          });
+          result = { analysis };
           break;
 
         case "REVIEW_COMPLIANCE":
           const review = await this.reviewCompliance(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            review,
-          });
+          result = { review };
           break;
 
         default:
           throw new Error(`Unknown task type: ${task.type}`);
       }
+
+      // Generate character response
+      if (characterInfo?.agentCharacter) {
+        if (characterInfo.side === "light") {
+          characterResponse =
+            "Justice and fairness guide my watch. Your project, protected it shall be. Vigilant against threats, I remain.";
+        } else {
+          characterResponse =
+            "*ignites lightsaber* No mercy for those who dare copy your work. Destroyed, they will be. Fear me, plagiarists must.";
+        }
+      }
+
+      await this.reportTaskCompletion(task.taskId, task.workflowId, {
+        ...result,
+        characterResponse,
+      });
     } catch (error: any) {
+      if (characterInfo?.agentCharacter) {
+        characterResponse =
+          characterInfo.side === "light"
+            ? "Failed to protect your project, I have. Disappointed in myself, I am."
+            : "*mechanical rage* This failure is unacceptable! The Empire demands perfection!";
+      }
+
       await this.reportTaskCompletion(
         task.taskId,
         task.workflowId,
         null,
-        error.message
+        error.message,
+        characterResponse
       );
       throw error;
     }
   }
 
+  // NEW METHODS
+  async getSimilarProjects(payload: {
+    projectId: string;
+  }): Promise<ComplianceProject[]> {
+    const project = await this.getProject(payload.projectId);
+    if (!project) {
+      throw new Error(`Project not found: ${payload.projectId}`);
+    }
+
+    return await this.scanSimilarProjects({
+      projectId: payload.projectId,
+      sources: ["all"],
+      maxResults: 50,
+    });
+  }
+
+  async searchSimilarProjects(payload: {
+    projectId: string;
+    searchTerm: string;
+    sources?: string[];
+  }): Promise<ComplianceProject[]> {
+    const project = await this.getProject(payload.projectId);
+    if (!project) {
+      throw new Error(`Project not found: ${payload.projectId}`);
+    }
+
+    // Create modified project for targeted search
+    const modifiedProject = {
+      ...project,
+      name: payload.searchTerm,
+      description: `${project.description} ${payload.searchTerm}`,
+    };
+
+    return await this.complianceScraper.scrapeProjects(
+      modifiedProject,
+      payload.sources || ["all"],
+      50
+    );
+  }
+
+  // EXISTING METHODS (unchanged)
   async checkNewProjectCompliance(payload: {
     projectId: string;
     projectName: string;
@@ -401,7 +477,8 @@ Format as JSON with fields: similarities, differences, concerns, recommendation,
     taskId: string,
     workflowId: string,
     result: any,
-    error?: string
+    error?: string,
+    characterResponse?: string
   ) {
     try {
       await this.sqs.send(
@@ -413,7 +490,7 @@ Format as JSON with fields: similarities, differences, concerns, recommendation,
               taskId,
               workflowId,
               status: error ? "FAILED" : "COMPLETED",
-              result,
+              result: result ? { ...result, characterResponse } : null,
               error,
               timestamp: new Date().toISOString(),
               agent: "compliance",

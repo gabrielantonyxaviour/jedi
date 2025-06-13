@@ -1,4 +1,4 @@
-// src/agents/karma-integration.ts (updated)
+// src/agents/karma-integration.ts
 import {
   DynamoDBClient,
   PutItemCommand,
@@ -71,62 +71,127 @@ export class KarmaAgent {
   async processTask(task: any): Promise<void> {
     console.log(`🎯 Processing Karma task: ${task.type}`);
 
+    const characterInfo = task.characterInfo;
+    let characterResponse = "";
+
     try {
+      let result;
+
       switch (task.type) {
         case "CREATE_KARMA_PROJECT":
           const karmaProject = await this.createKarmaProject(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            karmaProject,
-          });
+          result = { karmaProject };
           break;
 
         case "APPLY_FOR_GRANT":
           const grantApplication = await this.applyForGrant(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            grantApplication,
-          });
+          result = { grantApplication };
           break;
 
         case "CREATE_MILESTONE":
           const milestone = await this.createMilestone(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            milestone,
-          });
+          result = { milestone };
           break;
 
         case "UPDATE_MILESTONE":
           const milestoneUpdate = await this.updateMilestone(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            milestoneUpdate,
-          });
+          result = { milestoneUpdate };
           break;
 
         case "SYNC_KARMA_DATA":
           const syncResult = await this.syncKarmaData(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            syncResult,
-          });
+          result = { syncResult };
           break;
+
         case "GET_KARMA_PROJECT":
           const project = await this.getKarmaProject(
             task.payload.karmaProjectId
           );
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            project,
-          });
+          result = { project };
           break;
+
+        // NEW TASK TYPES
+        case "GET_GRANT_OPPORTUNITIES":
+          const opportunities = await this.getGrantOpportunities(task.payload);
+          result = { opportunities };
+          break;
+
+        case "GET_COMMUNITIES":
+          const communities = await this.getCommunities(task.payload);
+          result = { communities };
+          break;
+
+        case "GET_PROJECTS":
+          const projects = await this.getProjects(task.payload);
+          result = { projects };
+          break;
+
+        default:
+          throw new Error(`Unknown task type: ${task.type}`);
       }
+
+      // Generate character response
+      if (characterInfo?.agentCharacter) {
+        if (characterInfo.side === "light") {
+          characterResponse =
+            "Strong with the Force, your grant opportunities are. Patience you must have, young Padawan. Believe in your project's potential, I do.";
+        } else {
+          characterResponse =
+            "Your funding will serve the Empire well. The dark side of grants, powerful it is. Impressive... most impressive.";
+        }
+      }
+
+      await this.reportTaskCompletion(task.taskId, task.workflowId, {
+        ...result,
+        characterResponse,
+      });
     } catch (error: any) {
+      if (characterInfo?.agentCharacter) {
+        characterResponse =
+          characterInfo.side === "light"
+            ? "Failed, this task has. But learn from failure, we must. Strong you will become."
+            : "This failure disturbs me. The Empire does not tolerate incompetence. Try again, you will.";
+      }
+
       await this.reportTaskCompletion(
         task.taskId,
         task.workflowId,
         null,
-        error.message
+        error.message,
+        characterResponse
       );
       throw error;
     }
   }
 
+  // NEW METHODS
+  async getGrantOpportunities(payload: any): Promise<any> {
+    console.log(`🔍 Fetching grant opportunities`);
+    return await this.karmaSDK.fetchGrantOpportunities();
+  }
+
+  async getCommunities(payload: any): Promise<any> {
+    console.log(`🌐 Fetching communities`);
+    const communities = await this.karmaSDK.fetchGrantOpportunities();
+    // Extract unique communities
+    const uniqueCommunities = communities.reduce((acc, opportunity) => {
+      if (!acc.find((c: any) => c.uid === opportunity.communityUID)) {
+        acc.push({
+          uid: opportunity.communityUID,
+          name: opportunity.communityName,
+        });
+      }
+      return acc;
+    }, []);
+    return uniqueCommunities;
+  }
+
+  async getProjects(payload: any): Promise<any> {
+    console.log(`📋 Fetching Karma projects`);
+    return await this.karmaSDK.fetchProjects();
+  }
+
+  // EXISTING METHODS (unchanged)
   async createKarmaProject(payload: {
     projectId: string;
     title: string;
@@ -667,7 +732,8 @@ export class KarmaAgent {
     taskId: string,
     workflowId: string,
     result: any,
-    error?: string
+    error?: string,
+    characterResponse?: string
   ) {
     try {
       await this.sqs.send(
@@ -679,7 +745,7 @@ export class KarmaAgent {
               taskId,
               workflowId,
               status: error ? "FAILED" : "COMPLETED",
-              result,
+              result: result ? { ...result, characterResponse } : null,
               error,
               timestamp: new Date().toISOString(),
               agent: "karma-integration",

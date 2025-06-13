@@ -60,14 +60,19 @@ export class LeadsAgent {
   async processTask(task: any): Promise<void> {
     console.log(`🎯 Processing lead generation task: ${task.type}`);
 
+    const characterInfo = task.characterInfo;
+    let characterResponse = "";
+
     try {
+      let result;
+
       switch (task.type) {
         case "DISCOVER_LEADS":
           const leads = await this.discoverLeads(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+          result = {
             leads,
             count: leads.length,
-          });
+          };
           break;
 
         case "PROJECT_CREATED_LEADS_SEARCH":
@@ -78,47 +83,112 @@ export class LeadsAgent {
           for (const lead of newProjectLeads.filter((l) => l.score > 80)) {
             await this.triggerLeadEmail(lead);
           }
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
+          result = {
             leads: newProjectLeads,
             count: newProjectLeads.length,
-          });
+          };
+          break;
+
+        // NEW TASK TYPES
+        case "GET_LATEST_LEADS":
+          const latestLeads = await this.getLatestLeads(task.payload);
+          result = { latestLeads };
+          break;
+
+        case "GET_LEADS_BY_SOURCE":
+          const leadsBySource = await this.getLeadsBySource(task.payload);
+          result = { leadsBySource };
           break;
 
         case "SCORE_LEADS":
           const scoredLeads = await this.scoreLeads(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            scoredLeads,
-          });
+          result = { scoredLeads };
           break;
 
         case "QUALIFY_LEAD":
           const qualification = await this.qualifyLead(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            qualification,
-          });
+          result = { qualification };
           break;
 
         case "GENERATE_OUTREACH":
           const outreach = await this.generateOutreachContent(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            outreach,
-          });
+          result = { outreach };
           break;
 
         default:
           throw new Error(`Unknown task type: ${task.type}`);
       }
+
+      // Generate character response
+      if (characterInfo?.agentCharacter) {
+        if (characterInfo.side === "light") {
+          characterResponse =
+            "*Wookiee growls of satisfaction* Found excellent opportunities, I have! Loyal hunting for leads, my specialty it is.";
+        } else {
+          characterResponse =
+            "Elegant business solutions, I provide. Power and precision, my methods are. The dark side of networking, strong it is.";
+        }
+      }
+
+      await this.reportTaskCompletion(task.taskId, task.workflowId, {
+        ...result,
+        characterResponse,
+      });
     } catch (error: any) {
+      if (characterInfo?.agentCharacter) {
+        characterResponse =
+          characterInfo.side === "light"
+            ? "*frustrated Wookiee sounds* Failed to find good leads, I have. Try harder, I must."
+            : "This incompetence is beneath me. The Count demands better results. Disappointing, most disappointing.";
+      }
+
       await this.reportTaskCompletion(
         task.taskId,
         task.workflowId,
         null,
-        error.message
+        error.message,
+        characterResponse
       );
       throw error;
     }
   }
 
+  // NEW METHODS
+  async getLatestLeads(payload: {
+    projectId: string;
+    limit?: number;
+  }): Promise<Lead[]> {
+    console.log(`📋 Getting latest leads for project: ${payload.projectId}`);
+
+    const response = await this.dynamodb.send(
+      new QueryCommand({
+        TableName: this.leadsTableName,
+        IndexName: "projectId-discoveredAt-index",
+        KeyConditionExpression: "projectId = :projectId",
+        ExpressionAttributeValues: marshall({
+          ":projectId": payload.projectId,
+        }),
+        ScanIndexForward: false, // Sort by discoveredAt descending
+        Limit: payload.limit || 20,
+      })
+    );
+
+    return (response.Items || []).map((item) => unmarshall(item) as Lead);
+  }
+
+  async getLeadsBySource(payload: {
+    projectId: string;
+    source: string;
+  }): Promise<Lead[]> {
+    console.log(
+      `🔍 Getting leads by source: ${payload.source} for project: ${payload.projectId}`
+    );
+
+    const allLeads = await this.getProjectLeads(payload.projectId);
+    return allLeads.filter((lead) => lead.source === payload.source);
+  }
+
+  // EXISTING METHODS (unchanged)
   async searchLeadsForNewProject(payload: {
     projectId: string;
     projectName: string;
@@ -256,7 +326,6 @@ Focus on specific, actionable terms rather than generic ones.
     }
   }
 
-  // Keep existing methods for scoring, qualifying, and outreach generation
   async scoreLeads(payload: {
     projectId: string;
     leadIds?: string[];
@@ -502,7 +571,8 @@ Return only a number between 0-100.
     taskId: string,
     workflowId: string,
     result: any,
-    error?: string
+    error?: string,
+    characterResponse?: string
   ) {
     try {
       await this.sqs.send(
@@ -514,7 +584,7 @@ Return only a number between 0-100.
               taskId,
               workflowId,
               status: error ? "FAILED" : "COMPLETED",
-              result,
+              result: result ? { ...result, characterResponse } : null,
               error,
               timestamp: new Date().toISOString(),
               agent: "lead-generation",

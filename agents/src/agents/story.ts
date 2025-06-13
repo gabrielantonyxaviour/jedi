@@ -99,76 +99,148 @@ export class IPAgent {
   async processTask(task: any): Promise<void> {
     console.log(`🔗 Processing Story Protocol IP task: ${task.type}`);
 
+    const characterInfo = task.characterInfo;
+    let characterResponse = "";
+
     try {
+      let result;
+
       switch (task.type) {
         case "REGISTER_GITHUB_PROJECT":
           const registration = await this.registerGitHubProject(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            registration,
-          });
+          result = { registration };
           break;
 
         case "CREATE_PROJECT_FORK":
           const fork = await this.createProjectFork(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            fork,
-          });
+          result = { fork };
           break;
 
         case "CREATE_PROJECT_REMIX":
           const remix = await this.createProjectRemix(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            remix,
-          });
+          result = { remix };
           break;
 
         case "CREATE_OPEN_SOURCE_PROJECT":
           const openSource = await this.createOpenSourceProject(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            openSource,
-          });
+          result = { openSource };
           break;
 
         case "DISPUTE_PROJECT_IP":
           const dispute = await this.disputeProjectIP(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            dispute,
-          });
+          result = { dispute };
+          break;
+
+        // NEW TASK TYPES
+        case "CREATE_DISPUTE":
+          const newDispute = await this.createDispute(task.payload);
+          result = { dispute: newDispute };
+          break;
+
+        case "PAY_ROYALTY":
+          const payment = await this.payRoyalty(task.payload);
+          result = { payment };
+          break;
+
+        case "CLAIM_ALL_ROYALTIES":
+          const royalties = await this.claimAllRoyalties(task.payload);
+          result = { royalties };
           break;
 
         case "CLAIM_DEVELOPER_ROYALTIES":
-          const royalties = await this.claimDeveloperRoyalties(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            royalties,
-          });
+          const devRoyalties = await this.claimDeveloperRoyalties(task.payload);
+          result = { royalties: devRoyalties };
           break;
 
         case "PAY_PROJECT_LICENSE_FEE":
-          const payment = await this.payProjectLicenseFee(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            payment,
-          });
+          const licenseFee = await this.payProjectLicenseFee(task.payload);
+          result = { payment: licenseFee };
           break;
 
         case "GET_PROJECT_IP_DETAILS":
           const details = await this.getProjectIPDetails(task.payload);
-          await this.reportTaskCompletion(task.taskId, task.workflowId, {
-            details,
-          });
+          result = { details };
           break;
+
+        default:
+          throw new Error(`Unknown task type: ${task.type}`);
       }
+
+      // Generate character response
+      if (characterInfo?.agentCharacter) {
+        if (characterInfo.side === "light") {
+          characterResponse =
+            "Wise protection of your intellectual property, this is. The path of patience and strategy, we follow. Strong with the Force, your IP rights are.";
+        } else {
+          characterResponse =
+            "Your intellectual dominance is secured. Those who oppose us will feel the power of the dark side. Crush any who challenge your ownership, we will.";
+        }
+      }
+
+      await this.reportTaskCompletion(task.taskId, task.workflowId, {
+        ...result,
+        characterResponse,
+      });
     } catch (error: any) {
+      if (characterInfo?.agentCharacter) {
+        characterResponse =
+          characterInfo.side === "light"
+            ? "Failed to protect your creations, I have. Seek balance in the Force, we must."
+            : "This IP failure disturbs me greatly. The dark side of law, more powerful it must become!";
+      }
+
       console.error(`❌ Story Protocol task failed: ${error.message}`);
       await this.reportTaskCompletion(
         task.taskId,
         task.workflowId,
         null,
-        error.message
+        error.message,
+        characterResponse
       );
       throw error;
     }
   }
 
+  // NEW METHODS
+  async createDispute(payload: {
+    projectIpId: string;
+    evidence: string;
+    reason: string;
+  }): Promise<any> {
+    console.log(`⚖️ Creating dispute for project IP: ${payload.projectIpId}`);
+
+    return await this.disputeProjectIP({
+      targetIpId: payload.projectIpId as Address,
+      evidence: payload.evidence,
+      targetTag: "PLAGIARISM" as DisputeTargetTag, // Map from reason
+      bondAmount: "1", // 1 ETH
+      livenessMonths: 1, // 1 month
+    });
+  }
+
+  async payRoyalty(payload: {
+    projectIpId: string;
+    amount: string;
+  }): Promise<any> {
+    console.log(`💸 Paying royalty for project: ${payload.projectIpId}`);
+
+    return await this.payProjectLicenseFee({
+      projectIpId: payload.projectIpId as Address,
+      amount: payload.amount,
+    });
+  }
+
+  async claimAllRoyalties(payload: { projectIpId: string }): Promise<any> {
+    console.log(
+      `💰 Claiming all royalties for project: ${payload.projectIpId}`
+    );
+
+    return await this.claimDeveloperRoyalties({
+      projectIpId: payload.projectIpId as Address,
+    });
+  }
+
+  // EXISTING METHODS (unchanged)
   async registerGitHubProject(payload: {
     projectId: string;
     title: string;
@@ -650,7 +722,8 @@ export class IPAgent {
     taskId: string,
     workflowId: string,
     result: any,
-    error?: string
+    error?: string,
+    characterResponse?: string
   ) {
     try {
       await this.sqs.send(
@@ -662,7 +735,7 @@ export class IPAgent {
               taskId,
               workflowId,
               status: error ? "FAILED" : "COMPLETED",
-              result,
+              result: result ? { ...result, characterResponse } : null,
               error,
               timestamp: new Date().toISOString(),
               agent: "story-protocol-ip",
