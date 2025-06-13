@@ -65,40 +65,47 @@ export class ComplianceScrapingService {
         waitUntil: "networkidle0",
       });
 
-      // Wait for projects to load
-      await page.waitForSelector('[data-testid="project-card"]', {
+      // Wait for projects to load - using the actual selector from the HTML
+      await page.waitForSelector('a[href*="/showcase/"]', {
         timeout: 10000,
       });
 
-      // Extract project data
+      // Extract project data using actual HTML structure
       const projects = await page.evaluate(() => {
-        const projectCards = document.querySelectorAll(
-          '[data-testid="project-card"]'
-        );
+        const projectLinks = document.querySelectorAll('a[href*="/showcase/"]');
 
-        return Array.from(projectCards)
+        return Array.from(projectLinks)
           .slice(0, 30)
-          .map((card) => {
-            const titleEl = card.querySelector("h3");
-            const descEl = card.querySelector("p");
-            const hackathonEl = card.querySelector(".text-sm.text-gray-500");
-            const linkEl = card.querySelector("a");
-            const tagsEls = card.querySelectorAll(".bg-gray-100");
+          .map((link) => {
+            const projectCard = link.closest("div");
+
+            // Find title (h2 element)
+            const titleEl = link.querySelector("h2");
+
+            // Find description (p element within the link)
+            const descEl = link.querySelector("p");
+
+            // Find hackathon badge (div with purple background)
+            const hackathonEl = link.querySelector(
+              '.bg-purple-300, [class*="purple"]'
+            );
+
+            // Get the relative URL and make it absolute
+            const relativeUrl = link.getAttribute("href");
+            const fullUrl = relativeUrl
+              ? `https://ethglobal.com${relativeUrl}`
+              : "";
 
             return {
               name: titleEl?.textContent?.trim() || "",
               description: descEl?.textContent?.trim() || "",
-              hackathon: hackathonEl?.textContent?.trim() || "",
-              url: linkEl?.getAttribute("href")
-                ? `https://ethglobal.com${linkEl.getAttribute("href")}`
-                : "",
-              tags: Array.from(tagsEls)
-                .map((el) => el.textContent?.trim())
-                .filter(Boolean),
+              hackathon: hackathonEl?.textContent?.trim() || "ETHGlobal",
+              url: fullUrl,
+              tags: [], // ETHGlobal doesn't seem to have visible tags in the main listing
               platform: "ETHGlobal",
             };
           })
-          .filter((p) => p.name);
+          .filter((p) => p.name && p.name.length > 2);
       });
 
       await browser.close();
@@ -132,34 +139,50 @@ export class ComplianceScrapingService {
         waitUntil: "networkidle0",
       });
 
-      // Wait for projects to load
-      await page.waitForTimeout(3000);
+      // Wait for the project cards - using actual selector from HTML
+      await page.waitForSelector('.buidl-card, a[href*="/buidl/"]', {
+        timeout: 10000,
+      });
 
       const projects = await page.evaluate(() => {
-        // DoraHacks uses dynamic class names, so we'll look for common patterns
-        const projectCards = document.querySelectorAll(
-          '[class*="project"], [class*="card"]'
+        // Look for project links or cards
+        const projectElements = document.querySelectorAll(
+          'a[href*="/buidl/"], .buidl-card'
         );
         const results: any[] = [];
 
-        projectCards.forEach((card, index) => {
+        projectElements.forEach((element, index) => {
           if (index >= 30) return;
 
-          const titleEl = card.querySelector('h3, h4, [class*="title"]');
-          const descEl = card.querySelector(
-            'p, [class*="desc"], [class*="summary"]'
+          // Find the actual link element
+          const linkEl =
+            element.tagName === "A"
+              ? element
+              : element.querySelector('a[href*="/buidl/"]');
+
+          // Find title - look for h6, h2, or elements with project title classes
+          const titleEl =
+            element.querySelector('h6, h2, .font-semibold, [class*="title"]') ||
+            linkEl?.querySelector("h6, h2, .font-semibold");
+
+          // Find description
+          const descEl =
+            element.querySelector("p:not(.text-xs), .line-clamp-2") ||
+            linkEl?.querySelector("p:not(.text-xs), .line-clamp-2");
+
+          // Find tags - look for badge-like elements
+          const tagsEls = element.querySelectorAll(
+            '.bg-accent-bg, [class*="tag"], .rounded.py-0\\.5.px-1'
           );
-          const tagsEls = card.querySelectorAll(
-            '[class*="tag"], [class*="label"]'
-          );
-          const linkEl = card.querySelector("a");
 
           const title = titleEl?.textContent?.trim();
-          if (title && title.length > 3) {
+          const url = linkEl?.getAttribute("href");
+
+          if (title && title.length > 2) {
             results.push({
               name: title,
               description: descEl?.textContent?.trim() || "",
-              url: linkEl?.getAttribute("href") || "",
+              url: url?.startsWith("http") ? url : `https://dorahacks.io${url}`,
               tags: Array.from(tagsEls)
                 .map((el) => el.textContent?.trim())
                 .filter(Boolean),
@@ -202,42 +225,38 @@ export class ComplianceScrapingService {
         waitUntil: "networkidle0",
       });
 
-      // Wait for projects to load
-      await page.waitForTimeout(5000);
+      // Wait for projects using the actual structure from HTML
+      await page.waitForSelector('a[href*="/projects/"]', {
+        timeout: 10000,
+      });
 
       const projects = await page.evaluate(() => {
-        const projectCards = document.querySelectorAll(
-          '[data-testid*="project"], .project-card, [class*="project"]'
-        );
+        const projectLinks = document.querySelectorAll('a[href*="/projects/"]');
         const results: any[] = [];
 
-        projectCards.forEach((card, index) => {
+        projectLinks.forEach((link, index) => {
           if (index >= 30) return;
 
-          const titleEl = card.querySelector(
-            'h2, h3, h4, [class*="title"], [class*="name"]'
-          );
-          const descEl = card.querySelector(
-            'p, [class*="desc"], [class*="summary"]'
-          );
-          const hackathonEl = card.querySelector(
-            '[class*="hackathon"], [class*="event"]'
-          );
-          const tagsEls = card.querySelectorAll(
-            '[class*="tag"], [class*="skill"], [class*="tech"]'
-          );
-          const linkEl = card.querySelector("a");
+          // Find title using the actual class from HTML
+          const titleEl =
+            link.querySelector("h6.sc-dkzDqf.fOhnMx") ||
+            link.querySelector("h6") ||
+            link.querySelector('[class*="title"]');
+
+          // Find description using the actual class
+          const descEl =
+            link.querySelector("p.sc-dkzDqf.hjVTGd") ||
+            link.querySelector('p:not([class*="team"])');
 
           const title = titleEl?.textContent?.trim();
-          if (title && title.length > 3) {
+          const url = link.getAttribute("href");
+
+          if (title && title.length > 2) {
             results.push({
               name: title,
               description: descEl?.textContent?.trim() || "",
-              hackathon: hackathonEl?.textContent?.trim() || "",
-              url: linkEl?.getAttribute("href") || "",
-              tags: Array.from(tagsEls)
-                .map((el) => el.textContent?.trim())
-                .filter(Boolean),
+              url: url?.startsWith("http") ? url : `https://devfolio.co${url}`,
+              tags: [], // Tags not visible in the main listing
               platform: "Devfolio",
             });
           }
@@ -263,7 +282,6 @@ export class ComplianceScrapingService {
     console.log("🐙 Scraping GitHub repositories...");
 
     try {
-      // Search GitHub for similar repositories
       const searchTerms = project.name.split(" ").slice(0, 3).join(" ");
       const response = await axios.get(
         `https://api.github.com/search/repositories?q=${encodeURIComponent(
