@@ -11,7 +11,7 @@ import {
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
-import { LeadScrapingService } from "../services/lead-scraper";
+import { LeadScrapingService } from "../services/leads";
 
 interface Lead {
   leadId: string;
