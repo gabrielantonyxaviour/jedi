@@ -40,13 +40,13 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
       >
         {side === "light" ? (
           <img
-            src="/light/logs.png"
+            src="/agents/light/logs.png"
             alt="Light Side"
             className="w-full h-full rounded-full object-cover"
           />
         ) : (
           <img
-            src="/dark/logs.png"
+            src="/agents/dark/logs.png"
             alt="Dark Side"
             className="w-full h-full rounded-full object-cover"
           />

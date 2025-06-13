@@ -22,11 +22,12 @@ import {
   Heart,
   MessageCircle,
 } from "lucide-react";
+import Image from "next/image";
+import { useAppStore } from "@/store/app-store";
 
 interface AgentConfig {
   id: string;
   name: string;
-  icon: React.ComponentType<any>;
   component: React.ComponentType<any>;
 }
 
@@ -38,22 +39,21 @@ interface ContainerPosition {
 }
 
 const agents: AgentConfig[] = [
-  { id: "github", name: "GitHub", icon: Github, component: GitHubAgent },
-  { id: "socials", name: "Socials", icon: TrendingUp, component: SocialsAgent },
-  { id: "leads", name: "Leads", icon: Target, component: LeadsAgent },
-  { id: "ip", name: "IP", icon: Shield, component: IPAgent },
+  { id: "github", name: "GitHub", component: GitHubAgent },
+  { id: "socials", name: "Socials", component: SocialsAgent },
+  { id: "leads", name: "Leads", component: LeadsAgent },
+  { id: "ip", name: "IP", component: IPAgent },
   {
     id: "compliance",
     name: "Compliance",
-    icon: FileText,
     component: ComplianceAgent,
   },
-  { id: "karma", name: "Karma", icon: Heart, component: KarmaAgent },
+  { id: "karma", name: "Karma", component: KarmaAgent },
 ];
 
 export default function ProjectPage() {
   const searchParams = useSearchParams();
-  const userSide = (searchParams?.get("side") as "light" | "dark") || null;
+  const { userSide } = useAppStore();
   const [activeContainers, setActiveContainers] = useState<string[]>([]);
   const [containerPositions, setContainerPositions] = useState<
     Record<string, ContainerPosition>
@@ -143,8 +143,6 @@ export default function ProjectPage() {
       <NeonIsometricMaze />
       <div className="absolute w-screen inset-0 min-h-screen">
         <DndProvider backend={HTML5Backend}>
-          {/* Agent Orbs */}
-
           {/* Workspace */}
           <div id="workspace" className="relative w-full h-screen pt-20">
             {activeContainers.map((agentId) => {
@@ -177,9 +175,9 @@ export default function ProjectPage() {
             />
           )}
 
+          {/* Agent Orbs */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center space-x-4 z-20">
-            {agents.map((agent, index) => {
-              const Icon = agent.icon;
+            {agents.map((agent) => {
               const isActive = activeContainers.includes(agent.id);
               const isDisabled = isAgentDisabled(agent.id);
 
@@ -188,7 +186,7 @@ export default function ProjectPage() {
                   key={agent.id}
                   onClick={() => handleAgentClick(agent.id)}
                   disabled={isDisabled}
-                  className={`relative p-4 rounded-full transition-all duration-300 ${
+                  className={`relative rounded-full transition-all duration-300 ${
                     isActive
                       ? userSide === "light"
                         ? "bg-stone-800/90 border-2 border-blue-500 shadow-lg shadow-blue-500/25"
@@ -198,16 +196,22 @@ export default function ProjectPage() {
                       : "bg-stone-800/80 border border-stone-600 hover:border-stone-500"
                   }`}
                 >
-                  <Icon
-                    className={`w-6 h-6 ${
-                      isActive
-                        ? userSide === "light"
-                          ? "text-blue-400"
-                          : "text-red-400"
-                        : isDisabled
-                        ? "text-stone-600"
-                        : "text-stone-400"
-                    }`}
+                  <Image
+                    src={`/agents/${userSide}/${agent.id}.png`}
+                    alt={agent.name}
+                    width={70}
+                    height={70}
+                    className={` rounded-full
+                      ${isDisabled ? "opacity-40 grayscale" : ""}
+                      ${
+                        isActive
+                          ? userSide === "light"
+                            ? "ring-2 ring-blue-400 shadow-[0_0_12px_2px_rgba(59,130,246,0.6)]"
+                            : "ring-2 ring-red-400 shadow-[0_0_12px_2px_rgba(248,113,113,0.6)]"
+                          : ""
+                      }
+                      transition-all
+                    `}
                   />
 
                   {/* Tooltip */}
