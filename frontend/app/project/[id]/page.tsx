@@ -177,7 +177,8 @@ export default function ProjectPage() {
 
           {/* Agent Orbs */}
           <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center space-x-4 z-20">
-            {agents.map((agent) => {
+            {/* First 3 agents */}
+            {agents.slice(0, 3).map((agent) => {
               const isActive = activeContainers.includes(agent.id);
               const isDisabled = isAgentDisabled(agent.id);
 
@@ -186,22 +187,23 @@ export default function ProjectPage() {
                   key={agent.id}
                   onClick={() => handleAgentClick(agent.id)}
                   disabled={isDisabled}
-                  className={`relative rounded-full transition-all duration-300 ${
-                    isActive
-                      ? userSide === "light"
-                        ? "bg-stone-800/90 border-2 border-blue-500 shadow-lg shadow-blue-500/25"
-                        : "bg-stone-800/90 border-2 border-red-500 shadow-lg shadow-red-500/25"
-                      : isDisabled
-                      ? "bg-stone-800/50 border border-stone-700 opacity-50 cursor-not-allowed"
-                      : "bg-stone-800/80 border border-stone-600 hover:border-stone-500"
-                  }`}
+                  className={`relative rounded-full transition-all duration-300 group
+                    ${
+                      isActive
+                        ? userSide === "light"
+                          ? "bg-stone-800/90 border-2 border-blue-500 shadow-lg shadow-blue-500/25"
+                          : "bg-stone-800/90 border-2 border-red-500 shadow-lg shadow-red-500/25"
+                        : isDisabled
+                        ? "bg-stone-800/50 border border-stone-700 opacity-50 cursor-not-allowed"
+                        : "bg-stone-800/80 border border-stone-600 hover:border-stone-500"
+                    }`}
                 >
                   <Image
                     src={`/agents/${userSide}/${agent.id}.png`}
                     alt={agent.name}
                     width={70}
                     height={70}
-                    className={` rounded-full
+                    className={`rounded-full
                       ${isDisabled ? "opacity-40 grayscale" : ""}
                       ${
                         isActive
@@ -213,27 +215,93 @@ export default function ProjectPage() {
                       transition-all
                     `}
                   />
-
-                  {/* Tooltip */}
-                  <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                  <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                     {agent.name}
                   </div>
                 </button>
               );
             })}
 
-            {/* Chat Orb */}
+            {/* Orchestrator (Chat) agent orb, bigger and with more aura */}
             <button
               onClick={() => setIsChatOpen(true)}
-              className={`relative p-4 rounded-full transition-all duration-300 bg-stone-800/80 border border-stone-600 hover:border-stone-500 ml-8`}
+              className={`relative rounded-full transition-all duration-300 group
+                ${
+                  userSide === "light"
+                    ? "bg-blue-900/90 border-4 border-blue-400 shadow-[0_0_40px_10px_rgba(59,130,246,0.7)]"
+                    : "bg-red-900/90 border-4 border-red-400 shadow-[0_0_40px_10px_rgba(248,113,113,0.7)]"
+                }
+                mx-6 flex items-center justify-center
+              `}
+              style={{
+                width: 100,
+                height: 100,
+                minWidth: 100,
+                minHeight: 100,
+              }}
             >
-              <MessageCircle className="w-6 h-6 text-stone-400" />
-
-              {/* Tooltip */}
-              <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                Chat
+              <Image
+                src={`/agents/${userSide}/orchestrator.png`}
+                alt="Orchestrator"
+                width={90}
+                height={90}
+                className={`rounded-full
+                  ${
+                    userSide === "light"
+                      ? "ring-2 ring-blue-400 shadow-[0_0_12px_2px_rgba(59,130,246,0.6)]"
+                      : "ring-2 ring-red-400 shadow-[0_0_12px_2px_rgba(248,113,113,0.6)]"
+                  }
+                  transition-all
+                `}
+              />
+              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                Orchestrator
               </div>
             </button>
+            {/* Last 3 agents */}
+            {agents.slice(3, 6).map((agent) => {
+              const isActive = activeContainers.includes(agent.id);
+              const isDisabled = isAgentDisabled(agent.id);
+
+              return (
+                <button
+                  key={agent.id}
+                  onClick={() => handleAgentClick(agent.id)}
+                  disabled={isDisabled}
+                  className={`relative rounded-full transition-all duration-300 group
+                    ${
+                      isActive
+                        ? userSide === "light"
+                          ? "bg-stone-800/90 border-2 border-blue-500 shadow-lg shadow-blue-500/25"
+                          : "bg-stone-800/90 border-2 border-red-500 shadow-lg shadow-red-500/25"
+                        : isDisabled
+                        ? "bg-stone-800/50 border border-stone-700 opacity-50 cursor-not-allowed"
+                        : "bg-stone-800/80 border border-stone-600 hover:border-stone-500"
+                    }`}
+                >
+                  <Image
+                    src={`/agents/${userSide}/${agent.id}.png`}
+                    alt={agent.name}
+                    width={70}
+                    height={70}
+                    className={`rounded-full
+                      ${isDisabled ? "opacity-40 grayscale" : ""}
+                      ${
+                        isActive
+                          ? userSide === "light"
+                            ? "ring-2 ring-blue-400 shadow-[0_0_12px_2px_rgba(59,130,246,0.6)]"
+                            : "ring-2 ring-red-400 shadow-[0_0_12px_2px_rgba(248,113,113,0.6)]"
+                          : ""
+                      }
+                      transition-all
+                    `}
+                  />
+                  <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-stone-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                    {agent.name}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </DndProvider>
       </div>
