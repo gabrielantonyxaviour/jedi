@@ -17,7 +17,7 @@ class IPServer {
   constructor() {
     this.agent = new IPAgent();
     this.sqsClient = new SQSClient({ region: process.env.AWS_REGION });
-    this.queueUrl = process.env.IP_QUEUE_URL!;
+    this.queueUrl = process.env.BLOCKCHAIN_IP_QUEUE_URL!;
   }
 
   async start() {

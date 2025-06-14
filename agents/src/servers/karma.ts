@@ -17,7 +17,7 @@ class KarmaServer {
   constructor() {
     this.agent = new KarmaAgent();
     this.sqsClient = new SQSClient({ region: process.env.AWS_REGION });
-    this.queueUrl = process.env.KARMA_QUEUE_URL!;
+    this.queueUrl = process.env.KARMA_INTEGRATION_QUEUE_URL!;
   }
 
   async start() {

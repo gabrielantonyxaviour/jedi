@@ -46,7 +46,7 @@ export class KarmaSDKService {
   constructor() {
     this.gap = new GAP({
       globalSchemas: false,
-      network: "celo",
+      network: process.env.KARMA_NETWORK as any,
       apiClient: new GapIndexerClient("https://gapapi.karmahq.xyz"),
     });
 
