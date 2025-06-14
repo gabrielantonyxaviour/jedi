@@ -1,4 +1,3 @@
-// src/orchestrator/core-orchestrator.ts
 import express from "express";
 import {
   SQSClient,
@@ -219,29 +218,43 @@ export class CoreOrchestratorAgent {
           const { name, description, technicalDescription, imageUrl } =
             req.body;
 
+          console.log(
+            `[Setup Info] Request received for project ${projectId}:`,
+            {
+              name,
+              description,
+              technicalDescription,
+              imageUrl,
+            }
+          );
+
           const workflowId = uuidv4();
           const project = await this.getProject(projectId);
 
           if (!project) {
+            console.log(`[Setup Info] Project ${projectId} not found`);
             return res.status(404).json({ error: "Project not found" });
           }
 
-          console.log(`📝 Setting up basic info for project ${projectId}`);
+          console.log(`[Setup Info] Found project:`, project);
 
           // Update project info
-          await this.updateProject(projectId, {
+          const updates = {
             name,
             description,
             technicalDescription,
             imageUrl,
             updatedAt: new Date().toISOString(),
-          });
+          };
+          console.log(`[Setup Info] Updating project with:`, updates);
+          await this.updateProject(projectId, updates);
 
           // Update project state
+          console.log(`[Setup Info] Updating project state to SETUP`);
           await this.projectService.updateProjectInitState(projectId, "SETUP");
 
-          // Trigger lead discovery with updated project info
-          await this.sendTaskToAgent("lead-generation", {
+          // Trigger lead discovery
+          const leadTask = {
             taskId: uuidv4(),
             workflowId,
             type: "PROJECT_CREATED_LEADS_SEARCH",
@@ -255,21 +268,28 @@ export class CoreOrchestratorAgent {
               maxResults: 50,
             },
             priority: "MEDIUM",
-          });
+          };
+          console.log(`[Setup Info] Sending lead generation task:`, leadTask);
+          await this.sendTaskToAgent("lead-generation", leadTask);
 
-          await this.storeWorkflow({
+          const workflow: WorkflowRequest = {
             type: "PROJECT_INFO_SETUP",
             workflowId,
-            userId: project.userId,
+            userId: project.ownerId,
             priority: "MEDIUM",
             payload: { projectId, step: "lead_discovery" },
-          });
+          };
+          console.log(`[Setup Info] Storing workflow:`, workflow);
+          await this.storeWorkflow(workflow);
 
           const orchestratorResponse =
             project.side === "light"
               ? "Wise choices you have made. Discover potential allies, Chewbacca will. Patience you must have."
               : "Your project grows stronger. Count Dooku will hunt for business opportunities. The Empire demands results.";
 
+          console.log(
+            `[Setup Info] Sending response with status DISCOVERING_LEADS`
+          );
           res.json({
             success: true,
             projectId,
@@ -280,7 +300,7 @@ export class CoreOrchestratorAgent {
             nextStep: "setup_agents",
           });
         } catch (error: any) {
-          console.error("🚨 Project info setup failed:", error);
+          console.error("[Setup Info] Failed:", error);
           res.status(500).json({
             error: "Failed to setup project info",
             details: error.message,
@@ -1495,9 +1515,15 @@ export class CoreOrchestratorAgent {
 
     const updateExpression: string[] = [];
     const expressionAttributeValues: any = {};
+    const expressionAttributeNames: any = {};
 
     Object.keys(updates).forEach((key) => {
-      updateExpression.push(`${key} = :${key}`);
+      if (key === "name") {
+        updateExpression.push(`#${key} = :${key}`);
+        expressionAttributeNames[`#${key}`] = key;
+      } else {
+        updateExpression.push(`${key} = :${key}`);
+      }
       expressionAttributeValues[`:${key}`] = updates[key];
     });
 
@@ -1510,6 +1536,11 @@ export class CoreOrchestratorAgent {
         null,
         2
       ),
+      expressionAttributeNames: JSON.stringify(
+        expressionAttributeNames,
+        null,
+        2
+      ),
     });
 
     await this.dynamoClient.send(
@@ -1517,6 +1548,7 @@ export class CoreOrchestratorAgent {
         TableName: tableName,
         Key: marshall({ projectId }),
         UpdateExpression: `SET ${updateExpression.join(", ")}`,
+        ExpressionAttributeNames: expressionAttributeNames,
         ExpressionAttributeValues: marshall(expressionAttributeValues),
       })
     );
