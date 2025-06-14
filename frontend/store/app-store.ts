@@ -17,11 +17,13 @@ interface AppState {
   balance: string;
   userSide: UserSide;
   logs: LogEntry[];
+  jobResponse: any;
   addLog: (message: string, agentId: string, type?: LogEntry["type"]) => void;
   setUserSide: (side: UserSide) => void;
   setWalletStatus: (status: WalletStatus) => void;
   setAddress: (address: string) => void;
   setBalance: (balance: string) => void;
+  setJobResponse: (response: any) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -30,6 +32,7 @@ export const useAppStore = create<AppState>((set) => ({
   address: "",
   balance: "0",
   logs: [],
+  jobResponse: null,
   setWalletStatus: (status: WalletStatus) => set({ walletStatus: status }),
   addLog: (
     message: string,
@@ -52,4 +55,5 @@ export const useAppStore = create<AppState>((set) => ({
   setAddress: (address: string) => set({ address }),
   setBalance: (balance: string) => set({ balance }),
   setUserSide: (side: UserSide) => set({ userSide: side }),
+  setJobResponse: (response: any) => set({ jobResponse: response }),
 }));

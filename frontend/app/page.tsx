@@ -18,6 +18,7 @@ import { isPublicRepo } from "@/lib/github/check-public";
 import { useCardanoWallet } from "@/hooks/use-cardano-wallet";
 import { parseCardanoBalance } from "@/lib/cardano";
 import { useProjects } from "@/hooks/use-projects";
+import TransferDialog from "@/components/transfer-dialog";
 
 interface CreationStep {
   id: string;
@@ -37,8 +38,17 @@ export default function Home() {
   const [currentStepIndex, setCurrentStepIndex] = useState(-1);
   const [error, setError] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
-  const { walletStatus, userSide, addLog, setUserSide, balance, address } =
-    useAppStore();
+  const { transfer } = useCardanoWallet();
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const {
+    walletStatus,
+    userSide,
+    addLog,
+    setUserSide,
+    balance,
+    address,
+    setJobResponse,
+  } = useAppStore();
   const {
     projects,
     loading: projectsLoading,
@@ -140,42 +150,71 @@ export default function Home() {
 
     setError("");
 
-    setGithubUrl(prompt);
-    setIsSubmitting(true);
-    setIsCreating(true);
+    addLog(`Creating a Masumi Job: ${prompt}`, "orchestrator", "info");
 
-    const steps = initializeSteps();
-    setCreationSteps(steps);
-    setCurrentStepIndex(-1);
+    try {
+      const response = await fetch("/api/start_job", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          identifier_from_purchaser: address,
+          input_data: {
+            github_url: prompt,
+          },
+        }),
+      });
 
-    addLog(`Processing GitHub URL: ${prompt}`, "github", "info");
+      if (!response.ok) {
+        throw new Error("Failed to start job");
+      }
 
-    // Process steps one by one
-    for (let i = 0; i < steps.length; i++) {
-      setCurrentStepIndex(i);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      setCreationSteps((prev) =>
-        prev.map((step, index) =>
-          index === i ? { ...step, status: "processing" } : step
-        )
-      );
-
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      setCreationSteps((prev) =>
-        prev.map((step, index) =>
-          index === i ? { ...step, status: "completed" } : step
-        )
-      );
-
-      addLog(steps[i].title + " completed", "orchestrator", "success");
+      const data = await response.json();
+      setJobResponse(data);
+      addLog("Job started successfully", "orchestrator", "success");
+    } catch (error) {
+      console.error("Error starting job:", error);
+      addLog("Failed to start job", "orchestrator", "error");
     }
+    setShowTransferDialog(true);
 
-    // Show project setup dialog instead of navigating directly
-    setIsCreating(false);
-    setIsSubmitting(false);
-    setShowProjectSetup(true);
+    // setGithubUrl(prompt);
+    // setIsSubmitting(true);
+    // setIsCreating(true);
+
+    // const steps = initializeSteps();
+    // setCreationSteps(steps);
+    // setCurrentStepIndex(-1);
+
+    // addLog(`Processing GitHub URL: ${prompt}`, "github", "info");
+
+    // // Process steps one by one
+    // for (let i = 0; i < steps.length; i++) {
+    //   setCurrentStepIndex(i);
+    //   await new Promise((resolve) => setTimeout(resolve, 500));
+
+    //   setCreationSteps((prev) =>
+    //     prev.map((step, index) =>
+    //       index === i ? { ...step, status: "processing" } : step
+    //     )
+    //   );
+
+    //   await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    //   setCreationSteps((prev) =>
+    //     prev.map((step, index) =>
+    //       index === i ? { ...step, status: "completed" } : step
+    //     )
+    //   );
+
+    //   addLog(steps[i].title + " completed", "orchestrator", "success");
+    // }
+
+    // // Show project setup dialog instead of navigating directly
+    // setIsCreating(false);
+    // setIsSubmitting(false);
+    // setShowProjectSetup(true);
   };
 
   // Handle keyboard shortcuts
@@ -394,6 +433,15 @@ export default function Home() {
         userSide={userSide!}
         githubUrl={githubUrl}
       />
+
+      {showTransferDialog && (
+        <TransferDialog
+          open={showTransferDialog}
+          onClose={() => {
+            setShowTransferDialog(false);
+          }}
+        />
+      )}
     </>
   );
 }

@@ -30,7 +30,7 @@
     "terms": "https://jedi-on-chain.vercel.app/terms",
     "other": "https://jedi-on-chain.vercel.app/legal"
   },
-  "sellingWalletVkey": "67de5ff940cdb2f990500302e402ee2fb1a3424b3cdacfa90ad2de52",
+  "sellingWalletVkey": "a090aecb4a9cca832a1eff0e6300814c54541f5f512debceeb0092c7",
   "Capability": {
     "name": "Multi Agent System",
     "version": "1.0.0"
