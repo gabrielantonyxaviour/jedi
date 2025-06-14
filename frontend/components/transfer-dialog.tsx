@@ -27,7 +27,16 @@ export default function TransferDialog({ open, onClose }: TransferDialogProps) {
     await new Promise((resolve) => setTimeout(resolve, 3000));
     addLog("Transaction verified", "orchestrator", "success");
     addLog("Relaying Purchase to Masumi", "orchestrator", "info");
-
+    console.log({
+      identifierFromPurchaser: address.slice(0, 15),
+      sellerVkey: process.env.NEXT_PUBLIC_MASUMI_SELLER_VKEY,
+      blockchainIdentifier: jobResponse.blockchainIdentifier,
+      submitResultTime: jobResponse.submitResultTime,
+      unlockTime: jobResponse.unlockTime,
+      externalDisputeUnlockTime: jobResponse.externalDisputeUnlockTime,
+      agentIdentifier: process.env.NEXT_PUBLIC_MASUMI_AGENT_IDENTIFIER,
+      inputHash: jobResponse.input_hash,
+    });
     try {
       const response = await fetch("/api/purchase", {
         method: "POST",
@@ -47,6 +56,7 @@ export default function TransferDialog({ open, onClose }: TransferDialogProps) {
       });
 
       if (!response.ok) {
+        console.log(response);
         throw new Error("Failed to relay purchase");
       }
 

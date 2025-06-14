@@ -47,7 +47,7 @@ export default function ProjectSetupDialog({
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { addLog } = useAppStore();
+  const { addLog, projectId } = useAppStore();
 
   function extractRepoName(url: string): string {
     try {
@@ -85,8 +85,58 @@ export default function ProjectSetupDialog({
       "info"
     );
 
-    // Simulate upload delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    let imageUri = "test";
+    if (formData.image) {
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", formData.image);
+
+        const uploadResponse = await fetch("/api/ipfs/upload-file", {
+          method: "POST",
+          body: uploadFormData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to upload image");
+        }
+
+        const { ipfsUri } = await uploadResponse.json();
+        imageUri = ipfsUri;
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        addLog("Failed to upload project image", "orchestrator", "error");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    try {
+      const response = await fetch("/api/agent/setup-project", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectId,
+          name: formData.name,
+          description: formData.summary,
+          technicalDescription: formData.technicalSummary,
+          imageUrl: imageUri,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to setup project");
+      }
+
+      const data = await response.json();
+      addLog("Project setup successful", "orchestrator", "success");
+    } catch (error) {
+      console.error("Error setting up project:", error);
+      addLog("Failed to setup project", "orchestrator", "error");
+      setIsSubmitting(false);
+      return;
+    }
 
     onSubmit(formData);
     setIsSubmitting(false);

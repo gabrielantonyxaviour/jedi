@@ -46,6 +46,7 @@ export default function Home() {
     addLog,
     setUserSide,
     balance,
+    setProjectId,
     address,
     setJobResponse,
   } = useAppStore();
@@ -126,10 +127,10 @@ export default function Home() {
     e.preventDefault();
     if (!prompt.trim() || walletStatus !== "connected") return;
 
-    if (!(await isPublicRepo(prompt))) {
-      setError("Please make sure the repository is public");
-      return;
-    }
+    // if (!(await isPublicRepo(prompt))) {
+    //   setError("Please make sure the repository is public");
+    //   return;
+    // }
 
     if (parseFloat(parseCardanoBalance(balance)) < 10) {
       setError("Please top up your wallet with at least 10 ADA");
@@ -429,10 +430,11 @@ export default function Home() {
 
                 const data = await response.json();
                 addLog(
-                  `Project created successfully: ${data.id}`,
+                  `Project created successfully: ${data.projectId}`,
                   "orchestrator",
                   "success"
                 );
+                setProjectId(data.projectId);
               } catch (error) {
                 console.error("Error creating project:", error);
                 addLog("Failed to create project", "orchestrator", "error");
