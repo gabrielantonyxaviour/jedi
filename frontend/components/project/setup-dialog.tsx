@@ -94,15 +94,19 @@ export default function ProjectSetupDialog({
 
   return (
     <Dialog open={open}>
-      <DialogContent className="bg-zinc-900 border-zinc-700 max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-stone-900 border-stone-700 max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-white text-xl">
             Setup Your Project
           </DialogTitle>
         </DialogHeader>
-        <div className="bg-zinc-800/50 rounded-lg p-4 mb-6 border-l-4 border-blue-500">
+        <div
+          className={`bg-stone-800/50 rounded-lg p-4 mb-6 border-l-4 ${
+            userSide === "light" ? "border-blue-500" : "border-red-500"
+          }`}
+        >
           <div className="flex items-center gap-3 mb-3">
-            <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-zinc-600">
+            <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-stone-600">
               <Image
                 src={`/agents/${userSide}/orchestrator.png`}
                 alt="Orchestrator Agent"
@@ -110,15 +114,21 @@ export default function ProjectSetupDialog({
                 className="object-cover"
               />
             </div>
-            <p className="text-white text-md font-bold">Yoda</p>
+            <p className="text-white text-md font-bold">
+              {userSide === "light" ? "Yoda" : "Emperor Palpatine"}
+            </p>
             <Badge
               variant="secondary"
-              className="bg-blue-600/20 text-blue-400 border-blue-500/30"
+              className={`${
+                userSide === "light"
+                  ? "bg-blue-600/20 text-blue-400 border-blue-500/30"
+                  : "bg-red-600/20 text-red-400 border-red-500/30"
+              }`}
             >
               Orchestrator Agent
             </Badge>
           </div>
-          <p className="text-zinc-300 italic text-sm leading-relaxed">
+          <p className="text-stone-300 italic text-sm leading-relaxed">
             {userSide === "light"
               ? '"Begin your project, you must. Strong with the Force, your vision is. Guide you to success, I will."'
               : '"Good... let your creative ambitions flow through you. Your project shall become more powerful than you can possibly imagine."'}
@@ -129,7 +139,7 @@ export default function ProjectSetupDialog({
           {/* Image Upload */}
           <div className="space-y-2">
             <Label className="text-white">Project Image</Label>
-            <div className="border-2 border-dashed border-zinc-600 rounded-lg p-6 text-center">
+            <div className="border-2 border-dashed border-stone-600 rounded-lg p-6 text-center">
               {imagePreview ? (
                 <div className="flex justify-center">
                   <div className="relative w-32 h-32">
@@ -137,7 +147,7 @@ export default function ProjectSetupDialog({
                       src={imagePreview}
                       alt="Project preview"
                       fill
-                      className="rounded-full object-cover border-4 border-zinc-600"
+                      className="rounded-full object-cover border-4 border-stone-600"
                     />
                     <Button
                       type="button"
@@ -154,14 +164,20 @@ export default function ProjectSetupDialog({
                     htmlFor="image-upload"
                     className="cursor-pointer group"
                   >
-                    <div className="w-32 h-32 mb-3 border-2 border-dashed border-zinc-600 rounded-full flex items-center justify-center group-hover:border-zinc-500 transition-colors">
-                      <Upload className="w-8 h-8 text-zinc-400 group-hover:text-zinc-300" />
+                    <div className="w-32 h-32 mb-3 border-2 border-dashed border-stone-600 rounded-full flex items-center justify-center group-hover:border-stone-500 transition-colors">
+                      <Upload className="w-8 h-8 text-stone-400 group-hover:text-stone-300" />
                     </div>
                     <div className="text-center">
-                      <span className="text-blue-400 hover:text-blue-300 text-sm">
+                      <span
+                        className={`${
+                          userSide === "light"
+                            ? "text-blue-400 hover:text-blue-300"
+                            : "text-red-400 hover:text-red-300"
+                        } text-sm`}
+                      >
                         Upload project logo
                       </span>
-                      <p className="text-xs text-zinc-500 mt-1">
+                      <p className="text-xs text-stone-500 mt-1">
                         PNG, JPG up to 10MB
                       </p>
                     </div>
@@ -186,7 +202,7 @@ export default function ProjectSetupDialog({
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, name: e.target.value }))
               }
-              className="bg-zinc-800 border-zinc-600 text-white"
+              className="bg-stone-800 border-stone-600 text-white"
               required
             />
           </div>
@@ -199,7 +215,7 @@ export default function ProjectSetupDialog({
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, summary: e.target.value }))
               }
-              className="bg-zinc-800 border-zinc-600 text-white min-h-[100px]"
+              className="bg-stone-800 border-stone-600 text-white min-h-[100px]"
               placeholder="Describe what your project does..."
               required
             />
@@ -216,7 +232,7 @@ export default function ProjectSetupDialog({
                   technicalSummary: e.target.value,
                 }))
               }
-              className="bg-zinc-800 border-zinc-600 text-white min-h-[100px]"
+              className="bg-stone-800 border-stone-600 text-white min-h-[100px]"
               placeholder="Describe the technical aspects..."
               required
             />
