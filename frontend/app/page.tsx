@@ -57,18 +57,6 @@ export default function Home() {
 
   const initializeSteps = (): CreationStep[] => [
     {
-      id: "wallet",
-      title: "Checking wallet balance",
-      description: "Verifying sufficient funds for agent operations",
-      status: "pending",
-    },
-    {
-      id: "topup",
-      title: "Topping up agent wallet",
-      description: "Transferring funds to Masumi agent",
-      status: "pending",
-    },
-    {
       id: "clone",
       title: "Cloning repository",
       description: "Fetching your GitHub repository",
@@ -151,7 +139,6 @@ export default function Home() {
     setError("");
 
     addLog(`Creating a Masumi Job: ${prompt}`, "orchestrator", "info");
-
     try {
       const response = await fetch("/api/start_job", {
         method: "POST",
@@ -159,9 +146,9 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          identifier_from_purchaser: address,
+          identifier_from_purchaser: address.slice(0, 15),
           input_data: {
-            github_url: prompt,
+            text: prompt,
           },
         }),
       });
@@ -178,43 +165,6 @@ export default function Home() {
       addLog("Failed to start job", "orchestrator", "error");
     }
     setShowTransferDialog(true);
-
-    // setGithubUrl(prompt);
-    // setIsSubmitting(true);
-    // setIsCreating(true);
-
-    // const steps = initializeSteps();
-    // setCreationSteps(steps);
-    // setCurrentStepIndex(-1);
-
-    // addLog(`Processing GitHub URL: ${prompt}`, "github", "info");
-
-    // // Process steps one by one
-    // for (let i = 0; i < steps.length; i++) {
-    //   setCurrentStepIndex(i);
-    //   await new Promise((resolve) => setTimeout(resolve, 500));
-
-    //   setCreationSteps((prev) =>
-    //     prev.map((step, index) =>
-    //       index === i ? { ...step, status: "processing" } : step
-    //     )
-    //   );
-
-    //   await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    //   setCreationSteps((prev) =>
-    //     prev.map((step, index) =>
-    //       index === i ? { ...step, status: "completed" } : step
-    //     )
-    //   );
-
-    //   addLog(steps[i].title + " completed", "orchestrator", "success");
-    // }
-
-    // // Show project setup dialog instead of navigating directly
-    // setIsCreating(false);
-    // setIsSubmitting(false);
-    // setShowProjectSetup(true);
   };
 
   // Handle keyboard shortcuts
@@ -437,8 +387,70 @@ export default function Home() {
       {showTransferDialog && (
         <TransferDialog
           open={showTransferDialog}
-          onClose={() => {
+          onClose={async () => {
             setShowTransferDialog(false);
+
+            setGithubUrl(prompt);
+            setIsSubmitting(true);
+            setIsCreating(true);
+
+            const steps = initializeSteps();
+            setCreationSteps(steps);
+            setCurrentStepIndex(-1);
+
+            addLog(`Processing GitHub URL: ${prompt}`, "github", "info");
+
+            // Process steps one by one
+            for (let i = 0; i < steps.length; i++) {
+              setCurrentStepIndex(i);
+
+              setCreationSteps((prev) =>
+                prev.map((step, index) =>
+                  index === i ? { ...step, status: "processing" } : step
+                )
+              );
+
+              try {
+                const response = await fetch("/api/agent/create-project", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    repoUrl: prompt,
+                    walletAddress: address,
+                    side: userSide,
+                  }),
+                });
+
+                if (!response.ok) {
+                  throw new Error("Failed to create project");
+                }
+
+                const data = await response.json();
+                addLog(
+                  `Project created successfully: ${data.id}`,
+                  "orchestrator",
+                  "success"
+                );
+              } catch (error) {
+                console.error("Error creating project:", error);
+                addLog("Failed to create project", "orchestrator", "error");
+                throw error;
+              }
+              setCreationSteps((prev) =>
+                prev.map((step, index) =>
+                  index === i ? { ...step, status: "completed" } : step
+                )
+              );
+
+              addLog(steps[i].title + " completed", "orchestrator", "success");
+            }
+
+            // Show project setup dialog instead of navigating directly
+            setIsCreating(false);
+            setIsSubmitting(false);
+            setShowProjectSetup(true);
           }}
         />
       )}

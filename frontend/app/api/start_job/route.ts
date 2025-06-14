@@ -16,6 +16,8 @@ export async function POST(
       );
     }
 
+    console.log("body", body);
+
     const response = await fetch("http://0.0.0.0:8000/start_job", {
       method: "POST",
       headers: {

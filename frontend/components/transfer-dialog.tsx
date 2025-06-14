@@ -19,10 +19,12 @@ interface TransferDialogProps {
 export default function TransferDialog({ open, onClose }: TransferDialogProps) {
   const [txHash, setTxHash] = useState("");
   const { address, addLog, jobResponse } = useAppStore();
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    setLoading(true);
+    await new Promise((resolve) => setTimeout(resolve, 3000));
     addLog("Transaction verified", "orchestrator", "success");
     addLog("Relaying Purchase to Masumi", "orchestrator", "info");
 
@@ -33,12 +35,12 @@ export default function TransferDialog({ open, onClose }: TransferDialogProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          identifierFromPurchaser: address,
+          identifierFromPurchaser: address.slice(0, 15),
           sellerVkey: process.env.NEXT_PUBLIC_MASUMI_SELLER_VKEY,
-          blockchainIdentifier: jobResponse.blockchain_identifier,
-          submitResultTime: jobResponse.submit_result_time,
-          unlockTime: jobResponse.unlock_time,
-          externalDisputeUnlockTime: jobResponse.external_dispute_unlock_time,
+          blockchainIdentifier: jobResponse.blockchainIdentifier,
+          submitResultTime: jobResponse.submitResultTime,
+          unlockTime: jobResponse.unlockTime,
+          externalDisputeUnlockTime: jobResponse.externalDisputeUnlockTime,
           agentIdentifier: process.env.NEXT_PUBLIC_MASUMI_AGENT_IDENTIFIER,
           inputHash: jobResponse.input_hash,
         }),
@@ -54,7 +56,7 @@ export default function TransferDialog({ open, onClose }: TransferDialogProps) {
       console.error("Error relaying purchase:", error);
       addLog("Failed to relay purchase", "orchestrator", "error");
     }
-
+    setLoading(false);
     onClose();
   };
 
@@ -93,8 +95,9 @@ export default function TransferDialog({ open, onClose }: TransferDialogProps) {
             <Button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700"
+              disabled={loading}
             >
-              Verify Transaction
+              {loading ? "Verifying..." : "Verify Transaction"}
             </Button>
           </form>
         </div>
