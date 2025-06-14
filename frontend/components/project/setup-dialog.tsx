@@ -1,7 +1,7 @@
 // components/project-setup-dialog.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import { Upload, X } from "lucide-react";
 import Image from "next/image";
 import { Badge } from "../ui/badge";
 import { useAppStore } from "@/store/app-store";
+import { useProjectData } from "@/hooks/use-project-data";
 
 interface ProjectSetupDialogProps {
   open: boolean;
@@ -48,7 +49,23 @@ export default function ProjectSetupDialog({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addLog, projectId } = useAppStore();
+  const { data: projectData, loading, error } = useProjectData(projectId || "");
+  const [formInitialized, setFormInitialized] = useState(false);
 
+  useEffect(() => {
+    if (!projectData) return;
+    console.log("projectData");
+    console.log(projectData);
+    if (!formInitialized && projectData?.init_state === "GITHUB") {
+      setFormData({
+        name: projectData.name || "",
+        summary: projectData.summary || "",
+        technicalSummary: projectData.technicalSummary || "",
+        image: null,
+      });
+      setFormInitialized(true);
+    }
+  }, [formInitialized, projectData]);
   function extractRepoName(url: string): string {
     try {
       const parts = url.split("/");
@@ -292,14 +309,18 @@ export default function ProjectSetupDialog({
           <div className="flex justify-end pt-4">
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !formInitialized}
               className={`px-8 ${
                 userSide === "light"
                   ? "bg-blue-600 hover:bg-blue-700"
                   : "bg-red-600 hover:bg-red-700"
               } text-white`}
             >
-              {isSubmitting ? "Creating Project..." : "Create Project"}
+              {isSubmitting
+                ? "Creating Project..."
+                : !formInitialized
+                ? "Waiting for Github Agent"
+                : "Create Project"}
             </Button>
           </div>
         </form>

@@ -2267,20 +2267,21 @@ export class CoreOrchestratorAgent {
 
   private async notifyClient(workflowId: string, notification: any) {
     // Send webhook to registered client endpoints
-    for (const webhookUrl of this.clientWebhooks) {
-      try {
-        await fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            workflowId,
-            timestamp: new Date().toISOString(),
-            ...notification,
-          }),
-        });
-      } catch (error) {
-        console.error(`Failed to notify client webhook ${webhookUrl}:`, error);
-      }
+    try {
+      await fetch("http://localhost:3001/agents/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowId,
+          timestamp: new Date().toISOString(),
+          ...notification,
+        }),
+      });
+    } catch (error) {
+      console.error(
+        `Failed to notify client webhook ${"http://localhost:3001/agents/callback"}:`,
+        error
+      );
     }
   }
 
