@@ -955,6 +955,8 @@ export class CoreOrchestratorAgent {
     postsPerDay: string,
     workflowId: string
   ) {
+    console.log(`🔧 Setting up socials for project ${project.projectId}`);
+
     await this.sendTaskToAgent("social-media", {
       taskId: uuidv4(),
       workflowId,
