@@ -41,7 +41,7 @@ export class TaskService {
 
     await this.dynamoClient.send(
       new PutItemCommand({
-        TableName: "tasks",
+        TableName: process.env.TASK_STATUS_TABLE,
         Item: marshall(taskInfo),
       })
     );
@@ -52,7 +52,7 @@ export class TaskService {
   async getTask(taskId: string): Promise<TaskInfo | null> {
     const result = await this.dynamoClient.send(
       new GetItemCommand({
-        TableName: "tasks",
+        TableName: process.env.TASK_STATUS_TABLE,
         Key: marshall({ taskId }),
       })
     );
@@ -85,7 +85,7 @@ export class TaskService {
 
     await this.dynamoClient.send(
       new UpdateItemCommand({
-        TableName: "tasks",
+        TableName: process.env.TASK_STATUS_TABLE,
         Key: marshall({ taskId }),
         UpdateExpression:
           "SET #status = :status, #updatedAt = :updatedAt, #result = :result, #error = :error, #characterResponse = :characterResponse, #completedAt = :completedAt",

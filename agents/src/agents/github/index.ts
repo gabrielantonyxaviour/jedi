@@ -93,7 +93,8 @@ export class GitHubIntelligenceAgent {
             task.workflowId
           );
           console.log(
-            `[GitHubIntelligenceAgent] Repository analysis completed`
+            `[GitHubIntelligenceAgent] Repository analysis completed with result:`,
+            JSON.stringify(result, null, 2)
           );
           break;
 
@@ -108,7 +109,25 @@ export class GitHubIntelligenceAgent {
             task.workflowId
           );
           console.log(
-            `[GitHubIntelligenceAgent] Repository analysis completed, creating project`
+            `[GitHubIntelligenceAgent] Repository analysis completed with result:`,
+            JSON.stringify(analysisResult, null, 2)
+          );
+          console.log(
+            `[GitHubIntelligenceAgent] Creating project with data:`,
+            JSON.stringify(
+              {
+                projectId: task.payload.projectId,
+                name: analysisResult.name || "",
+                repo: analysisResult.repo,
+                developers: analysisResult.developers,
+                side: task.payload.side,
+                summary: analysisResult.summary,
+                technicalSummary: analysisResult.technicalSummary,
+                ownerId: task.payload.owner,
+              },
+              null,
+              2
+            )
           );
           result = await this.projectService.createProject({
             projectId: task.payload.projectId,
@@ -120,7 +139,10 @@ export class GitHubIntelligenceAgent {
             technicalSummary: analysisResult.technicalSummary,
             ownerId: task.payload.owner,
           });
-          console.log(`[GitHubIntelligenceAgent] Project created successfully`);
+          console.log(
+            `[GitHubIntelligenceAgent] Project created successfully with result:`,
+            JSON.stringify(result, null, 2)
+          );
           break;
 
         case "GET_LATEST_COMMITS":
@@ -290,17 +312,24 @@ export class GitHubIntelligenceAgent {
       return fallback;
     }
   }
-
   private async generateErrorResponse(
-    characterInfo: CharacterInfo
+    characterInfo?: CharacterInfo
   ): Promise<string> {
+    // Add null check
+    if (!characterInfo) {
+      console.log(
+        `[GitHubIntelligenceAgent] No character info available for error response`
+      );
+      return "Task failed. Please try again.";
+    }
+
     console.log(
       `[GitHubIntelligenceAgent] Generating error response with OpenAI`
     );
 
     const prompt = `You are ${characterInfo.name}, a character with the following personality: ${characterInfo.personality}
-   
-   A task has failed to complete. Generate a response in character that acknowledges the failure. Keep it brief (1-2 sentences) and stay true to the character's personality and speaking style.`;
+     
+     A task has failed to complete. Generate a response in character that acknowledges the failure. Keep it brief (1-2 sentences) and stay true to the character's personality and speaking style.`;
 
     try {
       console.log(
@@ -338,12 +367,15 @@ export class GitHubIntelligenceAgent {
       return fallback;
     }
   }
-
   private getFallbackCharacterResponse(
-    characterInfo: CharacterInfo,
-    success: boolean
+    characterInfo?: CharacterInfo,
+    success?: boolean
   ): string {
-    if (!characterInfo?.name) return "";
+    if (!characterInfo?.name) {
+      return success
+        ? "Task completed successfully."
+        : "Task failed. Please try again.";
+    }
 
     if (success) {
       return `Task completed successfully by ${characterInfo.name}.`;

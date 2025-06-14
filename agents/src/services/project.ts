@@ -2,13 +2,16 @@ import {
   DynamoDBClient,
   PutItemCommand,
   GetItemCommand,
+  UpdateItemCommand,
   QueryCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+
 interface Developer {
   name: string;
   github_username: string;
 }
+
 export interface ProjectInfo {
   projectId: string;
   name: string;
@@ -18,6 +21,25 @@ export interface ProjectInfo {
   summary?: string;
   technicalSummary?: string;
   ownerId: string;
+  init_state: "GITHUB" | "SETUP" | "SOCIALS" | "KARMA" | "IP";
+
+  // Karma integration fields
+  karmaUID?: string;
+  karmaStatus?: "draft" | "active" | "completed";
+  karmaMembers?: string[];
+  karmaGrants?: Array<{
+    uid: string;
+    title: string;
+    status: string;
+    milestones: Array<{
+      uid: string;
+      title: string;
+      status: string;
+      dueDate: string;
+    }>;
+  }>;
+  karmaSyncedAt?: string;
+
   metadata?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
@@ -27,11 +49,12 @@ export class ProjectService {
   constructor(private dynamoClient: DynamoDBClient) {}
 
   async createProject(
-    project: Omit<ProjectInfo, "createdAt" | "updatedAt">
+    project: Omit<ProjectInfo, "createdAt" | "updatedAt" | "init_state">
   ): Promise<ProjectInfo> {
     const now = new Date().toISOString();
     const projectInfo: ProjectInfo = {
       ...project,
+      init_state: "GITHUB", // Start with GITHUB state
       createdAt: now,
       updatedAt: now,
     };
@@ -39,11 +62,78 @@ export class ProjectService {
     await this.dynamoClient.send(
       new PutItemCommand({
         TableName: "projects",
-        Item: marshall(projectInfo),
+        Item: marshall(projectInfo, { removeUndefinedValues: true }),
       })
     );
 
     return projectInfo;
+  }
+
+  async updateProjectInitState(
+    projectId: string,
+    newState: ProjectInfo["init_state"]
+  ): Promise<void> {
+    await this.dynamoClient.send(
+      new UpdateItemCommand({
+        TableName: "projects",
+        Key: marshall({ projectId }),
+        UpdateExpression: "SET init_state = :state, updatedAt = :now",
+        ExpressionAttributeValues: marshall(
+          {
+            ":state": newState,
+            ":now": new Date().toISOString(),
+          },
+          { removeUndefinedValues: true }
+        ),
+      })
+    );
+  }
+
+  async updateProjectWithKarmaData(
+    projectId: string,
+    karmaData: {
+      karmaUID: string;
+      title?: string;
+      description?: string;
+      status?: "draft" | "active" | "completed";
+      members?: string[];
+      grants?: ProjectInfo["karmaGrants"];
+    }
+  ): Promise<ProjectInfo> {
+    const updates: any = {
+      karmaUID: karmaData.karmaUID,
+      karmaStatus: karmaData.status || "active",
+      karmaMembers: karmaData.members || [],
+      karmaGrants: karmaData.grants || [],
+      karmaSyncedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      init_state: "KARMA", // Update state to KARMA
+    };
+
+    // Update name/description if provided
+    if (karmaData.title) updates.name = karmaData.title;
+    if (karmaData.description) updates.description = karmaData.description;
+
+    const updateExpressions: string[] = [];
+    const expressionAttributeValues: any = {};
+
+    Object.keys(updates).forEach((key) => {
+      updateExpressions.push(`${key} = :${key}`);
+      expressionAttributeValues[`:${key}`] = updates[key];
+    });
+
+    await this.dynamoClient.send(
+      new UpdateItemCommand({
+        TableName: "projects",
+        Key: marshall({ projectId }),
+        UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+        ExpressionAttributeValues: marshall(expressionAttributeValues, {
+          removeUndefinedValues: true,
+        }),
+      })
+    );
+
+    return (await this.getProject(projectId)) as ProjectInfo;
   }
 
   async getProject(projectId: string): Promise<ProjectInfo | null> {
@@ -61,14 +151,16 @@ export class ProjectService {
     return unmarshall(result.Item) as ProjectInfo;
   }
 
-  async getProjectsByOwner(ownerId: string): Promise<ProjectInfo[]> {
+  async getProjectsByInitState(
+    initState: ProjectInfo["init_state"]
+  ): Promise<ProjectInfo[]> {
     const result = await this.dynamoClient.send(
       new QueryCommand({
         TableName: "projects",
-        IndexName: "OwnerIndex",
-        KeyConditionExpression: "ownerId = :ownerId",
+        IndexName: "InitStateIndex", // You'll need to create this GSI
+        KeyConditionExpression: "init_state = :state",
         ExpressionAttributeValues: marshall({
-          ":ownerId": ownerId,
+          ":state": initState,
         }),
       })
     );
@@ -94,7 +186,7 @@ export class ProjectService {
     await this.dynamoClient.send(
       new PutItemCommand({
         TableName: "projects",
-        Item: marshall(updatedProject),
+        Item: marshall(updatedProject, { removeUndefinedValues: true }),
       })
     );
 

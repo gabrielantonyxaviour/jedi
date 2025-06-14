@@ -21,6 +21,7 @@ import { v4 as uuidv4 } from "uuid";
 import { BillingService } from "../services/billing";
 import crypto from "crypto";
 import { createCommercialRemixTerms } from "@/utils/utils";
+import { ProjectService } from "../services/project";
 
 interface AgentCharacter {
   name: string;
@@ -83,6 +84,7 @@ export class CoreOrchestratorAgent {
   private openai: OpenAI;
   private app: express.Application;
   private billingService: BillingService;
+  private projectService: ProjectService;
   private clientWebhooks: string[] = [];
 
   constructor() {
@@ -95,6 +97,7 @@ export class CoreOrchestratorAgent {
       apiKey: process.env.MY_OPENAI_KEY,
     });
     this.billingService = new BillingService();
+    this.projectService = new ProjectService(this.dynamoClient);
     this.app = express();
     this.setupMiddleware();
     this.setupRoutes();
@@ -161,6 +164,9 @@ export class CoreOrchestratorAgent {
           priority: "HIGH",
         });
 
+        console.log("🔍 Github analysis task sent");
+        console.log("🔍 Storing workflow");
+
         // Store initial project workflow
         await this.storeWorkflow({
           type: "PROJECT_CREATION",
@@ -175,6 +181,9 @@ export class CoreOrchestratorAgent {
             step: "github_analysis",
           },
         });
+
+        console.log("🔍 Workflow stored");
+        console.log("🔍 Generating orchestrator response");
 
         const orchestratorResponse =
           side === "light"
@@ -227,6 +236,9 @@ export class CoreOrchestratorAgent {
             imageUrl,
             updatedAt: new Date().toISOString(),
           });
+
+          // Update project state
+          await this.projectService.updateProjectInitState(projectId, "SETUP");
 
           // Trigger lead discovery with updated project info
           await this.sendTaskToAgent("lead-generation", {
@@ -311,6 +323,13 @@ export class CoreOrchestratorAgent {
             postsPerDay,
             workflowId
           );
+
+          // Update project state
+          await this.projectService.updateProjectInitState(
+            projectId,
+            "SOCIALS"
+          );
+
           characterResponse =
             project.side === "light"
               ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
@@ -367,7 +386,7 @@ export class CoreOrchestratorAgent {
           project.description = description;
           project.imageUrl = imageURL;
 
-          console.log(`🔧 Setting up socials for project ${projectId}`);
+          console.log(`🔧 Setting up karma for project ${projectId}`);
 
           let setupResult;
           let characterResponse = "";
@@ -383,6 +402,10 @@ export class CoreOrchestratorAgent {
             },
             workflowId
           );
+
+          // Update project state
+          await this.projectService.updateProjectInitState(projectId, "KARMA");
+
           characterResponse =
             project.side === "light"
               ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
@@ -430,7 +453,7 @@ export class CoreOrchestratorAgent {
           project.description = description;
           project.imageUrl = imageURL;
 
-          console.log(`🔧 Setting up socials for project ${projectId}`);
+          console.log(`🔧 Setting up IP for project ${projectId}`);
 
           let setupResult;
           let characterResponse = "";
@@ -450,6 +473,10 @@ export class CoreOrchestratorAgent {
             },
             workflowId
           );
+
+          // Update project state
+          await this.projectService.updateProjectInitState(projectId, "IP");
+
           characterResponse =
             project.side === "light"
               ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
@@ -1374,7 +1401,6 @@ export class CoreOrchestratorAgent {
       workflowId: task.workflowId,
       status: "PENDING",
       agent: agentName,
-      characterAgent: task.characterInfo?.agentCharacter?.name,
       startTime: new Date().toISOString(),
     });
   }
@@ -1473,6 +1499,17 @@ export class CoreOrchestratorAgent {
     Object.keys(updates).forEach((key) => {
       updateExpression.push(`${key} = :${key}`);
       expressionAttributeValues[`:${key}`] = updates[key];
+    });
+
+    console.log(`[Orchestrator] Updating project in DynamoDB:`, {
+      projectId,
+      updates: JSON.stringify(updates, null, 2),
+      updateExpression: updateExpression.join(", "),
+      expressionAttributeValues: JSON.stringify(
+        expressionAttributeValues,
+        null,
+        2
+      ),
     });
 
     await this.dynamoClient.send(
@@ -1589,47 +1626,73 @@ export class CoreOrchestratorAgent {
 
   private async processCompletionMessage(message: any) {
     try {
+      if (!message || !message.Body) {
+        console.log("❌ Invalid message: no body");
+        return;
+      }
+
+      console.log("🔍 Processing completion message");
+      console.log("🔍 Message:", message);
       const data = JSON.parse(message.Body);
 
-      if (data.type === "TASK_COMPLETION") {
-        const completion = data.payload;
+      if (!data || data.type !== "TASK_COMPLETION") {
+        console.log("❌ Invalid message: not a task completion");
+        return;
+      }
 
-        // Update task status in DynamoDB
-        await this.updateTaskStatus(completion.taskId, {
+      const completion = data.payload || data; // Handle both formats
+
+      if (!completion.taskId) {
+        console.log("❌ Invalid completion: no taskId", completion);
+        return;
+      }
+
+      // Update task status in DynamoDB
+      await this.updateTaskStatus(completion.taskId, {
+        status: completion.status,
+        endTime: completion.timestamp,
+        result: completion.result,
+        error: completion.error,
+      });
+
+      const workflow = await this.getWorkflow(completion.workflowId);
+
+      if (workflow) {
+        // Update project state after GitHub analysis
+        if (
+          workflow.type === "PROJECT_CREATION" &&
+          completion.agent === "github-intelligence"
+        ) {
+          await this.projectService.updateProjectInitState(
+            workflow.payload.projectId,
+            "SETUP"
+          );
+        }
+
+        // Handle multi-step Karma workflows
+        await this.handleKarmaWorkflowStep(completion, workflow);
+
+        const isComplete = await this.checkWorkflowCompletion(
+          completion.workflowId
+        );
+
+        if (isComplete) {
+          console.log(
+            `✅ Orchestrator: Completing workflow ${completion.workflowId}`
+          );
+          await this.completeWorkflow(completion.workflowId);
+        }
+
+        // Notify client
+        await this.notifyClient(completion.workflowId, {
+          type: "TASK_COMPLETED",
+          taskId: completion.taskId,
+          workflowId: completion.workflowId,
+          agent: completion.agent,
           status: completion.status,
-          endTime: completion.timestamp,
           result: completion.result,
           error: completion.error,
         });
-
-        const workflow = await this.getWorkflow(completion.workflowId);
-
-        if (workflow) {
-          // Handle multi-step Karma workflows
-          await this.handleKarmaWorkflowStep(completion, workflow);
-
-          const isComplete = await this.checkWorkflowCompletion(
-            completion.workflowId
-          );
-
-          if (isComplete) {
-            console.log(
-              `✅ Orchestrator: Completing workflow ${completion.workflowId}`
-            );
-            await this.completeWorkflow(completion.workflowId);
-          }
-
-          // Notify client
-          await this.notifyClient(completion.workflowId, {
-            type: "TASK_COMPLETED",
-            taskId: completion.taskId,
-            workflowId: completion.workflowId,
-            agent: completion.agent,
-            status: completion.status,
-            result: completion.result,
-            error: completion.error,
-          });
-        }
       }
     } catch (error) {
       console.error("❌ Error processing completion:", error);
@@ -1748,6 +1811,11 @@ export class CoreOrchestratorAgent {
       updatedAt: new Date().toISOString(),
     };
 
+    console.log(
+      `[Orchestrator] Storing workflow in DynamoDB:`,
+      JSON.stringify(item, null, 2)
+    );
+
     const command = new PutItemCommand({
       TableName: tableName,
       Item: marshall(item),
@@ -1770,6 +1838,11 @@ export class CoreOrchestratorAgent {
 
   private async storeTaskStatus(status: TaskStatus): Promise<void> {
     const tableName = process.env.TASK_STATUS_TABLE || "orchestrator-tasks";
+
+    console.log(
+      `[Orchestrator] Storing task status in DynamoDB:`,
+      JSON.stringify(status, null, 2)
+    );
 
     const command = new PutItemCommand({
       TableName: tableName,
@@ -1979,6 +2052,22 @@ export class CoreOrchestratorAgent {
       expressionAttributeNames["#error"] = "error";
       expressionAttributeValues[":error"] = updates.error;
     }
+
+    console.log(`[Orchestrator] Updating task status in DynamoDB:`, {
+      taskId,
+      updates: JSON.stringify(updates, null, 2),
+      updateExpression: updateExpression.join(", "),
+      expressionAttributeValues: JSON.stringify(
+        expressionAttributeValues,
+        null,
+        2
+      ),
+      expressionAttributeNames: JSON.stringify(
+        expressionAttributeNames,
+        null,
+        2
+      ),
+    });
 
     const command = new UpdateItemCommand({
       TableName: tableName,
