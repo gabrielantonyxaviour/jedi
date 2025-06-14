@@ -4,13 +4,10 @@ import {
   QueryCommand,
 } from "@aws-sdk/client-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
+import OpenAI from "openai";
 import { LeadScrapingService } from "./services/lead-scraper";
 
 interface Lead {
@@ -36,7 +33,7 @@ interface Lead {
 export class LeadsAgent {
   private dynamodb: DynamoDBClient;
   private s3: S3Client;
-  private bedrock: BedrockRuntimeClient;
+  private openai: OpenAI;
   private sqs: SQSClient;
   private leadScraper: LeadScrapingService;
   private leadsTableName: string;
@@ -47,7 +44,9 @@ export class LeadsAgent {
   constructor() {
     this.dynamodb = new DynamoDBClient({ region: process.env.AWS_REGION });
     this.s3 = new S3Client({ region: process.env.AWS_REGION });
-    this.bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
+    this.openai = new OpenAI({
+      apiKey: process.env.MY_OPENAI_KEY,
+    });
     this.sqs = new SQSClient({ region: process.env.AWS_REGION });
     this.leadScraper = new LeadScrapingService();
 
@@ -221,7 +220,7 @@ export class LeadsAgent {
 
     console.log(`🎯 Discovering leads for project: ${project.name}`);
 
-    // Generate search keywords using Bedrock
+    // Generate search keywords using OpenAI
     const searchKeywords = await this.generateSearchKeywords(project);
     console.log(`📝 Generated keywords:`, searchKeywords);
 
@@ -260,20 +259,24 @@ export class LeadsAgent {
   `;
 
     try {
-      const response = await this.bedrock.send(
-        new InvokeModelCommand({
-          modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
-          body: JSON.stringify({
-            anthropic_version: "bedrock-2023-05-31",
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 300,
-          }),
-        })
-      );
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 300,
+        temperature: 0.7,
+      });
 
-      const result = JSON.parse(new TextDecoder().decode(response.body));
-      const keywords = JSON.parse(result.content[0].text);
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
 
+      const keywords = JSON.parse(content);
       return Array.isArray(keywords) ? keywords : [project.name];
     } catch (error) {
       console.error("Error generating keywords:", error);
@@ -382,29 +385,47 @@ export class LeadsAgent {
   Format as JSON with fields: qualification, reasoning, nextSteps, valueScore, outreachApproach
   `;
 
-    const response = await this.bedrock.send(
-      new InvokeModelCommand({
-        modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
-        body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 800,
-        }),
-      })
-    );
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 800,
+        temperature: 0.3,
+      });
 
-    const result = JSON.parse(new TextDecoder().decode(response.body));
-    const qualification = JSON.parse(result.content[0].text);
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
 
-    // Update lead with qualification
-    await this.updateLead({
-      ...lead,
-      status:
-        qualification.qualification === "High potential" ? "qualified" : "new",
-      metadata: { ...lead.metadata, qualification },
-    });
+      const qualification = JSON.parse(content);
 
-    return qualification;
+      // Update lead with qualification
+      await this.updateLead({
+        ...lead,
+        status:
+          qualification.qualification === "High potential"
+            ? "qualified"
+            : "new",
+        metadata: { ...lead.metadata, qualification },
+      });
+
+      return qualification;
+    } catch (error) {
+      console.error("Error qualifying lead:", error);
+      return {
+        qualification: "Unknown",
+        reasoning: "Analysis failed",
+        nextSteps: ["Manual review required"],
+        valueScore: 5,
+        outreachApproach: "Standard approach",
+      };
+    }
   }
 
   async generateOutreachContent(payload: {
@@ -438,38 +459,53 @@ export class LeadsAgent {
   Return only the message content.
   `;
 
-    const response = await this.bedrock.send(
-      new InvokeModelCommand({
-        modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
-        body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 600,
-        }),
-      })
-    );
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 600,
+        temperature: 0.7,
+      });
 
-    const result = JSON.parse(new TextDecoder().decode(response.body));
-    const outreachContent = result.content[0].text;
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
 
-    // Store outreach content
-    await this.s3.send(
-      new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: `outreach/${lead.leadId}/${
-          payload.outreachType
-        }_${Date.now()}.txt`,
-        Body: outreachContent,
-        ContentType: "text/plain",
-      })
-    );
+      const outreachContent = content.trim();
 
-    return {
-      leadId: lead.leadId,
-      outreachType: payload.outreachType,
-      content: outreachContent,
-      generatedAt: new Date().toISOString(),
-    };
+      // Store outreach content
+      await this.s3.send(
+        new PutObjectCommand({
+          Bucket: this.bucketName,
+          Key: `outreach/${lead.leadId}/${
+            payload.outreachType
+          }_${Date.now()}.txt`,
+          Body: outreachContent,
+          ContentType: "text/plain",
+        })
+      );
+
+      return {
+        leadId: lead.leadId,
+        outreachType: payload.outreachType,
+        content: outreachContent,
+        generatedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error("Error generating outreach content:", error);
+      return {
+        leadId: lead.leadId,
+        outreachType: payload.outreachType,
+        content: `Hello ${lead.name}, I'd like to discuss ${project.name} with you.`,
+        generatedAt: new Date().toISOString(),
+      };
+    }
   }
 
   private async calculateLeadScore(lead: Lead, project: any): Promise<number> {
@@ -498,22 +534,30 @@ export class LeadsAgent {
   Return only a number between 0-100.
   `;
 
-    const response = await this.bedrock.send(
-      new InvokeModelCommand({
-        modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
-        body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 50,
-        }),
-      })
-    );
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 50,
+        temperature: 0.1,
+      });
 
-    const result = JSON.parse(new TextDecoder().decode(response.body));
-    const scoreText = result.content[0].text.trim();
-    const score = parseInt(scoreText.match(/\d+/)?.[0] || "50");
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
 
-    return Math.max(0, Math.min(100, score));
+      const score = parseInt(content.match(/\d+/)?.[0] || "50");
+      return Math.max(0, Math.min(100, score));
+    } catch (error) {
+      console.error("Error calculating lead score:", error);
+      return 50; // Default moderate score
+    }
   }
 
   // Helper methods

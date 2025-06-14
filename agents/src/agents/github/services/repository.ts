@@ -6,10 +6,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime";
+import OpenAI from "openai";
 
 interface Developer {
   name: string;
@@ -42,7 +39,7 @@ export class RepositoryService {
   constructor(
     private octokit: Octokit,
     private dynamodb: DynamoDBClient,
-    private bedrock: BedrockRuntimeClient,
+    private openai: OpenAI,
     private s3: S3Client
   ) {}
 
@@ -285,20 +282,23 @@ export class RepositoryService {
   TECHNICAL_SUMMARY:
   [technical summary here]`;
 
-    const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
-      body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }],
-      }),
-      contentType: "application/json",
-    });
-
     try {
-      const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      const content = responseBody.content[0].text;
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 1000,
+        temperature: 0.7,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
 
       const nameMatch = content.match(/NAME:\s*([\s\S]*?)(?=SUMMARY:|$)/);
       const summaryMatch = content.match(
@@ -313,7 +313,7 @@ export class RepositoryService {
           technicalMatch?.[1]?.trim() || "Technical summary generation failed",
       };
     } catch (error) {
-      console.error("Bedrock generation failed:", error);
+      console.error("OpenAI generation failed:", error);
       return this.getFallbackSummary(repoInfo, commits, files, developers);
     }
   }

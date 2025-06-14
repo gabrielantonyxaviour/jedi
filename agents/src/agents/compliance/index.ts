@@ -5,20 +5,17 @@ import {
   QueryCommand,
 } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
+import OpenAI from "openai";
 import { ComplianceScrapingService } from "./service";
 import { ComplianceProject } from "../../types/compliance";
 
 export class ComplianceAgent {
   private dynamodb: DynamoDBClient;
   private s3: S3Client;
-  private bedrock: BedrockRuntimeClient;
+  private openai: OpenAI;
   private sqs: SQSClient;
   private complianceScraper: ComplianceScrapingService;
   private complianceTableName: string;
@@ -29,7 +26,9 @@ export class ComplianceAgent {
   constructor() {
     this.dynamodb = new DynamoDBClient({ region: process.env.AWS_REGION });
     this.s3 = new S3Client({ region: process.env.AWS_REGION });
-    this.bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
+    this.openai = new OpenAI({
+      apiKey: process.env.MY_OPENAI_KEY,
+    });
     this.sqs = new SQSClient({ region: process.env.AWS_REGION });
     this.complianceScraper = new ComplianceScrapingService();
 
@@ -262,21 +261,24 @@ Return only a number between 0-100 representing similarity percentage.
 `;
 
     try {
-      const response = await this.bedrock.send(
-        new InvokeModelCommand({
-          modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
-          body: JSON.stringify({
-            anthropic_version: "bedrock-2023-05-31",
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 100,
-          }),
-        })
-      );
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 100,
+        temperature: 0.1,
+      });
 
-      const result = JSON.parse(new TextDecoder().decode(response.body));
-      const similarityText = result.content[0].text.trim();
-      const similarity = parseInt(similarityText.match(/\d+/)?.[0] || "50");
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
 
+      const similarity = parseInt(content.match(/\d+/)?.[0] || "50");
       return Math.max(0, Math.min(100, similarity));
     } catch (error) {
       console.error("Error calculating similarity:", error);
@@ -316,27 +318,43 @@ Provide detailed analysis:
 Format as JSON with fields: similarities, differences, concerns, recommendation, riskLevel
 `;
 
-    const response = await this.bedrock.send(
-      new InvokeModelCommand({
-        modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
-        body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 800,
-        }),
-      })
-    );
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 800,
+        temperature: 0.3,
+      });
 
-    const result = JSON.parse(new TextDecoder().decode(response.body));
-    const analysis = JSON.parse(result.content[0].text);
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
 
-    // Update compliance project with analysis
-    await this.updateComplianceProject({
-      ...complianceProject,
-      metadata: { ...complianceProject.metadata, analysis },
-    });
+      const analysis = JSON.parse(content);
 
-    return analysis;
+      // Update compliance project with analysis
+      await this.updateComplianceProject({
+        ...complianceProject,
+        metadata: { ...complianceProject.metadata, analysis },
+      });
+
+      return analysis;
+    } catch (error) {
+      console.error("Error analyzing similarity:", error);
+      return {
+        similarities: ["Unable to analyze"],
+        differences: ["Analysis failed"],
+        concerns: ["Manual review required"],
+        recommendation: "investigate",
+        riskLevel: "unknown",
+      };
+    }
   }
 
   async reviewCompliance(payload: {

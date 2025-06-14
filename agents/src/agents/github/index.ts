@@ -2,23 +2,21 @@ import { Octokit } from "@octokit/rest";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client } from "@aws-sdk/client-s3";
 import { SQSClient } from "@aws-sdk/client-sqs";
+import OpenAI from "openai";
 import { RepositoryService } from "./services/repository";
 import { WebhookService } from "./services/webhook";
 import { ProjectService } from "../../services/project";
 import { TaskService } from "../../services/task";
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime";
 
 type CharacterInfo = {
   name: string;
   personality: string;
 };
+
 export class GitHubIntelligenceAgent {
   private octokit: Octokit;
   private dynamodb: DynamoDBClient;
-  private bedrock: BedrockRuntimeClient;
+  private openai: OpenAI;
   private s3: S3Client;
   private sqsClient: SQSClient;
   private orchestratorQueue: string;
@@ -35,8 +33,8 @@ export class GitHubIntelligenceAgent {
     this.dynamodb = new DynamoDBClient({
       region: process.env.AWS_REGION || "us-east-1",
     });
-    this.bedrock = new BedrockRuntimeClient({
-      region: process.env.AWS_REGION || "us-east-1",
+    this.openai = new OpenAI({
+      apiKey: process.env.MY_OPENAI_KEY,
     });
     this.s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
     this.sqsClient = new SQSClient({
@@ -48,7 +46,7 @@ export class GitHubIntelligenceAgent {
     this.repositoryService = new RepositoryService(
       this.octokit,
       this.dynamodb,
-      this.bedrock,
+      this.openai,
       this.s3
     );
     this.webhookService = new WebhookService(
@@ -244,7 +242,7 @@ export class GitHubIntelligenceAgent {
     result: any
   ): Promise<string> {
     console.log(
-      `[GitHubIntelligenceAgent] Generating character response with Bedrock`
+      `[GitHubIntelligenceAgent] Generating character response with OpenAI`
     );
 
     const prompt = `You are ${
@@ -256,28 +254,33 @@ export class GitHubIntelligenceAgent {
    
    Generate a response in character that acknowledges the completion of the task. Keep it brief (1-2 sentences) and stay true to the character's personality and speaking style.`;
 
-    const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
-      body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 200,
-        messages: [{ role: "user", content: prompt }],
-      }),
-      contentType: "application/json",
-    });
-
     try {
-      console.log(`[GitHubIntelligenceAgent] Invoking Bedrock model`);
-      const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      const characterText = responseBody.content[0].text.trim();
+      console.log(`[GitHubIntelligenceAgent] Invoking OpenAI model`);
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 200,
+        temperature: 0.7,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
+
+      const characterText = content.trim();
       console.log(
-        `[GitHubIntelligenceAgent] Bedrock character response generated successfully`
+        `[GitHubIntelligenceAgent] OpenAI character response generated successfully`
       );
       return characterText;
     } catch (error) {
       console.error(
-        `[GitHubIntelligenceAgent] Bedrock character response failed:`,
+        `[GitHubIntelligenceAgent] OpenAI character response failed:`,
         error
       );
       const fallback = this.getFallbackCharacterResponse(characterInfo, true);
@@ -292,37 +295,42 @@ export class GitHubIntelligenceAgent {
     characterInfo: CharacterInfo
   ): Promise<string> {
     console.log(
-      `[GitHubIntelligenceAgent] Generating error response with Bedrock`
+      `[GitHubIntelligenceAgent] Generating error response with OpenAI`
     );
 
     const prompt = `You are ${characterInfo.name}, a character with the following personality: ${characterInfo.personality}
    
    A task has failed to complete. Generate a response in character that acknowledges the failure. Keep it brief (1-2 sentences) and stay true to the character's personality and speaking style.`;
 
-    const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
-      body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 200,
-        messages: [{ role: "user", content: prompt }],
-      }),
-      contentType: "application/json",
-    });
-
     try {
       console.log(
-        `[GitHubIntelligenceAgent] Invoking Bedrock model for error response`
+        `[GitHubIntelligenceAgent] Invoking OpenAI model for error response`
       );
-      const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      const errorText = responseBody.content[0].text.trim();
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 200,
+        temperature: 0.7,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
+
+      const errorText = content.trim();
       console.log(
-        `[GitHubIntelligenceAgent] Bedrock error response generated successfully`
+        `[GitHubIntelligenceAgent] OpenAI error response generated successfully`
       );
       return errorText;
     } catch (error) {
       console.error(
-        `[GitHubIntelligenceAgent] Bedrock error response failed:`,
+        `[GitHubIntelligenceAgent] OpenAI error response failed:`,
         error
       );
       const fallback = this.getFallbackCharacterResponse(characterInfo, false);
@@ -330,6 +338,7 @@ export class GitHubIntelligenceAgent {
       return fallback;
     }
   }
+
   private getFallbackCharacterResponse(
     characterInfo: CharacterInfo,
     success: boolean

@@ -5,10 +5,7 @@ import {
   DeleteMessageCommand,
   SendMessageCommand,
 } from "@aws-sdk/client-sqs";
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime";
+import OpenAI from "openai";
 import { SocialsService } from "./service";
 
 export class SocialsAgent {
@@ -16,14 +13,14 @@ export class SocialsAgent {
   private queueUrl: string;
   private socialsService: SocialsService;
   private orchestratorQueue: string;
-  private bedrock: BedrockRuntimeClient;
+  private openai: OpenAI;
 
   constructor() {
     this.sqs = new SQSClient({ region: process.env.AWS_REGION });
     this.queueUrl = process.env.SOCIALS_QUEUE_URL!;
     this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
-    this.bedrock = new BedrockRuntimeClient({
-      region: process.env.AWS_REGION || "us-east-1",
+    this.openai = new OpenAI({
+      apiKey: process.env.MY_OPENAI_KEY,
     });
     this.socialsService = new SocialsService();
   }
@@ -199,22 +196,27 @@ ${JSON.stringify(result, null, 2)}
 
 Generate a brief response (1-2 sentences) in character that acknowledges the successful completion of the social media task. Stay true to the character's personality and speaking style.`;
 
-    const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
-      body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 200,
-        messages: [{ role: "user", content: prompt }],
-      }),
-      contentType: "application/json",
-    });
-
     try {
-      const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      return responseBody.content[0].text.trim();
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 200,
+        temperature: 0.7,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
+
+      return content.trim();
     } catch (error) {
-      console.error("Bedrock character response failed:", error);
+      console.error("OpenAI character response failed:", error);
       return "Social media task completed successfully! 🚀";
     }
   }
@@ -228,22 +230,27 @@ Generate a brief response (1-2 sentences) in character that acknowledges the suc
 
 A social media task has failed to complete. Generate a brief response (1-2 sentences) in character that acknowledges the failure while staying positive and solution-oriented. Stay true to the character's personality and speaking style.`;
 
-    const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
-      body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 200,
-        messages: [{ role: "user", content: prompt }],
-      }),
-      contentType: "application/json",
-    });
-
     try {
-      const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      return responseBody.content[0].text.trim();
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 200,
+        temperature: 0.7,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
+
+      return content.trim();
     } catch (error) {
-      console.error("Bedrock error response failed:", error);
+      console.error("OpenAI error response failed:", error);
       return "Something went wrong with the social media task. Let me try again! 💪";
     }
   }

@@ -2,10 +2,7 @@
 import { randomUUID } from "crypto";
 import { Scraper } from "agent-twitter-client";
 import { Bot, Context, webhookCallback } from "grammy";
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime";
+import OpenAI from "openai";
 import {
   DynamoDBClient,
   PutItemCommand,
@@ -58,13 +55,13 @@ interface ProjectSocialConfig {
 export class SocialsService {
   private activeScrapers: Map<string, Scraper> = new Map();
   private activeBots: Map<string, Bot> = new Map();
-  private bedrock: BedrockRuntimeClient;
+  private openai: OpenAI;
   private dynamodb: DynamoDBClient;
   private scheduledPostInterval?: NodeJS.Timeout;
 
   constructor() {
-    this.bedrock = new BedrockRuntimeClient({
-      region: process.env.AWS_REGION || "us-east-1",
+    this.openai = new OpenAI({
+      apiKey: process.env.MY_OPENAI_KEY,
     });
     this.dynamodb = new DynamoDBClient({
       region: process.env.AWS_REGION || "us-east-1",
@@ -418,22 +415,27 @@ User request: ${prompt}
 
 Respond in character, following your personality and style guidelines. Keep it concise and engaging.`;
 
-    const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
-      body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 500,
-        messages: [{ role: "user", content: characterPrompt }],
-      }),
-      contentType: "application/json",
-    });
-
     try {
-      const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      return responseBody.content[0].text.trim();
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: characterPrompt,
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
+
+      return content.trim();
     } catch (error) {
-      console.error("Bedrock character response failed:", error);
+      console.error("OpenAI character response failed:", error);
       return this.getFallbackResponse(platform);
     }
   }

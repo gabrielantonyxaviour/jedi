@@ -15,10 +15,7 @@ import {
 } from "@aws-sdk/client-dynamodb";
 
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime";
+import OpenAI from "openai";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { v4 as uuidv4 } from "uuid";
 import { BillingService } from "../services/billing";
@@ -83,7 +80,7 @@ export class CoreOrchestratorAgent {
   private sqsClient: SQSClient;
   private dynamoClient: DynamoDBClient;
   private stepFunctionsClient: SFNClient;
-  private bedrock: BedrockRuntimeClient;
+  private openai: OpenAI;
   private app: express.Application;
   private billingService: BillingService;
   private clientWebhooks: string[] = [];
@@ -94,7 +91,9 @@ export class CoreOrchestratorAgent {
     this.stepFunctionsClient = new SFNClient({
       region: process.env.AWS_REGION,
     });
-    this.bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
+    this.openai = new OpenAI({
+      apiKey: process.env.MY_OPENAI_KEY,
+    });
     this.billingService = new BillingService();
     this.app = express();
     this.setupMiddleware();
@@ -1147,19 +1146,28 @@ export class CoreOrchestratorAgent {
  Always stay in character as ${characterContext.orchestrator.name}. Use their speech patterns, wisdom, and personality in your responses.`;
 
     try {
-      const response = await this.bedrock.send(
-        new InvokeModelCommand({
-          modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
-          body: JSON.stringify({
-            anthropic_version: "bedrock-2023-05-31",
-            messages: [{ role: "user", content: systemPrompt }],
-            max_tokens: 1200,
-          }),
-        })
-      );
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt,
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 1200,
+        temperature: 0.7,
+      });
 
-      const result = JSON.parse(new TextDecoder().decode(response.body));
-      return JSON.parse(result.content[0].text);
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from OpenAI");
+      }
+
+      return JSON.parse(content);
     } catch (error) {
       console.error("Error analyzing prompt:", error);
       const characterContext = this.getCharacterContext(
