@@ -14,14 +14,11 @@ import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Project, useProjects } from "@/hooks/use-projects";
 
 interface ProjectsSheetProps {
   side: "light" | "dark" | null;
-  projects: Array<{
-    id: string;
-    name: string;
-    imageUrl: string;
-  }>;
+  projects: Array<Project>;
 }
 
 const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {

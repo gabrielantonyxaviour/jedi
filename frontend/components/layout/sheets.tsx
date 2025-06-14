@@ -3,8 +3,9 @@
 import LogsSheet from "@/components/layout/logs-sheet";
 import ProjectsSheet from "@/components/layout/projects-sheet";
 import { useAppStore } from "@/store/app-store";
+import { Project } from "@/hooks/use-projects";
 
-export default function Sheets() {
+export default function Sheets({ projects }: { projects: Project[] }) {
   const { userSide, logs } = useAppStore();
 
   if (!userSide) return null;
@@ -12,13 +13,7 @@ export default function Sheets() {
   return (
     <>
       <LogsSheet logs={logs} side={userSide} />
-      <ProjectsSheet
-        side={userSide}
-        projects={[
-          { id: "1", name: "Project 1", imageUrl: "/light-projects.png" },
-          { id: "2", name: "Project 2", imageUrl: "/dark-projects.png" },
-        ]}
-      />
+      <ProjectsSheet side={userSide} projects={projects} />
     </>
   );
 }

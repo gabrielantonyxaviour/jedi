@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowUp } from "lucide-react";
 import SideSelection from "@/components/side-selection";
+import ProjectSetupDialog, {
+  ProjectSetupData,
+} from "@/components/project/setup-dialog";
 import { useAppStore } from "@/store/app-store";
 import { motion } from "framer-motion";
 import { isPublicRepo } from "@/lib/github/check-public";
@@ -29,13 +32,13 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSideSelection, setShowSideSelection] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [showProjectSetup, setShowProjectSetup] = useState(false);
   const [creationSteps, setCreationSteps] = useState<CreationStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(-1);
   const [error, setError] = useState("");
-  const { balance, address } = useCardanoWallet();
-  const { walletStatus, userSide, addLog, setUserSide } = useAppStore();
-
-  // Auto-fetch projects when address is available
+  const [githubUrl, setGithubUrl] = useState("");
+  const { walletStatus, userSide, addLog, setUserSide, balance, address } =
+    useAppStore();
   const {
     projects,
     loading: projectsLoading,
@@ -105,6 +108,21 @@ export default function Home() {
     addLog(`You have chosen the ${side} side`, "orchestrator", "info");
   };
 
+  // Handle project setup completion
+  const handleProjectSetup = async (projectData: ProjectSetupData) => {
+    addLog("Project setup completed", "orchestrator", "success");
+
+    // Here you would typically save the project to your backend
+    console.log("Project data:", projectData);
+
+    setShowProjectSetup(false);
+
+    // Navigate to project page after a brief delay
+    setTimeout(() => {
+      router.push("/project/sample-project");
+    }, 500);
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +133,9 @@ export default function Home() {
       return;
     }
 
+    setError("");
+
+    setGithubUrl(prompt);
     setIsSubmitting(true);
     setIsCreating(true);
 
@@ -146,10 +167,10 @@ export default function Home() {
       addLog(steps[i].title + " completed", "orchestrator", "success");
     }
 
-    // Navigate to project page
-    setTimeout(() => {
-      router.push("/project/sample-project");
-    }, 1000);
+    // Show project setup dialog instead of navigating directly
+    setIsCreating(false);
+    setIsSubmitting(false);
+    setShowProjectSetup(true);
   };
 
   // Handle keyboard shortcuts
@@ -161,22 +182,64 @@ export default function Home() {
 
   // Show loading while fetching projects after wallet connection
   const shouldShowLoading =
-    (walletStatus === "connected" && !initialized) || projectsLoading;
+    (walletStatus === "connected" && !initialized) || showProjectSetup; // Keep loading while project setup is open
 
   // Show side selection only for new users (no existing projects)
   const shouldShowSideSelection =
     walletStatus === "connected" &&
     initialized &&
-    !projectsLoading &&
     projects.length === 0 &&
-    userSide === null;
+    userSide === null &&
+    !showProjectSetup;
 
   // Show main UI when everything is ready
   const shouldShowMainUI =
     walletStatus === "connected" &&
     initialized &&
     !projectsLoading &&
-    (projects.length > 0 || userSide !== null);
+    (projects.length > 0 || userSide !== null) &&
+    !showProjectSetup;
+
+  useEffect(() => {
+    const shouldShowLoading =
+      (walletStatus === "connected" && !initialized) || showProjectSetup; // Keep loading while project setup is open
+
+    // Show side selection only for new users (no existing projects)
+    const shouldShowSideSelection =
+      walletStatus === "connected" &&
+      initialized &&
+      projects.length === 0 &&
+      userSide === null &&
+      !showProjectSetup;
+
+    // Show main UI when everything is ready
+    const shouldShowMainUI =
+      walletStatus === "connected" &&
+      initialized &&
+      !projectsLoading &&
+      (projects.length > 0 || userSide !== null) &&
+      !showProjectSetup;
+
+    console.log("state logs");
+    console.log({
+      shouldShowLoading,
+      shouldShowSideSelection,
+      shouldShowMainUI,
+      projectsLoading,
+      walletStatus,
+      initialized,
+      projects,
+      userSide,
+      showProjectSetup,
+    });
+  }, [
+    projectsLoading,
+    walletStatus,
+    initialized,
+    projects,
+    userSide,
+    showProjectSetup,
+  ]);
 
   return (
     <>
@@ -186,7 +249,11 @@ export default function Home() {
           {shouldShowLoading ? (
             <div className="flex flex-col items-center space-y-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
-              <p className="text-stone-400">Loading your projects...</p>
+              <p className="text-stone-400">
+                {showProjectSetup
+                  ? "Setting up your project..."
+                  : "Loading your projects..."}
+              </p>
             </div>
           ) : shouldShowSideSelection ? (
             <SideSelection onSelect={handleSideSelection} />
@@ -314,6 +381,14 @@ export default function Home() {
           ) : null}
         </div>
       </div>
+
+      {/* Project Setup Dialog */}
+      <ProjectSetupDialog
+        open={showProjectSetup}
+        onSubmit={handleProjectSetup}
+        userSide={userSide!}
+        githubUrl={githubUrl}
+      />
     </>
   );
 }

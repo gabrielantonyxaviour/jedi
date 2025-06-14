@@ -13,16 +13,22 @@ interface LogEntry {
 
 interface AppState {
   walletStatus: WalletStatus;
+  address: string;
+  balance: string;
   userSide: UserSide;
   logs: LogEntry[];
   addLog: (message: string, agentId: string, type?: LogEntry["type"]) => void;
   setUserSide: (side: UserSide) => void;
   setWalletStatus: (status: WalletStatus) => void;
+  setAddress: (address: string) => void;
+  setBalance: (balance: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
   walletStatus: "disconnected",
   userSide: null,
+  address: "",
+  balance: "0",
   logs: [],
   setWalletStatus: (status: WalletStatus) => set({ walletStatus: status }),
   addLog: (
@@ -43,6 +49,7 @@ export const useAppStore = create<AppState>((set) => ({
       ],
     }));
   },
-
+  setAddress: (address: string) => set({ address }),
+  setBalance: (balance: string) => set({ balance }),
   setUserSide: (side: UserSide) => set({ userSide: side }),
 }));

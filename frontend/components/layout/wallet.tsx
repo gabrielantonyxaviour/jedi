@@ -14,15 +14,10 @@ import Image from "next/image";
 import { parseCardanoBalance } from "@/lib/cardano";
 
 export default function WalletButton() {
-  const { walletStatus, userSide, setWalletStatus } = useAppStore();
-  const {
-    availableWallets,
-    address,
-    balance,
-    connect,
-    disconnect,
-    isConnected,
-  } = useCardanoWallet();
+  const { walletStatus, userSide, setWalletStatus, balance, address } =
+    useAppStore();
+  const { availableWallets, connect, disconnect, isConnected } =
+    useCardanoWallet();
 
   const handleConnect = async () => {
     if (availableWallets.length > 0) {

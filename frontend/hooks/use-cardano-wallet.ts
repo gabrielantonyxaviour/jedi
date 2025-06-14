@@ -1,13 +1,13 @@
 // hooks/useCardanoWallet.ts
 import { useState, useEffect } from "react";
 import { connectWallet, getAvailableWallets } from "@/lib/cardano";
+import { useAppStore } from "@/store/app-store";
 
 export const useCardanoWallet = () => {
   const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
   const [walletApi, setWalletApi] = useState<any>(null);
-  const [address, setAddress] = useState<string | null>(null);
-  const [balance, setBalance] = useState<string | null>(null);
   const [availableWallets, setAvailableWallets] = useState<string[]>([]);
+  const { setAddress, setBalance, setWalletStatus } = useAppStore();
 
   useEffect(() => {
     setAvailableWallets(getAvailableWallets());
@@ -18,6 +18,7 @@ export const useCardanoWallet = () => {
       const api = await connectWallet(walletName);
       setWalletApi(api);
       setConnectedWallet(walletName);
+      setWalletStatus("connected");
 
       // Get address and balance
       const addresses = await api.getUsedAddresses();
@@ -38,15 +39,14 @@ export const useCardanoWallet = () => {
   const disconnect = () => {
     setConnectedWallet(null);
     setWalletApi(null);
-    setAddress(null);
-    setBalance(null);
+    setAddress("");
+    setBalance("0");
+    setWalletStatus("disconnected");
   };
 
   return {
     connectedWallet,
     walletApi,
-    address,
-    balance,
     availableWallets,
     connect,
     disconnect,
