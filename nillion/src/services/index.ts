@@ -1,10 +1,10 @@
-import { LogsService } from "./logs-service";
-import { GithubService } from "./github-service";
-import { LeadsService } from "./leads-service";
-import { StoriesService } from "./stories-service";
-import { SocialsService } from "./socials-service";
-import { GrantsService } from "./grants-service";
-import { ComplianceService } from "./compliance-service";
+import { LogsService } from "./logs-service.js";
+import { GithubService } from "./github-service.js";
+import { LeadsService } from "./leads-service.js";
+import { StoriesService } from "./stories-service.js";
+import { SocialsService } from "./socials-service.js";
+import { GrantsService } from "./grants-service.js";
+import { ComplianceService } from "./compliance-service.js";
 
 export class ServiceFactory {
   private static instances: Map<string, any> = new Map();

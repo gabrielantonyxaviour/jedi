@@ -8,7 +8,7 @@ export type AgentName =
   | "orchestrator";
 
 export interface LogEntry {
-  id: string;
+  _id: string;
   projectId: string;
   agentName: AgentName;
   text: string;
@@ -131,4 +131,18 @@ export interface NillionConfig {
     url: string;
     did: string;
   }>;
+}
+
+export type SocialPlatform = "twitter" | "telegram" | "linkedin";
+
+export type SocialType = "account" | "bot" | "profile";
+
+export interface SocialsCollection {
+  id: string;
+  name: string;
+  description: string;
+  platform: SocialPlatform;
+  type: SocialType;
+  accounts: Social[];
+  metadata: Record<string, any>;
 }

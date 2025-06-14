@@ -1,6 +1,6 @@
-import { BaseService } from "./base-service";
-import { Compliance } from "../types";
-import { SCHEMA_IDS } from "../config/nillion";
+import { BaseService } from "./base-service.js";
+import { Compliance } from "../types/index.js";
+import { SCHEMA_IDS } from "../config/nillion.js";
 import { v4 as uuidv4 } from "uuid";
 
 export class ComplianceService extends BaseService<Compliance> {

@@ -1,7 +1,8 @@
 import dotenv from "dotenv";
+import { v4 as uuidv4 } from "uuid";
 dotenv.config();
 
-import { ServiceFactory } from "../services";
+import { ServiceFactory } from "../services/index.js";
 
 async function testLogs() {
   console.log("🧪 Testing Logs Service...\n");
@@ -11,7 +12,7 @@ async function testLogs() {
   try {
     // Create test logs
     console.log("📝 Creating test logs...");
-    const projectId = "test-project-123";
+    const projectId = uuidv4();
 
     const logId1 = await logsService.createLog(
       projectId,

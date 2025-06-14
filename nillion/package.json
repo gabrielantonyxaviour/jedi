@@ -3,20 +3,23 @@
   "version": "1.0.0",
   "description": "Multi-agent system with Nillion SecretVault integration",
   "main": "dist/index.js",
-	"scripts": {
-	  "build": "tsc",
-	  "dev": "nodemon src/index.ts",
-	  "start": "node dist/index.js",
-	  "test:logs": "pnpm exec ts-node src/scripts/test-logs.ts",
-	  "test:github": "pnpm exec ts-node src/scripts/test-github.ts",
-	  "test:leads": "pnpm exec ts-node src/scripts/test-leads.ts",
-	  "test:stories": "pnpm exec ts-node src/scripts/test-stories.ts",
-	  "test:socials": "pnpm exec ts-node src/scripts/test-socials.ts",
-	  "test:grants": "pnpm exec ts-node src/scripts/test-grants.ts",
-	  "test:compliance": "pnpm exec ts-node src/scripts/test-compliance.ts",
-	  "test:all": "pnpm run test:logs && pnpm run test:github && pnpm run test:leads && pnpm run test:stories && pnpm run test:socials && pnpm run test:grants && pnpm run test:compliance",
-	  "analytics": "pnpm exec ts-node src/scripts/analytics.ts"
-	},
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "pnpm run build && node dist/index.js",
+    "start": "node dist/index.js",
+    "test:logs": "pnpm run build && node dist/scripts/test-logs.js",
+    "test:github": "pnpm run build && node dist/scripts/test-github.js",
+    "test:leads": "pnpm run build && node dist/scripts/test-leads.js",
+    "test:simple": "pnpm run build && node dist/scripts/test-simple.js",
+    "test:stories": "pnpm run build && node dist/scripts/test-stories.js",
+    "test:socials": "pnpm run build && node dist/scripts/test-socials.js",
+    "test:grants": "pnpm run build && node dist/scripts/test-grants.js",
+    "test:compliance": "pnpm run build && node dist/scripts/test-compliance.js",
+    "test:all": "pnpm run build && node dist/scripts/test-logs.js && node dist/scripts/test-github.js && node dist/scripts/test-leads.js && node dist/scripts/test-stories.js && node dist/scripts/test-socials.js && node dist/scripts/test-grants.js && node dist/scripts/test-compliance.js",
+    "analytics": "pnpm run build && node dist/scripts/analytics.js",
+    "setup:schemas": "pnpm run build && node dist/scripts/setup-schemas.js"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/uuid": "^9.0.0",
@@ -26,9 +29,10 @@
   },
   "dependencies": {
     "@nillion/nilql": "latest",
-    "secretvaults": "latest",
     "dotenv": "^16.0.0",
-    "uuid": "^9.0.0",
-    "mongodb": "^6.0.0"
+    "mongodb": "^6.0.0",
+    "secretvaults": "latest",
+    "tsx": "^4.20.3",
+    "uuid": "^9.0.0"
   }
 }

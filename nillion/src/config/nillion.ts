@@ -1,4 +1,6 @@
-import { NillionConfig } from "../types";
+import { NillionConfig } from "../types/index.js";
+import dotenv from "dotenv";
+dotenv.config();
 
 export const nillionConfig: NillionConfig = {
   orgCredentials: {

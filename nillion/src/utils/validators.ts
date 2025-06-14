@@ -1,4 +1,4 @@
-import { AgentName } from "../types";
+import { AgentName } from "../types/index.js";
 
 export class Validators {
   static isValidUUID(uuid: string): boolean {

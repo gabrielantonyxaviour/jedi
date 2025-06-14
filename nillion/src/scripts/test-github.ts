@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { ServiceFactory } from "../services";
+import { ServiceFactory } from "../services/index.js";
 
 async function testGithub() {
   console.log("🧪 Testing GitHub Service...\n");

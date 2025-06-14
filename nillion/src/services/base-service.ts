@@ -1,26 +1,22 @@
-import { nillionConfig } from "../config/nillion";
-
-let SecretVaultWrapper: any;
+import { SecretVaultWrapper } from "secretvaults";
+import { nillionConfig } from "../config/nillion.js";
+import dotenv from "dotenv";
+dotenv.config();
 
 export abstract class BaseService<T> {
-  protected collection: any;
+  protected collection: SecretVaultWrapper;
   private initialized = false;
 
-  constructor(private schemaId: string) {}
+  constructor(private schemaId: string) {
+    this.collection = new SecretVaultWrapper(
+      nillionConfig.nodes,
+      nillionConfig.orgCredentials,
+      schemaId
+    );
+  }
 
   async init(): Promise<void> {
     if (!this.initialized) {
-      if (!SecretVaultWrapper) {
-        const secretvaults = await import("secretvaults");
-        SecretVaultWrapper = secretvaults.SecretVaultWrapper;
-      }
-
-      this.collection = new SecretVaultWrapper(
-        nillionConfig.nodes,
-        nillionConfig.orgCredentials,
-        this.schemaId
-      );
-
       await this.collection.init();
       this.initialized = true;
     }
@@ -29,7 +25,9 @@ export abstract class BaseService<T> {
   async create(data: T[]): Promise<string[]> {
     await this.init();
     const result = await this.collection.writeToNodes(data);
-    return result.flatMap((item: any) => item.data.created || []);
+    return result
+      .filter((item) => item?.data?.created)
+      .flatMap((item) => item.data.created);
   }
 
   async findAll(filter: Record<string, any> = {}): Promise<T[]> {

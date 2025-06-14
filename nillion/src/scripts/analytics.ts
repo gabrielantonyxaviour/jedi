@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { ServiceFactory } from "../services";
+import { ServiceFactory } from "../services/index.js";
 
 async function runAnalytics() {
   console.log("📊 Running Multi-Agent System Analytics...\n");

@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { ServiceFactory } from "../services";
+import { ServiceFactory } from "../services/index.js";
 
 async function testGrants() {
   console.log("🧪 Testing Grants Service...\n");

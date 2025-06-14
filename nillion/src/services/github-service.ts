@@ -1,6 +1,6 @@
-import { BaseService } from "./base-service";
-import { GithubProject } from "../types";
-import { SCHEMA_IDS } from "../config/nillion";
+import { BaseService } from "./base-service.js";
+import { GithubProject } from "../types/index.js";
+import { SCHEMA_IDS } from "../config/nillion.js";
 import { v4 as uuidv4 } from "uuid";
 
 export class GithubService extends BaseService<GithubProject> {

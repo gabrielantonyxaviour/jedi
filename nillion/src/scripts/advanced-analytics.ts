@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { ServiceFactory } from "../services";
-import { QueryBuilder } from "../utils/query-builder";
+import { ServiceFactory } from "../services/index.js";
+import { QueryBuilder } from "../utils/query-builder.js";
 
 async function advancedAnalytics() {
   console.log("📊 Running Advanced Multi-Agent Analytics...\n");

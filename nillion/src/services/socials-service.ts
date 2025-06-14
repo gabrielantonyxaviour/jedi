@@ -1,11 +1,14 @@
-import { BaseService } from "./base-service";
+import { BaseService } from "./base-service.js";
 import {
+  SocialsCollection,
   Social,
+  SocialPlatform,
+  SocialType,
   TwitterAction,
   LinkedinAction,
   TelegramMessage,
-} from "../types";
-import { SCHEMA_IDS } from "../config/nillion";
+} from "../types/index.js";
+import { SCHEMA_IDS } from "../config/nillion.js";
 import { v4 as uuidv4 } from "uuid";
 import { nilql } from "@nillion/nilql";
 

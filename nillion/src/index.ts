@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import { ServiceFactory } from "./services";
-import { AgentName } from "./types";
+import { ServiceFactory } from "./services/index.js";
+import { AgentName } from "./types/index.js";
 
 export class MultiAgentSystem {
   private services = {
@@ -170,9 +170,9 @@ export class MultiAgentSystem {
 }
 
 // Export everything
-export * from "./types";
-export * from "./services";
-export * from "./config/nillion";
+export * from "./types/index.js";
+export * from "./services/index.js";
+export * from "./config/nillion.js";
 
 // Demo usage
 async function demo() {

@@ -19,14 +19,13 @@ import { ArrowRight, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import Image from "next/image";
 
-interface LogEntry {
-  id: string;
-  timestamp: Date;
-  message: string;
-  type: "info" | "success" | "error" | "warning";
-  agentId: string;
+export interface LogEntry {
+  _id: string;
+  projectId: string;
+  agentName: AgentName;
+  text: string;
+  data: Record<string, any>;
 }
-
 interface LogsSheetProps {
   logs: LogEntry[];
   side: "light" | "dark" | null;

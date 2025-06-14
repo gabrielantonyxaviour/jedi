@@ -1,5 +1,5 @@
 import { nilql } from "@nillion/nilql";
-import { nillionConfig } from "../config/nillion";
+import { nillionConfig } from "../config/nillion.js";
 
 export class EncryptionService {
   private secretKey: any;

@@ -4,7 +4,7 @@ dotenv.config();
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { nillionConfig } from "../config/nillion";
+import { nillionConfig } from "../config/nillion.js";
 
 async function setupSchemas() {
   console.log("🔧 Setting up Nillion SecretVault schemas...\n");
