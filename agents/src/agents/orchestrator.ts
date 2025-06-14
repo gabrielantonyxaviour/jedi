@@ -26,15 +26,7 @@ import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { v4 as uuidv4 } from "uuid";
 import { BillingService } from "../services/billing";
 import crypto from "crypto";
-
-interface UserContext {
-  userId: string;
-  preferences: any;
-  conversationHistory: any[];
-  activeWorkflows: string[];
-  lastActivity: string;
-}
-
+import { createCommercialRemixTerms } from "@/utils/utils";
 interface WorkflowRequest {
   type:
     | "GITHUB_ANALYSIS"
@@ -68,7 +60,6 @@ interface TaskStatus {
 export class CoreOrchestratorAgent {
   private sqsClient: SQSClient;
   private dynamoClient: DynamoDBClient;
-  private eventBridgeClient: EventBridgeClient;
   private stepFunctionsClient: SFNClient;
   private bedrock: BedrockRuntimeClient;
   private app: express.Application;
@@ -78,9 +69,6 @@ export class CoreOrchestratorAgent {
   constructor() {
     this.sqsClient = new SQSClient({ region: process.env.AWS_REGION });
     this.dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
-    this.eventBridgeClient = new EventBridgeClient({
-      region: process.env.AWS_REGION,
-    });
     this.stepFunctionsClient = new SFNClient({
       region: process.env.AWS_REGION,
     });
@@ -114,12 +102,7 @@ export class CoreOrchestratorAgent {
     // 1. Create project from GitHub repo with side selection
     this.app.post("/api/projects/create", async (req: any, res: any) => {
       try {
-        const {
-          repoUrl,
-          walletAddress,
-          side = "light",
-          userId = "anonymous",
-        } = req.body;
+        const { repoUrl, walletAddress, side = "light" } = req.body;
 
         if (!repoUrl || !walletAddress) {
           return res.status(400).json({
@@ -161,7 +144,7 @@ export class CoreOrchestratorAgent {
         await this.storeWorkflow({
           type: "PROJECT_CREATION",
           workflowId,
-          userId,
+          userId: walletAddress,
           priority: "HIGH",
           payload: {
             projectId,
@@ -203,15 +186,8 @@ export class CoreOrchestratorAgent {
       async (req: any, res: any) => {
         try {
           const { projectId } = req.params;
-          const {
-            name,
-            description,
-            technicalDescription,
-            imageUrl,
-            industry,
-            targetMarket,
-            userId = "anonymous",
-          } = req.body;
+          const { name, description, technicalDescription, imageUrl } =
+            req.body;
 
           const workflowId = uuidv4();
           const project = await this.getProject(projectId);
@@ -228,8 +204,6 @@ export class CoreOrchestratorAgent {
             description,
             technicalDescription,
             imageUrl,
-            industry,
-            targetMarket,
             updatedAt: new Date().toISOString(),
           });
 
@@ -243,7 +217,6 @@ export class CoreOrchestratorAgent {
               projectName: name,
               description,
               technicalDescription,
-              industry,
               keywords: this.extractKeywords(description, technicalDescription),
               sources: ["all"],
               maxResults: 50,
@@ -254,12 +227,11 @@ export class CoreOrchestratorAgent {
           await this.storeWorkflow({
             type: "PROJECT_INFO_SETUP",
             workflowId,
-            userId,
+            userId: project.userId,
             priority: "MEDIUM",
             payload: { projectId, step: "lead_discovery" },
           });
 
-          const characterContext = this.getCharacterContext(project.side);
           const orchestratorResponse =
             project.side === "light"
               ? "Wise choices you have made. Discover potential allies, Chewbacca will. Patience you must have."
@@ -284,13 +256,13 @@ export class CoreOrchestratorAgent {
       }
     );
 
-    // 3. Setup specific agent
+    // 3. Setup socials agent
     this.app.post(
-      "/api/projects/:projectId/setup-agent/:agentType",
+      "/api/projects/:projectId/setup-socials",
       async (req: any, res: any) => {
         try {
-          const { projectId, agentType } = req.params;
-          const { userId = "anonymous", ...agentConfig } = req.body;
+          const { projectId } = req.params;
+          const { twitter, linkedin, telegram } = req.body;
 
           const workflowId = uuidv4();
           const project = await this.getProject(projectId);
@@ -299,62 +271,167 @@ export class CoreOrchestratorAgent {
             return res.status(404).json({ error: "Project not found" });
           }
 
-          console.log(
-            `🔧 Setting up ${agentType} agent for project ${projectId}`
-          );
+          console.log(`🔧 Setting up socials for project ${projectId}`);
 
           let setupResult;
           let characterResponse = "";
-          const characterContext = this.getCharacterContext(project.side);
-
-          switch (agentType) {
-            case "socials":
-              setupResult = await this.setupSocialsAgent(
-                project,
-                agentConfig,
-                workflowId
-              );
-              characterResponse =
-                project.side === "light"
-                  ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
-                  : "Savage Opress will dominate the social channels. Fear and respect, our tools they are.";
-              break;
-            case "karma":
-              setupResult = await this.setupKarmaAgent(
-                project,
-                agentConfig,
-                workflowId
-              );
-              characterResponse =
-                project.side === "light"
-                  ? "Strong with the Force of opportunity, Luke Skywalker is. Find grants and allies, he will."
-                  : "Darth Vader will command the grant opportunities. The dark side of funding, powerful it is.";
-              break;
-            case "ip":
-              setupResult = await this.setupIPAgent(
-                project,
-                agentConfig,
-                workflowId
-              );
-              characterResponse =
-                project.side === "light"
-                  ? "Protect your knowledge, Obi-Wan Kenobi will. Watch for threats, Princess Leia shall."
-                  : "Kylo Ren will secure your intellectual dominance. Darth Maul hunts those who dare copy you.";
-              break;
-            default:
-              return res
-                .status(400)
-                .json({ error: `Unknown agent type: ${agentType}` });
-          }
+          setupResult = await this.setupSocialsAgent(
+            project,
+            { twitter, linkedin, telegram },
+            workflowId
+          );
+          characterResponse =
+            project.side === "light"
+              ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
+              : "Savage Opress will dominate the social channels. Fear and respect, our tools they are.";
 
           res.json({
             success: true,
             projectId,
-            agentType,
+            agentType: "socials",
             workflowId,
             characterResponse,
-            message: `${agentType} agent setup initiated`,
-            status: "SETTING_UP",
+            message: `Socials agent setup initiated`,
+            status: "SETTING_UP_SOCIALS",
+            setupResult,
+          });
+        } catch (error: any) {
+          console.error(
+            `🚨 ${req.params.agentType} agent setup failed:`,
+            error
+          );
+          res.status(500).json({
+            error: `Failed to setup ${req.params.agentType} agent`,
+            details: error.message,
+          });
+        }
+      }
+    );
+
+    // 3. Setup karma agent
+    this.app.post(
+      "/api/projects/:projectId/setup-karma",
+      async (req: any, res: any) => {
+        try {
+          const { projectId } = req.params;
+          const {
+            title,
+            description,
+            imageURL,
+            ownerAddress,
+            ownerPkey,
+            members,
+            membersPKey,
+            userEmail,
+            userName,
+          } = req.body;
+
+          const workflowId = uuidv4();
+          const project = await this.getProject(projectId);
+
+          if (!project) {
+            return res.status(404).json({ error: "Project not found" });
+          }
+          project.name = title;
+          project.description = description;
+          project.imageUrl = imageURL;
+
+          console.log(`🔧 Setting up socials for project ${projectId}`);
+
+          let setupResult;
+          let characterResponse = "";
+          setupResult = await this.setupKarmaAgent(
+            project,
+            {
+              ownerAddress,
+              ownerPkey,
+              members,
+              membersPKey,
+              userEmail,
+              userName,
+            },
+            workflowId
+          );
+          characterResponse =
+            project.side === "light"
+              ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
+              : "Savage Opress will dominate the social channels. Fear and respect, our tools they are.";
+
+          res.json({
+            success: true,
+            projectId,
+            agentType: "karma",
+            workflowId,
+            characterResponse,
+            message: `Karma agent setup initiated`,
+            status: "SETTING_UP_KARMA",
+            setupResult,
+          });
+        } catch (error: any) {
+          console.error(
+            `🚨 ${req.params.agentType} agent setup failed:`,
+            error
+          );
+          res.status(500).json({
+            error: `Failed to setup ${req.params.agentType} agent`,
+            details: error.message,
+          });
+        }
+      }
+    );
+
+    // 3. Setup IP agent
+    this.app.post(
+      "/api/projects/:projectId/setup-ip",
+      async (req: any, res: any) => {
+        try {
+          const { projectId } = req.params;
+          const { title, description, imageURL, remixFee, commercialRevShare } =
+            req.body;
+
+          const workflowId = uuidv4();
+          const project = await this.getProject(projectId);
+
+          if (!project) {
+            return res.status(404).json({ error: "Project not found" });
+          }
+          project.name = title;
+          project.description = description;
+          project.imageUrl = imageURL;
+
+          console.log(`🔧 Setting up socials for project ${projectId}`);
+
+          let setupResult;
+          let characterResponse = "";
+          setupResult = await this.setupIPAgent(
+            project,
+            {
+              title,
+              description,
+              imageURL,
+              license: "MIT",
+              licenseTermsData: [
+                createCommercialRemixTerms({
+                  commercialRevShare,
+                  defaultMintingFee: remixFee,
+                }),
+              ],
+            },
+            workflowId
+          );
+          characterResponse =
+            project.side === "light"
+              ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
+              : "Savage Opress will dominate the social channels. Fear and respect, our tools they are.";
+
+          res.json({
+            success: true,
+            projectId,
+            agentType: "ip",
+            workflowId,
+            characterResponse,
+            message: `IP agent setup initiated`,
+            status: "SETTING_UP_IP",
             setupResult,
           });
         } catch (error: any) {
@@ -377,7 +454,7 @@ export class CoreOrchestratorAgent {
         let project: any = null;
         try {
           const { projectId } = req.params;
-          const { prompt, userId = "anonymous" } = req.body;
+          const { prompt } = req.body;
 
           if (!prompt) {
             return res.status(400).json({ error: "prompt is required" });
@@ -445,56 +522,6 @@ export class CoreOrchestratorAgent {
           res.status(500).json({
             error: "Failed to process interaction",
             characterResponse: `${characterContext.orchestrator.confused} Process your request, I could not.`,
-            details: error.message,
-          });
-        }
-      }
-    );
-
-    // Direct agent communication endpoint
-    this.app.post(
-      "/api/agents/:agentType/message",
-      async (req: any, res: any) => {
-        try {
-          const { agentType } = req.params;
-          const { action, payload, projectId } = req.body;
-
-          const taskId = uuidv4();
-          const workflowId = uuidv4();
-
-          // Validate agent capabilities
-          const agentCapabilities = this.getAgentCapabilities(agentType);
-          if (!agentCapabilities.includes(action)) {
-            // Forward to orchestrator for complex handling
-            return this.handleComplexAgentRequest(
-              agentType,
-              action,
-              payload,
-              projectId,
-              res
-            );
-          }
-
-          // Send direct message to agent
-          await this.sendTaskToAgent(agentType, {
-            taskId,
-            workflowId,
-            type: action.toUpperCase(),
-            payload: { projectId, ...payload },
-            priority: "MEDIUM",
-          });
-
-          res.json({
-            success: true,
-            taskId,
-            workflowId,
-            message: `Task sent to ${agentType} agent`,
-            status: "PROCESSING",
-          });
-        } catch (error: any) {
-          console.error(`🚨 Direct agent communication failed:`, error);
-          res.status(500).json({
-            error: "Failed to communicate with agent",
             details: error.message,
           });
         }
@@ -570,66 +597,6 @@ export class CoreOrchestratorAgent {
         res
           .status(500)
           .json({ error: "Failed to start analysis", details: error.message });
-      }
-    });
-
-    // =============================================================================
-    // KARMA WORKFLOWS (legacy)
-    // =============================================================================
-
-    // Create Karma project
-    this.app.post("/api/karma/projects", async (req: any, res: any) => {
-      try {
-        const {
-          projectId,
-          title,
-          description,
-          imageURL,
-          links,
-          tags,
-          ownerAddress,
-          members,
-          userEmail,
-          userName,
-        } = req.body;
-
-        const workflowId = uuidv4();
-
-        console.log(
-          `🎯 Orchestrator: Starting Karma project creation for ${title}`
-        );
-
-        await this.sendTaskToAgent("karma-integration", {
-          taskId: uuidv4(),
-          workflowId,
-          type: "CREATE_KARMA_PROJECT",
-          payload: {
-            projectId,
-            title,
-            description,
-            imageURL,
-            links,
-            tags,
-            ownerAddress,
-            members,
-            userEmail,
-            userName,
-          },
-          priority: "HIGH",
-        });
-
-        res.json({
-          success: true,
-          workflowId,
-          message: "Karma project creation initiated",
-          status: "PENDING",
-        });
-      } catch (error: any) {
-        console.error("🚨 Orchestrator: Karma project creation failed:", error);
-        res.status(500).json({
-          error: "Failed to create Karma project",
-          details: error.message,
-        });
       }
     });
 
@@ -983,10 +950,13 @@ export class CoreOrchestratorAgent {
         title: project.name,
         description: project.description,
         imageURL: project.imageUrl,
-        ownerAddress: config.walletAddress,
+        ownerAddress: config.ownerAddress,
+        ownerPkey: config.ownerPkey,
         members: config.members || [],
+        membersPKey: config.membersPKey,
         userEmail: config.userEmail,
         userName: config.userName,
+        side: project.side,
         characterName: this.getCharacterContext(project.side).karma.name,
       },
       priority: "HIGH",
@@ -1000,6 +970,13 @@ export class CoreOrchestratorAgent {
     const ipTaskId = uuidv4();
     const complianceTaskId = uuidv4();
 
+    const developers = project.developers.map((developer: any) => ({
+      name: developer.name,
+      githubUsername: developer.githubUsername,
+      walletAddress: developer.walletAddress,
+      contributionPercent: 100 / project.developers.length,
+    }));
+
     // Setup IP protection
     await this.sendTaskToAgent("story-protocol-ip", {
       taskId: ipTaskId,
@@ -1010,16 +987,9 @@ export class CoreOrchestratorAgent {
         title: project.name,
         description: project.description,
         repositoryUrl: project.githubUrl,
-        developers: config.developers || [
-          {
-            name: config.userName || "Developer",
-            githubUsername: config.githubUsername || "unknown",
-            walletAddress: config.walletAddress,
-            contributionPercent: 100,
-          },
-        ],
+        developers,
         license: config.license || "MIT",
-        programmingLanguages: config.languages || ["JavaScript"],
+        programmingLanguages: project.languages || ["JavaScript"],
         licenseTermsData: config.licenseTermsData || [],
         characterName: this.getCharacterContext(project.side).ip.name,
       },
