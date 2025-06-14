@@ -133,6 +133,11 @@ export default function Home() {
       return;
     }
 
+    if (parseFloat(parseCardanoBalance(balance)) < 10) {
+      setError("Please top up your wallet with at least 10 ADA");
+      return;
+    }
+
     setError("");
 
     setGithubUrl(prompt);

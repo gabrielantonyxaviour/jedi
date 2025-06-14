@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Upload, X } from "lucide-react";
 import Image from "next/image";
+import { Badge } from "../ui/badge";
+import { useAppStore } from "@/store/app-store";
 
 interface ProjectSetupDialogProps {
   open: boolean;
@@ -45,6 +47,7 @@ export default function ProjectSetupDialog({
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { addLog } = useAppStore();
 
   function extractRepoName(url: string): string {
     try {
@@ -74,6 +77,14 @@ export default function ProjectSetupDialog({
     e.preventDefault();
     setIsSubmitting(true);
 
+    addLog(
+      userSide === "light"
+        ? '"Begin your project, you must. Strong with the Force, your vision is. Guide you to success, I will."'
+        : '"Good... let your creative ambitions flow through you. Your project shall become more powerful than you can possibly imagine."',
+      "orchestrator",
+      "info"
+    );
+
     // Simulate upload delay
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -89,6 +100,30 @@ export default function ProjectSetupDialog({
             Setup Your Project
           </DialogTitle>
         </DialogHeader>
+        <div className="bg-zinc-800/50 rounded-lg p-4 mb-6 border-l-4 border-blue-500">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-zinc-600">
+              <Image
+                src={`/agents/${userSide}/orchestrator.png`}
+                alt="Orchestrator Agent"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <p className="text-white text-md font-bold">Yoda</p>
+            <Badge
+              variant="secondary"
+              className="bg-blue-600/20 text-blue-400 border-blue-500/30"
+            >
+              Orchestrator Agent
+            </Badge>
+          </div>
+          <p className="text-zinc-300 italic text-sm leading-relaxed">
+            {userSide === "light"
+              ? '"Begin your project, you must. Strong with the Force, your vision is. Guide you to success, I will."'
+              : '"Good... let your creative ambitions flow through you. Your project shall become more powerful than you can possibly imagine."'}
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Image Upload */}
@@ -96,32 +131,40 @@ export default function ProjectSetupDialog({
             <Label className="text-white">Project Image</Label>
             <div className="border-2 border-dashed border-zinc-600 rounded-lg p-6 text-center">
               {imagePreview ? (
-                <div className="relative">
-                  <Image
-                    src={imagePreview}
-                    alt="Project preview"
-                    width={200}
-                    height={120}
-                    className="mx-auto rounded-lg object-cover"
-                  />
-                  <Button
-                    type="button"
-                    onClick={removeImage}
-                    className="absolute top-2 right-2 w-6 h-6 p-0 bg-red-600 hover:bg-red-700"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+                <div className="flex justify-center">
+                  <div className="relative w-32 h-32">
+                    <Image
+                      src={imagePreview}
+                      alt="Project preview"
+                      fill
+                      className="rounded-full object-cover border-4 border-zinc-600"
+                    />
+                    <Button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute -top-2 -right-2 w-6 h-6 p-0 bg-red-600 hover:bg-red-700 rounded-full"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
               ) : (
-                <div>
-                  <Upload className="w-12 h-12 text-zinc-400 mx-auto mb-4" />
-                  <Label htmlFor="image-upload" className="cursor-pointer">
-                    <span className="text-blue-400 hover:text-blue-300">
-                      Click to upload project image
-                    </span>
-                    <p className="text-sm text-zinc-500 mt-1">
-                      PNG, JPG up to 10MB
-                    </p>
+                <div className="flex flex-col items-center">
+                  <Label
+                    htmlFor="image-upload"
+                    className="cursor-pointer group"
+                  >
+                    <div className="w-32 h-32 mb-3 border-2 border-dashed border-zinc-600 rounded-full flex items-center justify-center group-hover:border-zinc-500 transition-colors">
+                      <Upload className="w-8 h-8 text-zinc-400 group-hover:text-zinc-300" />
+                    </div>
+                    <div className="text-center">
+                      <span className="text-blue-400 hover:text-blue-300 text-sm">
+                        Upload project logo
+                      </span>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        PNG, JPG up to 10MB
+                      </p>
+                    </div>
                   </Label>
                   <Input
                     id="image-upload"
