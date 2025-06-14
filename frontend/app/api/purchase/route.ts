@@ -1,8 +1,12 @@
+// app/api/purchase/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import type { PurchaseInput, ApiError } from "@/types/job";
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse<any | ApiError>> {
   try {
-    const body = await request.json();
+    const body: PurchaseInput = await request.json();
     const {
       identifierFromPurchaser,
       network = "Preprod",
@@ -16,8 +20,7 @@ export async function POST(request: NextRequest) {
       inputHash,
     } = body;
 
-    // Validate required fields
-    const requiredFields = [
+    const requiredFields: (keyof PurchaseInput)[] = [
       "identifierFromPurchaser",
       "sellerVkey",
       "blockchainIdentifier",
@@ -37,7 +40,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Call external payment API
     const response = await fetch(
       "https://payment.masumi.network/api/v1/purchase/",
       {
