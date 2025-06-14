@@ -78,10 +78,12 @@ export class LeadsAgent {
           const newProjectLeads = await this.searchLeadsForNewProject(
             task.payload
           );
+          // TODO: Email to be implemented
           // Auto-trigger email for high-scoring leads
-          for (const lead of newProjectLeads.filter((l) => l.score > 80)) {
-            await this.triggerLeadEmail(lead);
-          }
+          // for (const lead of newProjectLeads.filter((l) => l.score > 80)) {
+          //   await this.triggerLeadEmail(lead);
+          // }
+
           result = {
             leads: newProjectLeads,
             count: newProjectLeads.length,

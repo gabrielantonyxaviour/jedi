@@ -458,10 +458,31 @@ Respond in character, following your personality and style guidelines. Keep it c
   }
 
   private async storeProjectConfig(config: ProjectSocialConfig): Promise<void> {
+    const tableName = process.env.PROJECTS_TABLE_NAME || "projects";
+
+    const updateExpression = [
+      "socialConfig = :socialConfig",
+      "updatedAt = :updatedAt",
+    ];
+
+    const expressionAttributeValues = {
+      ":socialConfig": {
+        socials: config.socials,
+        autoPost: config.autoPost,
+        character: config.character,
+        postsPerDay: config.postsPerDay,
+        setupAt: config.setupAt,
+        isActive: config.isActive,
+      },
+      ":updatedAt": new Date().toISOString(),
+    };
+
     await this.dynamodb.send(
-      new PutItemCommand({
-        TableName: "project-social-configs",
-        Item: marshall(config),
+      new UpdateItemCommand({
+        TableName: tableName,
+        Key: marshall({ projectId: config.projectId }),
+        UpdateExpression: `SET ${updateExpression.join(", ")}`,
+        ExpressionAttributeValues: marshall(expressionAttributeValues),
       })
     );
   }
@@ -469,16 +490,25 @@ Respond in character, following your personality and style guidelines. Keep it c
   private async getProjectConfig(
     projectId: string
   ): Promise<ProjectSocialConfig | null> {
+    const tableName = process.env.PROJECTS_TABLE_NAME || "projects";
+
     const response = await this.dynamodb.send(
       new GetItemCommand({
-        TableName: "project-social-configs",
+        TableName: tableName,
         Key: marshall({ projectId }),
       })
     );
 
-    return response.Item
-      ? (unmarshall(response.Item) as ProjectSocialConfig)
-      : null;
+    if (!response.Item) return null;
+
+    const project = unmarshall(response.Item);
+
+    if (!project.socialConfig) return null;
+
+    return {
+      projectId,
+      ...project.socialConfig,
+    } as ProjectSocialConfig;
   }
 
   private async loadExistingConfigs(): Promise<void> {
