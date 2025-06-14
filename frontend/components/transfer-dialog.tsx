@@ -70,7 +70,11 @@ export default function TransferDialog({ open, onClose }: TransferDialogProps) {
               Send exactly 5 ADA to this address:
             </p>
             <div className="p-3 bg-zinc-800 rounded-md">
-              <code className="text-sm text-zinc-300 break-all">{address}</code>
+              <code className="text-sm text-zinc-300 break-all">
+                {
+                  "addr_test1qqnglc8h35nene7wzu6zrrtxdtsrrdprr30jk48vxlje38nmqcs9s4tjng8e0lsm326d0a23uv08rzzqlxvh7r9cs8tsmw6jra"
+                }
+              </code>
             </div>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
