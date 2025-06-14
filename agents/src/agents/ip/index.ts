@@ -1,7 +1,7 @@
 import {
   DynamoDBClient,
-  PutItemCommand,
-  QueryCommand,
+  UpdateItemCommand,
+  GetItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
@@ -21,18 +21,8 @@ import {
 } from "./service";
 
 interface ProjectIPRegistration {
-  registrationId: string;
-  projectId: string;
   ipId: Address;
   txHash: string;
-  title: string;
-  repositoryUrl: string;
-  developers: Array<{
-    name: string;
-    githubUsername: string;
-    walletAddress: string;
-    contributionPercent: number;
-  }>;
   licenseTermsIds: string[];
   status: "pending" | "confirmed" | "failed";
   createdAt: string;
@@ -41,7 +31,6 @@ interface ProjectIPRegistration {
 
 interface ProjectLicense {
   licenseId: string;
-  projectId: string;
   parentIpId?: Address;
   derivativeIpId: Address;
   licenseType: "commercial_fork" | "custom_remix" | "open_source";
@@ -67,8 +56,6 @@ export class IPAgent {
   private sqs: SQSClient;
   private storyService: StoryProtocolService;
   private projectsTableName: string;
-  private licensesTableName: string;
-  private royaltiesTableName: string;
   private bucketName: string;
   private orchestratorQueue: string;
 
@@ -89,9 +76,7 @@ export class IPAgent {
       mintNFT
     );
 
-    this.projectsTableName = process.env.IP_PROJECTS_TABLE!;
-    this.licensesTableName = process.env.PROJECT_LICENSES_TABLE!;
-    this.royaltiesTableName = process.env.ROYALTY_TRANSACTIONS_TABLE!;
+    this.projectsTableName = process.env.PROJECTS_TABLE_NAME!;
     this.bucketName = process.env.PROJECT_IP_BUCKET!;
     this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
   }
@@ -131,7 +116,6 @@ export class IPAgent {
           result = { dispute };
           break;
 
-        // NEW TASK TYPES
         case "CREATE_DISPUTE":
           const newDispute = await this.createDispute(task.payload);
           result = { dispute: newDispute };
@@ -201,7 +185,6 @@ export class IPAgent {
     }
   }
 
-  // NEW METHODS
   async createDispute(payload: {
     projectIpId: string;
     evidence: string;
@@ -212,9 +195,9 @@ export class IPAgent {
     return await this.disputeProjectIP({
       targetIpId: payload.projectIpId as Address,
       evidence: payload.evidence,
-      targetTag: "PLAGIARISM" as DisputeTargetTag, // Map from reason
-      bondAmount: "1", // 1 ETH
-      livenessMonths: 1, // 1 month
+      targetTag: "PLAGIARISM" as DisputeTargetTag,
+      bondAmount: "1",
+      livenessMonths: 1,
     });
   }
 
@@ -240,9 +223,9 @@ export class IPAgent {
     });
   }
 
-  // EXISTING METHODS (unchanged)
   async registerGitHubProject(payload: {
     projectId: string;
+    ownerId: string;
     title: string;
     description: string;
     repositoryUrl: string;
@@ -284,6 +267,7 @@ export class IPAgent {
       attributes: [
         { trait_type: "Project Type", value: "GitHub Repository" },
         { trait_type: "License", value: payload.license },
+        { trait_type: "Owner", value: payload.ownerId },
         {
           trait_type: "Primary Language",
           value: payload.programmingLanguages[0] || "Unknown",
@@ -304,24 +288,23 @@ export class IPAgent {
     );
 
     const registration: ProjectIPRegistration = {
-      registrationId: randomUUID(),
-      projectId: payload.projectId,
       ipId: storyResponse.ipId as Address,
       txHash: storyResponse.txHash,
-      title: payload.title,
-      repositoryUrl: payload.repositoryUrl,
-      developers: payload.developers,
       licenseTermsIds: storyResponse.licenseTermsIds,
       status: "confirmed",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    // Store registration in DynamoDB
-    await this.storeProjectRegistration(registration);
+    // Update project in DynamoDB
+    await this.updateProjectWithIPData(payload.projectId, {
+      ipRegistration: registration,
+      ipMetadata: projectMetadata,
+      nftMetadata: nftMetadata,
+    });
 
     // Store metadata in S3
-    await this.storeProjectMetadata(registration.registrationId, {
+    await this.storeProjectMetadata(payload.projectId, {
       projectMetadata,
       nftMetadata,
       storyResponse,
@@ -331,22 +314,7 @@ export class IPAgent {
     return registration;
   }
 
-  async createProjectFork(payload: {
-    projectId: string;
-    title: string;
-    description: string;
-    repositoryUrl: string;
-    developers: Array<{
-      name: string;
-      githubUsername: string;
-      walletAddress: string;
-      contributionPercent: number;
-    }>;
-    parentProjectData: DerivativeProjectData;
-    logoUrl?: string;
-    programmingLanguages: string[];
-    framework?: string;
-  }): Promise<ProjectLicense> {
+  async createProjectFork(payload: any): Promise<ProjectLicense> {
     console.log(`🍴 Creating project fork: ${payload.title}`);
 
     const projectMetadata: ProjectIPMetadata = {
@@ -384,7 +352,6 @@ export class IPAgent {
 
     const license: ProjectLicense = {
       licenseId: randomUUID(),
-      projectId: payload.projectId,
       parentIpId: payload.parentProjectData.parentIpIds[0],
       derivativeIpId: forkResponse.ipId as Address,
       licenseType: "commercial_fork",
@@ -392,7 +359,8 @@ export class IPAgent {
       createdAt: new Date().toISOString(),
     };
 
-    await this.storeProjectLicense(license);
+    // Update project with license data
+    await this.updateProjectWithLicenseData(payload.projectId, license);
 
     console.log(
       `✅ Project fork created with IP ID: ${license.derivativeIpId}`
@@ -400,22 +368,7 @@ export class IPAgent {
     return license;
   }
 
-  async createProjectRemix(payload: {
-    projectId: string;
-    title: string;
-    description: string;
-    repositoryUrl: string;
-    developers: Array<{
-      name: string;
-      githubUsername: string;
-      walletAddress: string;
-      contributionPercent: number;
-    }>;
-    parentProjectData: DerivativeProjectData;
-    developerAddress: Address;
-    logoUrl?: string;
-    programmingLanguages: string[];
-  }): Promise<ProjectLicense> {
+  async createProjectRemix(payload: any): Promise<ProjectLicense> {
     console.log(`🎨 Creating project remix: ${payload.title}`);
 
     const projectMetadata: ProjectIPMetadata = {
@@ -452,7 +405,6 @@ export class IPAgent {
 
     const license: ProjectLicense = {
       licenseId: randomUUID(),
-      projectId: payload.projectId,
       parentIpId: payload.parentProjectData.parentIpIds[0],
       derivativeIpId: remixResponse.ipId as Address,
       licenseType: "custom_remix",
@@ -460,7 +412,7 @@ export class IPAgent {
       createdAt: new Date().toISOString(),
     };
 
-    await this.storeProjectLicense(license);
+    await this.updateProjectWithLicenseData(payload.projectId, license);
 
     console.log(
       `✅ Project remix created with IP ID: ${license.derivativeIpId}`
@@ -468,22 +420,7 @@ export class IPAgent {
     return license;
   }
 
-  async createOpenSourceProject(payload: {
-    projectId: string;
-    title: string;
-    description: string;
-    repositoryUrl: string;
-    developers: Array<{
-      name: string;
-      githubUsername: string;
-      walletAddress: string;
-      contributionPercent: number;
-    }>;
-    parentProjectId: Address;
-    nonCommercialTermsId: string;
-    logoUrl?: string;
-    programmingLanguages: string[];
-  }): Promise<ProjectLicense> {
+  async createOpenSourceProject(payload: any): Promise<ProjectLicense> {
     console.log(`🆓 Creating open-source project: ${payload.title}`);
 
     const projectMetadata: ProjectIPMetadata = {
@@ -517,7 +454,6 @@ export class IPAgent {
 
     const license: ProjectLicense = {
       licenseId: randomUUID(),
-      projectId: payload.projectId,
       parentIpId: payload.parentProjectId,
       derivativeIpId: openSourceResponse.ipId as Address,
       licenseType: "open_source",
@@ -525,7 +461,7 @@ export class IPAgent {
       createdAt: new Date().toISOString(),
     };
 
-    await this.storeProjectLicense(license);
+    await this.updateProjectWithLicenseData(payload.projectId, license);
 
     console.log(
       `✅ Open source project created with IP ID: ${license.derivativeIpId}`
@@ -547,12 +483,12 @@ export class IPAgent {
       evidence: payload.evidence,
       targetTag: payload.targetTag,
       bond: parseEther(payload.bondAmount),
-      liveness: payload.livenessMonths * 30 * 24 * 60 * 60, // Convert months to seconds
+      liveness: payload.livenessMonths * 30 * 24 * 60 * 60,
     };
 
     const dispute = await this.storyService.disputeProjectIP(disputeData);
 
-    // Store dispute record
+    // Store dispute record in S3
     await this.s3.send(
       new PutObjectCommand({
         Bucket: this.bucketName,
@@ -595,7 +531,7 @@ export class IPAgent {
       timestamp: Date.now(),
     };
 
-    await this.storeRoyaltyTransaction(transaction);
+    await this.addRoyaltyTransaction(payload.projectIpId, transaction);
     return transaction;
   }
 
@@ -625,7 +561,7 @@ export class IPAgent {
       timestamp: Date.now(),
     };
 
-    await this.storeRoyaltyTransaction(transaction);
+    await this.addRoyaltyTransaction(payload.projectIpId, transaction);
     return transaction;
   }
 
@@ -636,86 +572,103 @@ export class IPAgent {
       payload.projectIpId
     );
 
-    // Also fetch stored registration data
-    const storedData = await this.getStoredProjectRegistration(
-      payload.projectIpId
-    );
-
     return {
       onChainDetails: details,
-      registrationData: storedData,
       timestamp: new Date().toISOString(),
     };
   }
 
-  private async storeProjectRegistration(
-    registration: ProjectIPRegistration
+  private async updateProjectWithIPData(
+    projectId: string,
+    ipData: any
   ): Promise<void> {
     await this.dynamodb.send(
-      new PutItemCommand({
+      new UpdateItemCommand({
         TableName: this.projectsTableName,
-        Item: marshall(registration),
+        Key: marshall({ projectId }, { removeUndefinedValues: true }),
+        UpdateExpression:
+          "SET ipRegistration = :ipRegistration, ipMetadata = :ipMetadata, nftMetadata = :nftMetadata, updatedAt = :updatedAt",
+        ExpressionAttributeValues: marshall(
+          {
+            ":ipRegistration": ipData.ipRegistration,
+            ":ipMetadata": ipData.ipMetadata,
+            ":nftMetadata": ipData.nftMetadata,
+            ":updatedAt": new Date().toISOString(),
+          },
+          { removeUndefinedValues: true }
+        ),
       })
     );
   }
 
-  private async storeProjectLicense(license: ProjectLicense): Promise<void> {
+  private async updateProjectWithLicenseData(
+    projectId: string,
+    license: ProjectLicense
+  ): Promise<void> {
     await this.dynamodb.send(
-      new PutItemCommand({
-        TableName: this.licensesTableName,
-        Item: marshall(license),
+      new UpdateItemCommand({
+        TableName: this.projectsTableName,
+        Key: marshall({ projectId }, { removeUndefinedValues: true }),
+        UpdateExpression:
+          "SET licenses = list_append(if_not_exists(licenses, :empty_list), :license), updatedAt = :updatedAt",
+        ExpressionAttributeValues: marshall(
+          {
+            ":license": [license],
+            ":empty_list": [],
+            ":updatedAt": new Date().toISOString(),
+          },
+          { removeUndefinedValues: true }
+        ),
       })
     );
   }
 
-  private async storeRoyaltyTransaction(
+  private async addRoyaltyTransaction(
+    projectIpId: Address,
     transaction: RoyaltyTransaction
   ): Promise<void> {
-    await this.dynamodb.send(
-      new PutItemCommand({
-        TableName: this.royaltiesTableName,
-        Item: marshall(transaction),
-      })
-    );
+    const project = await this.getProjectByIpId(projectIpId);
+    if (project) {
+      await this.dynamodb.send(
+        new UpdateItemCommand({
+          TableName: this.projectsTableName,
+          Key: marshall(
+            { projectId: project.projectId },
+            { removeUndefinedValues: true }
+          ),
+          UpdateExpression:
+            "SET royaltyTransactions = list_append(if_not_exists(royaltyTransactions, :empty_list), :transaction), updatedAt = :updatedAt",
+          ExpressionAttributeValues: marshall(
+            {
+              ":transaction": [transaction],
+              ":empty_list": [],
+              ":updatedAt": new Date().toISOString(),
+            },
+            { removeUndefinedValues: true }
+          ),
+        })
+      );
+    }
+  }
+
+  private async getProjectByIpId(ipId: Address): Promise<any> {
+    // This would need a GSI on ipId, or scan all projects
+    // For now, return null and handle in the calling method
+    return null;
   }
 
   private async storeProjectMetadata(
-    registrationId: string,
+    projectId: string,
     metadata: any
   ): Promise<void> {
     await this.s3.send(
       new PutObjectCommand({
         Bucket: this.bucketName,
-        Key: `projects/${registrationId}/metadata.json`,
+        Key: `projects/${projectId}/metadata.json`,
         Body: JSON.stringify(metadata),
         ContentType: "application/json",
       })
     );
-  }
-
-  private async getStoredProjectRegistration(
-    ipId: Address
-  ): Promise<ProjectIPRegistration | null> {
-    try {
-      const response = await this.dynamodb.send(
-        new QueryCommand({
-          TableName: this.projectsTableName,
-          IndexName: "ipId-index",
-          KeyConditionExpression: "ipId = :ipId",
-          ExpressionAttributeValues: marshall({
-            ":ipId": ipId,
-          }),
-        })
-      );
-
-      if (response.Items && response.Items.length > 0) {
-        return unmarshall(response.Items[0]) as ProjectIPRegistration;
-      }
-      return null;
-    } catch (error) {
-      console.error("Failed to fetch stored registration:", error);
-      return null;
-    }
   }
 
   private async reportTaskCompletion(

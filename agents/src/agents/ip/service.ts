@@ -5,6 +5,7 @@ import {
   DisputeTargetTag,
   WIP_TOKEN_ADDRESS,
 } from "@story-protocol/core-sdk";
+import { createCommercialRemixTerms } from "@/utils/utils";
 
 export interface ProjectIPMetadata {
   title: string;
@@ -123,7 +124,14 @@ export class StoryProtocolService {
     const response =
       await this.client.ipAsset.mintAndRegisterIpAssetWithPilTerms({
         spgNftContract: this.spgNftContract,
-        licenseTermsData,
+        licenseTermsData: [
+          {
+            terms: createCommercialRemixTerms({
+              commercialRevShare: parseInt(licenseTermsData[0]),
+              defaultMintingFee: parseInt(licenseTermsData[1]),
+            }),
+          },
+        ],
         ipMetadata: {
           ipMetadataURI: `https://ipfs.io/ipfs/${ipIpfsHash}`,
           ipMetadataHash: `0x${ipHash}`,

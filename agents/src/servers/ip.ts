@@ -76,11 +76,28 @@ class IPServer {
       const task = JSON.parse(message.Body);
       console.log(`📋 Processing IP task: ${task.type} (${task.taskId})`);
       console.log(`📦 Task payload:`, JSON.stringify(task.payload, null, 2));
-      await this.agent.processTask(task);
+
+      // Validate required fields
+      if (!task.type || !task.taskId || !task.payload) {
+        throw new Error("Missing required task fields");
+      }
+
+      // Set defaults for missing values
+      const finalPayload = {
+        ...task.payload,
+        license: task.payload.license || "MIT",
+        licenseTermsData: task.payload.licenseTermsData || [],
+      };
+
+      await this.agent.processTask({
+        ...task,
+        payload: finalPayload,
+      });
       console.log(`✅ IP task completed: ${task.taskId}`);
     } catch (error) {
       console.error("❌ Error processing IP message:", error);
       console.error("📄 Message content:", message.Body);
+      throw error; // Re-throw to trigger retry mechanism
     }
   }
 }

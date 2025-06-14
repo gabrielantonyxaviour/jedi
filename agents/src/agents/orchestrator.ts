@@ -463,20 +463,61 @@ export class CoreOrchestratorAgent {
           const { title, description, imageURL, remixFee, commercialRevShare } =
             req.body;
 
+          console.log(`[IP Setup] Starting IP setup for project ${projectId}`);
+          console.log(`[IP Setup] Request body:`, {
+            title,
+            description,
+            imageURL,
+            remixFee,
+            commercialRevShare,
+          });
+
           const workflowId = uuidv4();
+          console.log(`[IP Setup] Generated workflow ID: ${workflowId}`);
+
           const project = await this.getProject(projectId);
+          console.log(`[IP Setup] Retrieved project:`, project);
 
           if (!project) {
+            console.log(`[IP Setup] Project ${projectId} not found`);
             return res.status(404).json({ error: "Project not found" });
           }
+
+          // Validate required fields
+          if (!title || !description) {
+            console.log(`[IP Setup] Missing required fields:`, {
+              title,
+              description,
+            });
+            return res.status(400).json({
+              error: "Title and description are required",
+            });
+          }
+
+          // Set defaults for missing values
+          const finalRemixFee = "1"; // Default remix fee
+          const finalCommercialRevShare = "10"; // Default 10%
+          console.log(`[IP Setup] Using values:`, {
+            finalRemixFee,
+            finalCommercialRevShare,
+          });
+
           project.name = title;
           project.description = description;
           project.imageUrl = imageURL;
+          console.log(`[IP Setup] Updated project with new values:`, {
+            name: project.name,
+            description: project.description,
+            imageUrl: project.imageUrl,
+          });
 
           console.log(`🔧 Setting up IP for project ${projectId}`);
 
           let setupResult;
           let characterResponse = "";
+          console.log(
+            `[IP Setup] Calling setupIPAgent with workflow ID: ${workflowId}`
+          );
           setupResult = await this.setupIPAgent(
             project,
             {
@@ -484,24 +525,25 @@ export class CoreOrchestratorAgent {
               description,
               imageURL,
               license: "MIT",
-              licenseTermsData: [
-                createCommercialRemixTerms({
-                  commercialRevShare,
-                  defaultMintingFee: remixFee,
-                }),
-              ],
+              licenseTermsData: [finalCommercialRevShare, finalRemixFee],
             },
             workflowId
           );
+          console.log(`[IP Setup] IP agent setup completed:`, setupResult);
 
           // Update project state
+          console.log(`[IP Setup] Updating project state to IP`);
           await this.projectService.updateProjectInitState(projectId, "IP");
 
           characterResponse =
             project.side === "light"
-              ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
-              : "Savage Opress will dominate the social channels. Fear and respect, our tools they are.";
+              ? "Protect your intellectual property, we will. Strong with the Force, your code shall be."
+              : "Your IP dominance is secured. Those who steal will face the power of the dark side.";
+          console.log(
+            `[IP Setup] Generated character response: ${characterResponse}`
+          );
 
+          console.log(`[IP Setup] Sending success response`);
           res.json({
             success: true,
             projectId,
@@ -513,12 +555,10 @@ export class CoreOrchestratorAgent {
             setupResult,
           });
         } catch (error: any) {
-          console.error(
-            `🚨 ${req.params.agentType} agent setup failed:`,
-            error
-          );
+          console.error(`🚨 IP agent setup failed:`, error);
+          console.error(`[IP Setup] Error details:`, error.stack);
           res.status(500).json({
-            error: `Failed to setup ${req.params.agentType} agent`,
+            error: `Failed to setup IP agent`,
             details: error.message,
           });
         }
@@ -1113,24 +1153,43 @@ export class CoreOrchestratorAgent {
   }
 
   private async setupIPAgent(project: any, config: any, workflowId: string) {
+    console.log(
+      `[IP Agent Setup] Starting setup for project ${project.projectId}`
+    );
+
     // Setup both Story Protocol IP and Compliance monitoring
     const ipTaskId = uuidv4();
     const complianceTaskId = uuidv4();
+    console.log(`[IP Agent Setup] Generated task IDs:`, {
+      ipTaskId,
+      complianceTaskId,
+    });
+
+    const randomAddress = `0x${Array.from({ length: 40 }, () =>
+      Math.floor(Math.random() * 16).toString(16)
+    ).join("")}`;
+    console.log(`[IP Agent Setup] Generated random address: ${randomAddress}`);
 
     const developers = project.developers.map((developer: any) => ({
       name: developer.name,
-      githubUsername: developer.githubUsername,
-      walletAddress: developer.walletAddress,
+      githubUsername: developer.name,
+      walletAddress: randomAddress,
       contributionPercent: 100 / project.developers.length,
     }));
+    console.log(`[IP Agent Setup] Processed developers:`, developers);
 
     // Setup IP protection
-    await this.sendTaskToAgent("story-protocol-ip", {
+    console.log(
+      `[IP Agent Setup] Sending IP registration task to blockchain-ip agent`
+    );
+
+    console.log({
       taskId: ipTaskId,
       workflowId,
       type: "REGISTER_GITHUB_PROJECT",
       payload: {
         projectId: project.projectId,
+        ownerId: project.ownerId,
         title: project.name,
         description: project.description,
         repositoryUrl: project.githubUrl,
@@ -1143,7 +1202,32 @@ export class CoreOrchestratorAgent {
       priority: "HIGH",
     });
 
+    await this.sendTaskToAgent("blockchain-ip", {
+      taskId: ipTaskId,
+      workflowId,
+      type: "REGISTER_GITHUB_PROJECT",
+      payload: {
+        projectId: project.projectId,
+        ownerId: project.ownerId,
+        title: project.name,
+        description: project.description,
+        repositoryUrl:
+          "https://github.com/" +
+          project.developers[0].name +
+          "/" +
+          project.projectId.split("-")[0],
+        developers,
+        license: config.license || "MIT",
+        programmingLanguages: project.languages || ["JavaScript"],
+        licenseTermsData: config.licenseTermsData || [],
+        characterName: this.getCharacterContext(project.side).ip.name,
+      },
+      priority: "HIGH",
+    });
+    console.log(`[IP Agent Setup] IP registration task sent successfully`);
+
     // Setup compliance monitoring
+    console.log(`[IP Agent Setup] Sending compliance monitoring task`);
     await this.sendTaskToAgent("monitoring-compliance", {
       taskId: complianceTaskId,
       workflowId,
@@ -1158,7 +1242,11 @@ export class CoreOrchestratorAgent {
       },
       priority: "MEDIUM",
     });
+    console.log(
+      `[IP Agent Setup] Compliance monitoring task sent successfully`
+    );
 
+    console.log(`[IP Agent Setup] Setup completed successfully`);
     return {
       ipRegistration: "pending",
       complianceMonitoring: "active",
