@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Github Projects Collection",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "_id": {
+        "type": "string",
+        "format": "uuid",
+        "coerce": true
+      },
+      "name": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "technical_description": {
+        "type": "string"
+      },
+      "repo_url": {
+        "type": "string",
+        "format": "uri"
+      },
+      "owner": {
+        "type": "string"
+      },
+      "collab": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "metadata": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "_id",
+      "name",
+      "description",
+      "technical_description",
+      "repo_url",
+      "owner",
+      "collab",
+      "metadata"
+    ],
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "nillion-multi-agent-system",
+  "version": "1.0.0",
+  "description": "Multi-agent system with Nillion SecretVault integration",
+  "main": "dist/index.js",
+	"scripts": {
+	  "build": "tsc",
+	  "dev": "nodemon src/index.ts",
+	  "start": "node dist/index.js",
+	  "test:logs": "pnpm exec ts-node src/scripts/test-logs.ts",
+	  "test:github": "pnpm exec ts-node src/scripts/test-github.ts",
+	  "test:leads": "pnpm exec ts-node src/scripts/test-leads.ts",
+	  "test:stories": "pnpm exec ts-node src/scripts/test-stories.ts",
+	  "test:socials": "pnpm exec ts-node src/scripts/test-socials.ts",
+	  "test:grants": "pnpm exec ts-node src/scripts/test-grants.ts",
+	  "test:compliance": "pnpm exec ts-node src/scripts/test-compliance.ts",
+	  "test:all": "pnpm run test:logs && pnpm run test:github && pnpm run test:leads && pnpm run test:stories && pnpm run test:socials && pnpm run test:grants && pnpm run test:compliance",
+	  "analytics": "pnpm exec ts-node src/scripts/analytics.ts"
+	},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^9.0.0",
+    "nodemon": "^3.0.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@nillion/nilql": "latest",
+    "secretvaults": "latest",
+    "dotenv": "^16.0.0",
+    "uuid": "^9.0.0",
+    "mongodb": "^6.0.0"
+  }
+}

@@ -18,6 +18,9 @@ import { motion } from "framer-motion";
 import { parseCardanoBalance } from "@/lib/cardano";
 import { useProjects } from "@/hooks/use-projects";
 import TransferDialog from "@/components/transfer-dialog";
+import { useAccount } from "wagmi";
+import { useBalance } from "wagmi";
+import { formatEther } from "viem";
 
 interface CreationStep {
   id: string;
@@ -38,16 +41,11 @@ export default function Home() {
   const [error, setError] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
   const [showTransferDialog, setShowTransferDialog] = useState(false);
-  const {
-    walletStatus,
-    userSide,
-    addLog,
-    setUserSide,
-    balance,
-    setProjectId,
-    address,
-    setJobResponse,
-  } = useAppStore();
+  const { userSide, addLog, setUserSide, setProjectId, setJobResponse } =
+    useAppStore();
+  const { isConnected, address } = useAccount();
+  const { data: balance } = useBalance({ address });
+
   const {
     projects,
     loading: projectsLoading,
@@ -123,15 +121,15 @@ export default function Home() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prompt.trim() || walletStatus !== "connected") return;
+    if (!prompt.trim() || !isConnected) return;
 
     // if (!(await isPublicRepo(prompt))) {
     //   setError("Please make sure the repository is public");
     //   return;
     // }
 
-    if (parseFloat(parseCardanoBalance(balance)) < 10) {
-      setError("Please top up your wallet with at least 10 ADA");
+    if (parseFloat(formatEther(balance?.value ?? BigInt("0"))) < 10) {
+      setError("Please top up your wallet with at least 10 STORY to continue");
       return;
     }
 
@@ -145,7 +143,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          identifier_from_purchaser: address.slice(0, 15),
+          identifier_from_purchaser: address?.slice(0, 15),
           input_data: {
             text: prompt,
           },
@@ -174,12 +172,11 @@ export default function Home() {
   };
 
   // Show loading while fetching projects after wallet connection
-  const shouldShowLoading =
-    (walletStatus === "connected" && !initialized) || showProjectSetup; // Keep loading while project setup is open
+  const shouldShowLoading = (isConnected && !initialized) || showProjectSetup; // Keep loading while project setup is open
 
   // Show side selection only for new users (no existing projects)
   const shouldShowSideSelection =
-    walletStatus === "connected" &&
+    isConnected &&
     initialized &&
     projects.length === 0 &&
     userSide === null &&
@@ -187,19 +184,18 @@ export default function Home() {
 
   // Show main UI when everything is ready
   const shouldShowMainUI =
-    walletStatus === "connected" &&
+    isConnected &&
     initialized &&
     !projectsLoading &&
     (projects.length > 0 || userSide !== null) &&
     !showProjectSetup;
 
   useEffect(() => {
-    const shouldShowLoading =
-      (walletStatus === "connected" && !initialized) || showProjectSetup; // Keep loading while project setup is open
+    const shouldShowLoading = (isConnected && !initialized) || showProjectSetup; // Keep loading while project setup is open
 
     // Show side selection only for new users (no existing projects)
     const shouldShowSideSelection =
-      walletStatus === "connected" &&
+      isConnected &&
       initialized &&
       projects.length === 0 &&
       userSide === null &&
@@ -207,7 +203,7 @@ export default function Home() {
 
     // Show main UI when everything is ready
     const shouldShowMainUI =
-      walletStatus === "connected" &&
+      isConnected &&
       initialized &&
       !projectsLoading &&
       (projects.length > 0 || userSide !== null) &&
@@ -219,20 +215,13 @@ export default function Home() {
       shouldShowSideSelection,
       shouldShowMainUI,
       projectsLoading,
-      walletStatus,
+      isConnected,
       initialized,
       projects,
       userSide,
       showProjectSetup,
     });
-  }, [
-    projectsLoading,
-    walletStatus,
-    initialized,
-    projects,
-    userSide,
-    showProjectSetup,
-  ]);
+  }, [projectsLoading, initialized, projects, userSide, showProjectSetup]);
 
   return (
     <>
@@ -250,7 +239,7 @@ export default function Home() {
             </div>
           ) : shouldShowSideSelection ? (
             <SideSelection onSelect={handleSideSelection} />
-          ) : shouldShowMainUI || walletStatus !== "connected" ? (
+          ) : shouldShowMainUI || !isConnected ? (
             <div className="flex flex-col items-center w-full">
               <div className="text-center mb-8">
                 <h1 className="text-5xl font-bold text-zinc-400 mb-2 font-custom-regular tracking-wide">
@@ -265,7 +254,7 @@ export default function Home() {
                       : "text-stone-400"
                   }`}
                 >
-                  {walletStatus !== "connected"
+                  {!isConnected
                     ? "Connect your wallet to continue"
                     : userSide === "light"
                     ? "Peace and Knowledge is how we achieve greatness"
@@ -280,7 +269,7 @@ export default function Home() {
                     onChange={(e) => setPrompt(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={
-                      walletStatus !== "connected"
+                      !isConnected
                         ? "Please connect your wallet first"
                         : "Enter your GitHub repository URL"
                     }
@@ -291,16 +280,12 @@ export default function Home() {
                         ? "focus:ring-red-500 focus-visible:ring-red-500"
                         : "focus:ring-white focus-visible:ring-white"
                     }`}
-                    disabled={walletStatus !== "connected" || isSubmitting}
+                    disabled={!isConnected || isSubmitting}
                   />
                   <Button
                     type="submit"
                     size="sm"
-                    disabled={
-                      !prompt.trim() ||
-                      walletStatus !== "connected" ||
-                      isSubmitting
-                    }
+                    disabled={!prompt.trim() || !isConnected || isSubmitting}
                     className={`absolute bottom-3 right-3 w-8 h-8 p-0 hover:bg-stone-200 disabled:bg-stone-600 disabled:text-stone-400 rounded-lg ${
                       userSide === "light"
                         ? "bg-blue-600 text-white hover:bg-blue-600"
