@@ -6,10 +6,12 @@ import { RepositoryService } from "./services/repository";
 import { WebhookService } from "./services/webhook";
 import { ProjectService } from "../../services/project";
 import { TaskService } from "../../services/task";
+import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
 
 export class GitHubIntelligenceAgent {
   private octokit: Octokit;
   private dynamodb: DynamoDBClient;
+  private bedrock: BedrockRuntimeClient;
   private s3: S3Client;
   private sqsClient: SQSClient;
   private orchestratorQueue: string;
@@ -26,6 +28,9 @@ export class GitHubIntelligenceAgent {
     this.dynamodb = new DynamoDBClient({
       region: process.env.AWS_REGION || "us-east-1",
     });
+    this.bedrock = new BedrockRuntimeClient({
+      region: process.env.AWS_REGION || "us-east-1",
+    });
     this.s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
     this.sqsClient = new SQSClient({
       region: process.env.AWS_REGION || "us-east-1",
@@ -36,6 +41,7 @@ export class GitHubIntelligenceAgent {
     this.repositoryService = new RepositoryService(
       this.octokit,
       this.dynamodb,
+      this.bedrock,
       this.s3
     );
     this.webhookService = new WebhookService(
@@ -57,6 +63,7 @@ export class GitHubIntelligenceAgent {
 
     try {
       let result;
+      let analysisResult;
 
       switch (task.type) {
         case "ANALYZE_REPOSITORY":
@@ -67,11 +74,23 @@ export class GitHubIntelligenceAgent {
           );
           break;
 
-        // case "ANALYZE_AND_SETUP_PROJECT":
-        //   result = await this.projectService.analyzeAndSetupProject(
-        //     task.payload
-        //   );
-        //   break;
+        case "ANALYZE_AND_SETUP_PROJECT":
+          analysisResult = await this.repositoryService.analyzeRepository(
+            task.payload.repoUrl,
+            task.taskId,
+            task.workflowId
+          );
+          result = await this.projectService.createProject({
+            projectId: task.payload.projectId,
+            name: analysisResult.name || "",
+            repo: analysisResult.repo,
+            developers: analysisResult.developers,
+            side: task.payload.side,
+            summary: analysisResult.summary,
+            technicalSummary: analysisResult.technicalSummary,
+            ownerId: task.payload.owner,
+          });
+          break;
 
         case "GET_LATEST_COMMITS":
           result = await this.repositoryService.getLatestCommits(task.payload);

@@ -5,15 +5,20 @@ import {
   QueryCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-
+interface Developer {
+  name: string;
+  github_username: string;
+}
 export interface ProjectInfo {
   projectId: string;
   name: string;
-  description: string;
-  type: string;
-  status: string;
+  repo: string;
+  developers: Developer[];
+  side: string;
+  summary?: string;
+  technicalSummary?: string;
   ownerId: string;
-  metadata: Record<string, any>;
+  metadata?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
 }

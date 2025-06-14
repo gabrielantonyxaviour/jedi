@@ -79,26 +79,7 @@ class GitHubAgentServer {
     try {
       const task = JSON.parse(message.Body);
       console.log(`📋 Processing task: ${task.type} (${task.taskId})`);
-
-      let result;
-      switch (task.type) {
-        case "ANALYZE_REPOSITORY":
-          result = await this.agent.analyzeRepository(
-            task.payload.repoUrl,
-            task.taskId,
-            task.workflowId
-          );
-          break;
-        case "PROCESS_WEBHOOK":
-          result = await this.agent.handleWebhook(
-            task.payload.body,
-            task.taskId,
-            task.workflowId
-          );
-          break;
-        default:
-          throw new Error(`Unknown task type: ${task.type}`);
-      }
+      const result = await this.agent.processTask(task);
 
       console.log(`✅ Task completed: ${task.taskId}`);
     } catch (error: any) {

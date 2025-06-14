@@ -17,7 +17,7 @@ class ComplianceServer {
   constructor() {
     this.agent = new ComplianceAgent();
     this.sqsClient = new SQSClient({ region: process.env.AWS_REGION });
-    this.queueUrl = process.env.COMPLIANCE_QUEUE_URL!;
+    this.queueUrl = process.env.MONITORING_COMPLIANCE_QUEUE_URL!;
   }
 
   async start() {

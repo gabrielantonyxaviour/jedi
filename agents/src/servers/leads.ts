@@ -17,7 +17,7 @@ class LeadsServer {
   constructor() {
     this.agent = new LeadsAgent();
     this.sqsClient = new SQSClient({ region: process.env.AWS_REGION });
-    this.queueUrl = process.env.LEADS_QUEUE_URL!;
+    this.queueUrl = process.env.LEAD_GENERATION_QUEUE_URL!;
   }
 
   async start() {
