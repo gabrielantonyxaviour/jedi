@@ -1024,6 +1024,7 @@ export class CoreOrchestratorAgent {
   }
 
   private async setupKarmaAgent(project: any, config: any, workflowId: string) {
+    const links = this.extractSocialLinks(project);
     await this.sendTaskToAgent("karma-integration", {
       taskId: uuidv4(),
       workflowId,
@@ -1033,6 +1034,7 @@ export class CoreOrchestratorAgent {
         title: project.name,
         description: project.description,
         imageURL: project.imageUrl,
+        links: links,
         ownerAddress: config.ownerAddress,
         ownerPkey: config.ownerPkey,
         members: config.members || [],
@@ -1046,6 +1048,68 @@ export class CoreOrchestratorAgent {
     });
 
     return { karmaUID: "pending", status: "creating" };
+  }
+
+  private extractSocialLinks(
+    project: any
+  ): Array<{ type: string; url: string }> {
+    const links: Array<{ type: string; url: string }> = [];
+
+    // Check if project has social config
+    if (!project.socialConfig?.socials) {
+      return links;
+    }
+
+    const socials = project.socialConfig.socials;
+
+    // Extract Twitter/X link
+    if (socials.twitter && !socials.twitter.NULL && socials.twitter.username) {
+      links.push({
+        type: "twitter",
+        url: `https://twitter.com/${socials.twitter.username}`,
+      });
+    }
+
+    // Extract LinkedIn link
+    if (socials.linkedin && !socials.linkedin.NULL) {
+      // LinkedIn might have different structure, adjust as needed
+      if (socials.linkedin.username) {
+        links.push({
+          type: "linkedin",
+          url: `https://linkedin.com/in/${socials.linkedin.username}`,
+        });
+      } else if (socials.linkedin.url) {
+        links.push({
+          type: "linkedin",
+          url: socials.linkedin.url,
+        });
+      }
+    }
+
+    // Extract Telegram link
+    if (socials.telegram && !socials.telegram.NULL) {
+      if (socials.telegram.username) {
+        links.push({
+          type: "telegram",
+          url: `https://t.me/${socials.telegram.username}`,
+        });
+      } else if (socials.telegram.url) {
+        links.push({
+          type: "telegram",
+          url: socials.telegram.url,
+        });
+      }
+    }
+
+    // Add GitHub link if available
+    if (project.githubUrl) {
+      links.push({
+        type: "github",
+        url: project.githubUrl,
+      });
+    }
+
+    return links;
   }
 
   private async setupIPAgent(project: any, config: any, workflowId: string) {

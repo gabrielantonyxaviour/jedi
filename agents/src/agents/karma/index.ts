@@ -1,13 +1,12 @@
 // src/agents/karma-integration.ts
-import {
-  DynamoDBClient,
-  PutItemCommand,
-  QueryCommand,
-  UpdateItemCommand,
-  ScanCommand,
-} from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
+import {
+  SQSClient,
+  SendMessageCommand,
+  ReceiveMessageCommand,
+  DeleteMessageCommand,
+} from "@aws-sdk/client-sqs";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
 import {
@@ -61,6 +60,7 @@ export class KarmaAgent {
   private socialQueue: string;
 
   constructor() {
+    console.log("🚀 Initializing KarmaAgent");
     this.dynamodb = new DynamoDBClient({ region: process.env.AWS_REGION });
     this.s3 = new S3Client({ region: process.env.AWS_REGION });
     this.sqs = new SQSClient({ region: process.env.AWS_REGION });
@@ -71,12 +71,14 @@ export class KarmaAgent {
     this.emailQueue = process.env.EMAIL_QUEUE_URL!;
     this.socialQueue = process.env.SOCIAL_QUEUE_URL!;
 
+    console.log("📡 Starting opportunity polling");
     // Start the opportunity polling
     this.startOpportunityPolling();
   }
 
-  async processTask(task: any): Promise<void> {
+  async processTask(task: any): Promise<any> {
     console.log(`🎯 Processing Karma task: ${task.type}`);
+    console.log("📦 Task payload:", JSON.stringify(task.payload, null, 2));
 
     const characterInfo = task.characterInfo;
     let characterResponse = "";
@@ -86,73 +88,76 @@ export class KarmaAgent {
 
       switch (task.type) {
         case "CREATE_KARMA_PROJECT":
-          const karmaProject = await this.createKarmaProject(task.payload);
-          result = { karmaProject };
+          console.log("🏗️ Creating new Karma project");
+          result = await this.createKarmaProject(task.payload);
           break;
 
         case "APPLY_FOR_GRANT":
-          const grantApplication = await this.applyForGrant(task.payload);
-          result = { grantApplication };
+          console.log("📝 Processing grant application");
+          result = await this.applyForGrant(task.payload);
           break;
 
         case "CREATE_MILESTONE":
-          const milestone = await this.createMilestone(task.payload);
-          result = { milestone };
+          console.log("🎯 Creating new milestone");
+          result = await this.createMilestone(task.payload);
           break;
 
         case "UPDATE_MILESTONE":
-          const milestoneUpdate = await this.updateMilestone(task.payload);
-          result = { milestoneUpdate };
+          console.log("📊 Updating milestone status");
+          result = await this.updateMilestone(task.payload);
           break;
 
         case "SYNC_KARMA_DATA":
-          const syncResult = await this.syncKarmaData(task.payload);
-          result = { syncResult };
+          console.log("🔄 Syncing Karma data");
+          result = await this.syncKarmaData(task.payload);
           break;
 
         case "GET_KARMA_PROJECT":
-          const project = await this.getKarmaProject(
-            task.payload.karmaProjectId
-          );
-          result = { project };
+          console.log("🔍 Fetching Karma project");
+          result = await this.getKarmaProject(task.payload.karmaProjectId);
           break;
 
-        // NEW TASK TYPES
         case "GET_GRANT_OPPORTUNITIES":
-          const opportunities = await this.getGrantOpportunities(task.payload);
-          result = { opportunities };
+          console.log("💰 Fetching grant opportunities");
+          result = await this.getGrantOpportunities(task.payload);
           break;
 
         case "GET_COMMUNITIES":
-          const communities = await this.getCommunities(task.payload);
-          result = { communities };
+          console.log("🌐 Fetching communities");
+          result = await this.getCommunities(task.payload);
           break;
 
         case "GET_PROJECTS":
-          const projects = await this.getProjects(task.payload);
-          result = { projects };
+          console.log("📋 Fetching Karma projects");
+          result = await this.getProjects(task.payload);
           break;
 
         default:
+          console.error(`❌ Unknown task type: ${task.type}`);
           throw new Error(`Unknown task type: ${task.type}`);
       }
 
       // Generate character response
       if (characterInfo?.agentCharacter) {
-        if (characterInfo.side === "light") {
-          characterResponse =
-            "Strong with the Force, your grant opportunities are. Patience you must have, young Padawan. Believe in your project's potential, I do.";
-        } else {
-          characterResponse =
-            "Your funding will serve the Empire well. The dark side of grants, powerful it is. Impressive... most impressive.";
-        }
+        characterResponse =
+          characterInfo.side === "light"
+            ? "Strong with the Force, your grant opportunities are. Patience you must have, young Padawan."
+            : "Your funding will serve the Empire well. The dark side of grants, powerful it is.";
       }
 
+      console.log("✅ Task processing completed");
+      console.log("📤 Task result:", JSON.stringify(result, null, 2));
+
+      // Report completion to orchestrator
       await this.reportTaskCompletion(task.taskId, task.workflowId, {
         ...result,
         characterResponse,
       });
+
+      return { ...result, characterResponse };
     } catch (error: any) {
+      console.error(`❌ Karma task failed:`, error);
+
       if (characterInfo?.agentCharacter) {
         characterResponse =
           characterInfo.side === "light"
@@ -160,6 +165,7 @@ export class KarmaAgent {
             : "This failure disturbs me. The Empire does not tolerate incompetence. Try again, you will.";
       }
 
+      // Report failure to orchestrator
       await this.reportTaskCompletion(
         task.taskId,
         task.workflowId,
@@ -167,6 +173,7 @@ export class KarmaAgent {
         error.message,
         characterResponse
       );
+
       throw error;
     }
   }
@@ -174,11 +181,15 @@ export class KarmaAgent {
   // NEW METHODS
   async getGrantOpportunities(payload: any): Promise<any> {
     console.log(`🔍 Fetching grant opportunities`);
-    return await this.karmaSDK.fetchGrantOpportunities();
+    console.log("📦 Payload:", JSON.stringify(payload, null, 2));
+    const opportunities = await this.karmaSDK.fetchGrantOpportunities();
+    console.log(`✅ Found ${opportunities.length} opportunities`);
+    return opportunities;
   }
 
   async getCommunities(payload: any): Promise<any> {
     console.log(`🌐 Fetching communities`);
+    console.log("📦 Payload:", JSON.stringify(payload, null, 2));
     const communities = await this.karmaSDK.fetchGrantOpportunities();
     // Extract unique communities
     const uniqueCommunities = communities.reduce((acc, opportunity) => {
@@ -190,12 +201,16 @@ export class KarmaAgent {
       }
       return acc;
     }, []);
+    console.log(`✅ Found ${uniqueCommunities.length} unique communities`);
     return uniqueCommunities;
   }
 
   async getProjects(payload: any): Promise<any> {
     console.log(`📋 Fetching Karma projects`);
-    return await this.karmaSDK.fetchProjects();
+    console.log("📦 Payload:", JSON.stringify(payload, null, 2));
+    const projects = await this.karmaSDK.fetchProjects();
+    console.log(`✅ Found ${projects.length} projects`);
+    return projects;
   }
 
   // EXISTING METHODS (unchanged)
@@ -212,6 +227,7 @@ export class KarmaAgent {
     userName?: string;
   }): Promise<any> {
     console.log(`🚀 Creating Karma project: ${payload.title}`);
+    console.log("📦 Project details:", JSON.stringify(payload, null, 2));
 
     const karmaProjectData: SDKKarmaProjectData = {
       title: payload.title,
@@ -223,11 +239,14 @@ export class KarmaAgent {
       members: payload.members,
     };
 
+    console.log("📤 Creating project in Karma SDK");
     const { uid, project } = await this.karmaSDK.createProject(
       karmaProjectData
     );
+    console.log(`✅ Project created with UID: ${uid}`);
 
     // Update existing project with Karma data
+    console.log("📝 Updating local project data");
     const updatedProject = await this.projectService.updateProjectWithKarmaData(
       payload.projectId,
       {
@@ -239,22 +258,17 @@ export class KarmaAgent {
         grants: [],
       }
     );
+    console.log("✅ Local project updated");
 
-    // Send confirmation email
-    if (payload.userEmail && payload.userName) {
-      await this.sendTaskToAgent(this.emailQueue, {
-        taskId: randomUUID(),
-        workflowId: randomUUID(),
-        type: "SEND_EMAIL",
-        payload: {
-          to: [payload.userEmail],
-          subject: `✅ Karma Project Created: ${payload.title}`,
-          body: `Hi ${payload.userName},\n\nYour project "${payload.title}" has been successfully created on Karma GAP!\n\nKarma UID: ${uid}\n\nYou can now apply for grants and create milestones.\n\nBest regards,\nKarma Integration Team`,
-        },
-      });
-    }
-
-    return updatedProject;
+    return {
+      success: true,
+      karmaUID: uid,
+      projectId: payload.projectId,
+      title: payload.title,
+      status: "active",
+      createdAt: new Date().toISOString(),
+      updatedProject,
+    };
   }
 
   async applyForGrant(payload: {
@@ -730,6 +744,15 @@ export class KarmaAgent {
     characterResponse?: string
   ) {
     try {
+      console.log(`📤 Reporting task completion to orchestrator:`, {
+        taskId,
+        workflowId,
+        status: error ? "FAILED" : "COMPLETED",
+        hasResult: !!result,
+        hasError: !!error,
+        hasCharacterResponse: !!characterResponse,
+      });
+
       await this.sqs.send(
         new SendMessageCommand({
           QueueUrl: this.orchestratorQueue,
@@ -747,8 +770,10 @@ export class KarmaAgent {
           }),
         })
       );
+
+      console.log("✅ Task completion reported successfully");
     } catch (err) {
-      console.error("Failed to report task completion:", err);
+      console.error("❌ Failed to report task completion:", err);
     }
   }
 }

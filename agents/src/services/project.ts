@@ -116,22 +116,37 @@ export class ProjectService {
 
     const updateExpressions: string[] = [];
     const expressionAttributeValues: any = {};
+    const expressionAttributeNames: any = {};
 
     Object.keys(updates).forEach((key) => {
-      updateExpressions.push(`${key} = :${key}`);
+      // Handle reserved keywords
+      if (key === "name") {
+        updateExpressions.push(`#projectName = :${key}`);
+        expressionAttributeNames["#projectName"] = "name";
+      } else if (key === "status") {
+        updateExpressions.push(`#projectStatus = :${key}`);
+        expressionAttributeNames["#projectStatus"] = "status";
+      } else {
+        updateExpressions.push(`${key} = :${key}`);
+      }
       expressionAttributeValues[`:${key}`] = updates[key];
     });
 
-    await this.dynamoClient.send(
-      new UpdateItemCommand({
-        TableName: "projects",
-        Key: marshall({ projectId }),
-        UpdateExpression: `SET ${updateExpressions.join(", ")}`,
-        ExpressionAttributeValues: marshall(expressionAttributeValues, {
-          removeUndefinedValues: true,
-        }),
-      })
-    );
+    const params: any = {
+      TableName: "projects",
+      Key: marshall({ projectId }),
+      UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+      ExpressionAttributeValues: marshall(expressionAttributeValues, {
+        removeUndefinedValues: true,
+      }),
+    };
+
+    // Only add ExpressionAttributeNames if we have any
+    if (Object.keys(expressionAttributeNames).length > 0) {
+      params.ExpressionAttributeNames = expressionAttributeNames;
+    }
+
+    await this.dynamoClient.send(new UpdateItemCommand(params));
 
     return (await this.getProject(projectId)) as ProjectInfo;
   }
