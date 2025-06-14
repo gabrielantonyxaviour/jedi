@@ -17,7 +17,6 @@ export default function WalletButton() {
   const { walletStatus, userSide, setWalletStatus } = useAppStore();
   const {
     availableWallets,
-    connectedWallet,
     address,
     balance,
     connect,

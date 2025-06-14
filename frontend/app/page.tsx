@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import NeonIsometricMaze from "@/components/neon-isometric-maze";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { ArrowUp } from "lucide-react";
 import SideSelection from "@/components/side-selection";
 import { useAppStore } from "@/store/app-store";
 import { motion } from "framer-motion";
+import { isPublicRepo } from "@/lib/github/check-public";
+import { useCardanoWallet } from "@/hooks/use-cardano-wallet";
+import { parseCardanoBalance } from "@/lib/cardano";
 
 interface CreationStep {
   id: string;
@@ -26,6 +29,8 @@ export default function Home() {
   const [isCreating, setIsCreating] = useState(false);
   const [creationSteps, setCreationSteps] = useState<CreationStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(-1);
+  const [error, setError] = useState("");
+  const { balance } = useCardanoWallet();
   const { walletStatus, userSide, addLog, setUserSide } = useAppStore();
 
   const initializeSteps = (): CreationStep[] => [
@@ -67,6 +72,10 @@ export default function Home() {
     },
   ];
 
+  useEffect(() => {
+    console.log("Balance updated in Home component:", balance);
+  }, [balance]);
+
   // Handle side selection
   const handleSideSelection = (side: "light" | "dark") => {
     setUserSide(side);
@@ -78,6 +87,19 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || walletStatus !== "connected") return;
+
+    if (!(await isPublicRepo(prompt))) {
+      setError("Please make sure the repository is public");
+      return;
+    }
+
+    // TODO: Balcance not sysncing
+    // if (parseFloat(parseCardanoBalance(balance ?? "0")) < 10) {
+    //   setError(
+    //     "You need at least 10 ADA to setup your agents. Please top up your wallet."
+    //   );
+    //   return;
+    // }
 
     setIsSubmitting(true);
     setIsCreating(true);
@@ -192,6 +214,7 @@ export default function Home() {
                     <ArrowUp className="w-4 h-4" />
                   </Button>
                 </div>
+                {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
               </form>
 
               {/* Creation Steps - Show one by one */}
