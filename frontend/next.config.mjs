@@ -1,21 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
-  images: {
-    unoptimized: true,
-  },
-  experimental: {
-    asyncWebAssembly: true,
-  },
-  webpack(config, { isServer }) {
-    config.experiments = { ...config.experiments, asyncWebAssembly: true };
-    return config;
-  },
+  transpilePackages: [
+    "@tomo-inc/tomo-evm-kit",
+    "@tomo-wallet/uikit-lite",
+    "@tomo-inc/shared-type",
+  ],
 };
 
 export default nextConfig;

@@ -14,12 +14,10 @@ import ProjectSetupDialog, {
 } from "@/components/project/setup-dialog";
 import { useAppStore } from "@/store/app-store";
 import { motion } from "framer-motion";
-import { isPublicRepo } from "@/lib/github/check-public";
-import { useCardanoWallet } from "@/hooks/use-cardano-wallet";
+// import { isPublicRepo } from "@/lib/github/check-public";
 import { parseCardanoBalance } from "@/lib/cardano";
 import { useProjects } from "@/hooks/use-projects";
 import TransferDialog from "@/components/transfer-dialog";
-import { useProjectData } from "@/hooks/use-project-data";
 
 interface CreationStep {
   id: string;
@@ -39,7 +37,6 @@ export default function Home() {
   const [currentStepIndex, setCurrentStepIndex] = useState(-1);
   const [error, setError] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
-  const { transfer } = useCardanoWallet();
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const {
     walletStatus,

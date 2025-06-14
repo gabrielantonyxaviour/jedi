@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "@tomo-inc/tomo-evm-kit/styles.css";
 import Layout from "@/components/layout";
+import { TomoProvider } from "@/components/tomo-provider";
 
 export const metadata: Metadata = {
   title: "Jedi | Build your AI co-founder",
@@ -15,7 +17,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Layout>{children}</Layout>
+        <TomoProvider>
+          <Layout>{children}</Layout>
+        </TomoProvider>
       </body>
     </html>
   );
