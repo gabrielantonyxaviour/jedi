@@ -1,3 +1,4 @@
+// Updated Home component
 "use client";
 
 import type React from "react";
@@ -13,6 +14,7 @@ import { motion } from "framer-motion";
 import { isPublicRepo } from "@/lib/github/check-public";
 import { useCardanoWallet } from "@/hooks/use-cardano-wallet";
 import { parseCardanoBalance } from "@/lib/cardano";
+import { useProjects } from "@/hooks/use-projects";
 
 interface CreationStep {
   id: string;
@@ -30,8 +32,15 @@ export default function Home() {
   const [creationSteps, setCreationSteps] = useState<CreationStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(-1);
   const [error, setError] = useState("");
-  const { balance } = useCardanoWallet();
+  const { balance, address } = useCardanoWallet();
   const { walletStatus, userSide, addLog, setUserSide } = useAppStore();
+
+  // Auto-fetch projects when address is available
+  const {
+    projects,
+    loading: projectsLoading,
+    initialized,
+  } = useProjects(address || "");
 
   const initializeSteps = (): CreationStep[] => [
     {
@@ -72,11 +81,24 @@ export default function Home() {
     },
   ];
 
+  // Handle projects loaded - set side from first project
+  useEffect(() => {
+    if (initialized && projects.length > 0 && !userSide) {
+      const firstProjectSide = projects[0].side;
+      setUserSide(firstProjectSide);
+      addLog(
+        `User side set to ${firstProjectSide} from existing projects`,
+        "orchestrator",
+        "info"
+      );
+    }
+  }, [initialized, projects, userSide, setUserSide, addLog]);
+
   useEffect(() => {
     console.log("Balance updated in Home component:", balance);
   }, [balance]);
 
-  // Handle side selection
+  // Handle side selection for new users
   const handleSideSelection = (side: "light" | "dark") => {
     setUserSide(side);
     setShowSideSelection(false);
@@ -92,14 +114,6 @@ export default function Home() {
       setError("Please make sure the repository is public");
       return;
     }
-
-    // TODO: Balcance not sysncing
-    // if (parseFloat(parseCardanoBalance(balance ?? "0")) < 10) {
-    //   setError(
-    //     "You need at least 10 ADA to setup your agents. Please top up your wallet."
-    //   );
-    //   return;
-    // }
 
     setIsSubmitting(true);
     setIsCreating(true);
@@ -145,14 +159,38 @@ export default function Home() {
     }
   };
 
+  // Show loading while fetching projects after wallet connection
+  const shouldShowLoading =
+    (walletStatus === "connected" && !initialized) || projectsLoading;
+
+  // Show side selection only for new users (no existing projects)
+  const shouldShowSideSelection =
+    walletStatus === "connected" &&
+    initialized &&
+    !projectsLoading &&
+    projects.length === 0 &&
+    userSide === null;
+
+  // Show main UI when everything is ready
+  const shouldShowMainUI =
+    walletStatus === "connected" &&
+    initialized &&
+    !projectsLoading &&
+    (projects.length > 0 || userSide !== null);
+
   return (
     <>
       <NeonIsometricMaze />
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div className="w-full max-w-3xl flex flex-col items-center">
-          {walletStatus == "connected" && userSide == null ? (
+          {shouldShowLoading ? (
+            <div className="flex flex-col items-center space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+              <p className="text-stone-400">Loading your projects...</p>
+            </div>
+          ) : shouldShowSideSelection ? (
             <SideSelection onSelect={handleSideSelection} />
-          ) : (
+          ) : shouldShowMainUI || walletStatus !== "connected" ? (
             <div className="flex flex-col items-center w-full">
               <div className="text-center mb-8">
                 <h1 className="text-5xl font-bold text-zinc-400 mb-2 font-custom-regular tracking-wide">
@@ -273,7 +311,7 @@ export default function Home() {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </>
