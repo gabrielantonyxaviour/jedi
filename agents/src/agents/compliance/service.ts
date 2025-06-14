@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer";
 import axios from "axios";
-import { ComplianceProject } from "../types/compliance";
-import { sleep } from "../utils/helper";
+import { ComplianceProject } from "../../types/compliance";
+import { sleep } from "../../utils/helper";
 
 export class ComplianceScrapingService {
   async scrapeProjects(

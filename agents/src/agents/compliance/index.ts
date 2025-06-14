@@ -12,8 +12,8 @@ import {
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
-import { ComplianceScrapingService } from "../services/compliance";
-import { ComplianceProject } from "../types/compliance";
+import { ComplianceScrapingService } from "./service";
+import { ComplianceProject } from "../../types/compliance";
 
 export class ComplianceAgent {
   private dynamodb: DynamoDBClient;
