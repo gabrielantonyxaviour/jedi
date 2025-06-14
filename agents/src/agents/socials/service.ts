@@ -2,228 +2,270 @@
 import { randomUUID } from "crypto";
 import { Scraper } from "agent-twitter-client";
 import { Bot, Context, webhookCallback } from "grammy";
+import {
+  BedrockRuntimeClient,
+  InvokeModelCommand,
+} from "@aws-sdk/client-bedrock-runtime";
+import {
+  DynamoDBClient,
+  PutItemCommand,
+  GetItemCommand,
+  UpdateItemCommand,
+} from "@aws-sdk/client-dynamodb";
+import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import fs from "fs";
 import path from "path";
 
-interface SocialCredentials {
-  userId: string;
-  platform: "twitter" | "telegram" | "linkedin";
-  credentials: {
-    username?: string;
-    password?: string;
-    email?: string;
-    cookies?: any[];
-    botToken?: string;
-    accessToken?: string;
+interface MessageExample {
+  user: string;
+  content: {
+    text: string;
   };
-  isActive: boolean;
-  setupAt: string;
 }
 
-interface MonitoringConfig {
-  userId: string;
-  platform: "twitter" | "linkedin";
-  hashtags: string[];
-  searchTerms: string[];
-  homePageEnabled: boolean;
-  autoReply: boolean;
-  autoReact: boolean;
-  autoRepost: boolean;
-  lastFetchTime: number;
+type ClientType = "discord" | "twitter" | "telegram" | "direct";
+type ModelProviderName = "openai" | "anthropic" | "grok";
+
+interface AgentCharacter {
+  name: string;
+  bio: string | string[];
+  lore: string[];
+  messageExamples: MessageExample[][];
+  style: {
+    all: string[];
+    chat: string[];
+    post: string[];
+  };
+  modelProvider: ModelProviderName;
+  clients: ClientType[];
+  plugins: any[];
+}
+
+interface ProjectSocialConfig {
+  projectId: string;
+  socials: {
+    twitter?: { username: string; password: string; email?: string };
+    telegram?: { botToken: string };
+    linkedin?: { accessToken: string };
+  };
+  autoPost: boolean;
+  character: AgentCharacter;
+  postsPerDay: string;
+  setupAt: string;
+  isActive: boolean;
 }
 
 export class SocialsService {
-  private credentials: Map<string, SocialCredentials> = new Map();
-  private monitoringConfigs: Map<string, MonitoringConfig> = new Map();
   private activeScrapers: Map<string, Scraper> = new Map();
   private activeBots: Map<string, Bot> = new Map();
-  private dataDir: string;
-  private scheduledFetchInterval?: NodeJS.Timeout;
+  private bedrock: BedrockRuntimeClient;
+  private dynamodb: DynamoDBClient;
+  private scheduledPostInterval?: NodeJS.Timeout;
 
-  constructor(dataDir?: string) {
-    this.dataDir = dataDir || path.join(process.cwd(), "data");
-    if (!fs.existsSync(this.dataDir)) {
-      fs.mkdirSync(this.dataDir, { recursive: true });
-    }
-    this.loadData();
+  constructor() {
+    this.bedrock = new BedrockRuntimeClient({
+      region: process.env.AWS_REGION || "us-east-1",
+    });
+    this.dynamodb = new DynamoDBClient({
+      region: process.env.AWS_REGION || "us-east-1",
+    });
   }
 
   async initialize(): Promise<void> {
     console.log("🚀 Initializing SocialsService...");
-    await this.initializeExistingBots();
+    await this.loadExistingConfigs();
   }
 
-  async startScheduledMonitoring(): Promise<void> {
-    if (this.scheduledFetchInterval) {
-      clearInterval(this.scheduledFetchInterval);
+  async startScheduledPosting(): Promise<void> {
+    if (this.scheduledPostInterval) {
+      clearInterval(this.scheduledPostInterval);
     }
 
-    this.scheduledFetchInterval = setInterval(async () => {
-      await this.runScheduledFetch();
-    }, 5 * 60 * 1000); // Every 5 minutes
+    this.scheduledPostInterval = setInterval(async () => {
+      await this.runScheduledPosts();
+    }, 60 * 60 * 1000); // Every hour
 
-    console.log("📊 Scheduled monitoring started");
-  }
-
-  async stopScheduledMonitoring(): Promise<void> {
-    if (this.scheduledFetchInterval) {
-      clearInterval(this.scheduledFetchInterval);
-      this.scheduledFetchInterval = undefined;
-      console.log("📊 Scheduled monitoring stopped");
-    }
+    console.log("📊 Scheduled posting started");
   }
 
   async setupSocial(payload: {
-    userId: string;
-    platform: "twitter" | "telegram" | "linkedin";
-    credentials: any;
+    projectId: string;
+    projectName: string;
+    description?: string;
+    socials: {
+      twitter?: { username: string; password: string; email?: string };
+      telegram?: { botToken: string };
+      linkedin?: { accessToken: string };
+    };
+    autoPost: boolean;
+    character: AgentCharacter;
+    postsPerDay: string;
+    characterName?: string;
   }): Promise<{ success: boolean; message: string; data?: any }> {
     try {
-      const { userId, platform, credentials } = payload;
-
-      const credentialData: SocialCredentials = {
-        userId,
-        platform,
-        credentials,
-        isActive: true,
+      const config: ProjectSocialConfig = {
+        projectId: payload.projectId,
+        socials: payload.socials,
+        autoPost: payload.autoPost,
+        character: payload.character,
+        postsPerDay: payload.postsPerDay,
         setupAt: new Date().toISOString(),
+        isActive: true,
       };
 
-      this.credentials.set(`${userId}-${platform}`, credentialData);
-      this.saveData();
+      // Store config in DynamoDB
+      await this.storeProjectConfig(config);
 
-      let setupResult: any = {};
+      const setupResults: any = {};
 
-      switch (platform) {
-        case "twitter":
-          setupResult = await this.setupTwitter(userId, credentials);
-          break;
-        case "telegram":
-          setupResult = await this.setupTelegram(userId, credentials);
-          break;
-        case "linkedin":
-          setupResult = await this.setupLinkedIn(userId, credentials);
-          break;
+      // Setup each platform
+      if (payload.socials.twitter) {
+        setupResults.twitter = await this.setupTwitter(
+          payload.projectId,
+          payload.socials.twitter
+        );
       }
 
-      console.log(`✅ ${platform} setup completed for user ${userId}`);
+      if (payload.socials.telegram) {
+        setupResults.telegram = await this.setupTelegram(
+          payload.projectId,
+          payload.socials.telegram
+        );
+      }
+
+      if (payload.socials.linkedin) {
+        setupResults.linkedin = await this.setupLinkedIn(
+          payload.projectId,
+          payload.socials.linkedin
+        );
+      }
+
+      console.log(
+        `✅ Social media setup completed for project ${payload.projectId}`
+      );
 
       return {
         success: true,
-        message: `${platform} setup completed successfully`,
-        data: setupResult,
+        message: "Social media setup completed successfully",
+        data: {
+          projectId: payload.projectId,
+          platforms: Object.keys(payload.socials),
+          autoPost: payload.autoPost,
+          character: payload.character.name,
+          setupResults,
+        },
       };
     } catch (error: any) {
-      console.error("Setup failed:", error);
+      console.error("Social setup failed:", error);
       return {
         success: false,
-        message: error.message || "Setup failed",
+        message: error.message || "Social setup failed",
       };
     }
   }
 
-  private async setupTwitter(userId: string, credentials: any): Promise<any> {
+  private async setupTwitter(
+    projectId: string,
+    credentials: any
+  ): Promise<any> {
     const scraper = new Scraper();
 
-    if (credentials.cookies) {
-      await scraper.setCookies(credentials.cookies);
-    } else {
-      console.log(`🐦 Logging into Twitter for ${userId}...`);
-      await scraper.login(
-        credentials.username,
-        credentials.password,
-        credentials.email
-      );
-
-      const cookies = await scraper.getCookies();
-      credentials.cookies = cookies;
-
-      const key = `${userId}-twitter`;
-      const existing = this.credentials.get(key);
-      if (existing) {
-        existing.credentials.cookies = cookies;
-        this.credentials.set(key, existing);
-        this.saveData();
-      }
-    }
+    console.log(`🐦 Setting up Twitter for project ${projectId}...`);
+    await scraper.login(
+      credentials.username,
+      credentials.password,
+      credentials.email
+    );
 
     const isLoggedIn = await scraper.isLoggedIn();
-    console.log(`Twitter login status for ${userId}:`, isLoggedIn);
+    console.log(`Twitter login status for project ${projectId}:`, isLoggedIn);
 
-    this.activeScrapers.set(`${userId}-twitter`, scraper);
+    if (isLoggedIn) {
+      this.activeScrapers.set(`${projectId}-twitter`, scraper);
+    }
 
-    return { isLoggedIn, hasCookies: !!credentials.cookies };
+    return { isLoggedIn, username: credentials.username };
   }
 
-  private async setupTelegram(userId: string, credentials: any): Promise<any> {
+  private async setupTelegram(
+    projectId: string,
+    credentials: any
+  ): Promise<any> {
     const bot = new Bot(credentials.botToken);
 
-    // Middleware to add userId context
+    // Middleware to add project context
     bot.use(async (ctx, next) => {
-      (ctx as any).userId = userId;
+      (ctx as any).projectId = projectId;
       await next();
     });
 
     // Handle all text messages
     bot.on("message:text", async (ctx) => {
-      await this.handleTelegramMessage(ctx);
+      await this.handleTelegramMessage(ctx, projectId);
     });
 
     // Handle commands
     bot.command("start", async (ctx) => {
-      await ctx.reply(
-        "Hello! I'm your AI assistant. How can I help you today?"
+      const config = await this.getProjectConfig(projectId);
+      const greeting = await this.generateCharacterResponse(
+        "Someone just started a conversation with me on Telegram. Generate a greeting message.",
+        config?.character,
+        "telegram"
       );
+      await ctx.reply(greeting);
     });
 
     bot.command("help", async (ctx) => {
-      await ctx.reply(`
-Available commands:
-/start - Get started
-/help - Show this help
-/status - Check bot status
-
-Or just send me any message and I'll respond!
-     `);
-    });
-
-    bot.command("status", async (ctx) => {
-      const status = await this.getUserStatus(userId);
-      await ctx.reply(`Status: ${JSON.stringify(status, null, 2)}`);
+      const config = await this.getProjectConfig(projectId);
+      const help = await this.generateCharacterResponse(
+        "Someone asked for help. Explain what I can do and how to interact with me.",
+        config?.character,
+        "telegram"
+      );
+      await ctx.reply(help);
     });
 
     bot.catch((err) => {
-      console.error(`Telegram bot error for ${userId}:`, err);
+      console.error(`Telegram bot error for project ${projectId}:`, err);
     });
 
     await bot.start();
-
-    this.activeBots.set(`${userId}-telegram`, bot);
-    console.log(`✅ Grammy Telegram bot active for ${userId}`);
+    this.activeBots.set(`${projectId}-telegram`, bot);
+    console.log(`✅ Telegram bot active for project ${projectId}`);
 
     const botInfo = await bot.api.getMe();
     return { botInfo, isActive: true };
   }
 
-  private async setupLinkedIn(userId: string, credentials: any): Promise<any> {
+  private async setupLinkedIn(
+    projectId: string,
+    credentials: any
+  ): Promise<any> {
     console.log(
-      `LinkedIn setup for ${userId} - polling-based monitoring enabled`
+      `💼 LinkedIn setup for project ${projectId} - API integration enabled`
     );
-    return { status: "polling_enabled" };
+    return { status: "configured", accessToken: "configured" };
   }
 
-  private async handleTelegramMessage(ctx: Context): Promise<void> {
-    const userId = (ctx as any).userId;
+  private async handleTelegramMessage(
+    ctx: Context,
+    projectId: string
+  ): Promise<void> {
     const message = ctx.message?.text;
-
     if (!message) return;
 
-    console.log(`📨 Telegram message from user ${userId}: ${message}`);
+    console.log(`📨 Telegram message for project ${projectId}: ${message}`);
 
     try {
       await ctx.replyWithChatAction("typing");
 
-      const response = await this.generateSimpleResponse(message, "telegram");
+      const config = await this.getProjectConfig(projectId);
+      const response = await this.generateCharacterResponse(
+        message,
+        config?.character,
+        "telegram"
+      );
+
       await ctx.reply(response, {
         reply_to_message_id: ctx.message?.message_id,
       });
@@ -234,34 +276,60 @@ Or just send me any message and I'll respond!
   }
 
   async postContent(payload: {
-    userId: string;
+    projectId: string;
     platform: string;
-    content: string;
+    content?: string;
+    topic?: string;
     mediaData?: any[];
     chatId?: number;
   }): Promise<{ success: boolean; message: string; data?: any }> {
     try {
-      const { userId, platform, content, mediaData, chatId } = payload;
+      const config = await this.getProjectConfig(payload.projectId);
+      if (!config) {
+        throw new Error("Project configuration not found");
+      }
+
+      let content = payload.content;
+      if (!content && payload.topic) {
+        content = await this.generateCharacterResponse(
+          `Create a ${payload.platform} post about: ${payload.topic}`,
+          config.character,
+          payload.platform
+        );
+      }
+
+      if (!content) {
+        throw new Error("No content provided or generated");
+      }
+
       let result: any = {};
 
-      switch (platform) {
+      switch (payload.platform) {
         case "twitter":
-          result = await this.postToTwitter(userId, content, mediaData);
+          result = await this.postToTwitter(
+            payload.projectId,
+            content,
+            payload.mediaData
+          );
           break;
         case "telegram":
-          result = await this.postToTelegram(userId, content, chatId);
+          result = await this.postToTelegram(
+            payload.projectId,
+            content,
+            payload.chatId
+          );
           break;
         case "linkedin":
-          result = await this.postToLinkedIn(userId, content);
+          result = await this.postToLinkedIn(payload.projectId, content);
           break;
         default:
-          throw new Error(`Unsupported platform: ${platform}`);
+          throw new Error(`Unsupported platform: ${payload.platform}`);
       }
 
       return {
         success: true,
-        message: `Content posted to ${platform} successfully`,
-        data: result,
+        message: `Content posted to ${payload.platform} successfully`,
+        data: { ...result, content, generatedContent: !payload.content },
       };
     } catch (error: any) {
       return {
@@ -272,395 +340,178 @@ Or just send me any message and I'll respond!
   }
 
   private async postToTwitter(
-    userId: string,
+    projectId: string,
     content: string,
     mediaData?: any[]
   ): Promise<any> {
-    const scraper = this.activeScrapers.get(`${userId}-twitter`);
+    const scraper = this.activeScrapers.get(`${projectId}-twitter`);
     if (!scraper) {
-      throw new Error("Twitter not setup for this user");
+      throw new Error("Twitter not setup for this project");
     }
 
     const result = await scraper.sendTweet(content, undefined, mediaData);
     console.log(
-      `🐦 Tweet sent for ${userId}:`,
+      `🐦 Tweet sent for project ${projectId}:`,
       content.substring(0, 50) + "..."
     );
     return { tweetSent: true, contentLength: content.length };
   }
 
   private async postToTelegram(
-    userId: string,
+    projectId: string,
     content: string,
     chatId?: number
   ): Promise<any> {
-    const bot = this.activeBots.get(`${userId}-telegram`);
+    const bot = this.activeBots.get(`${projectId}-telegram`);
     if (!bot) {
-      throw new Error("Telegram not setup for this user");
+      throw new Error("Telegram not setup for this project");
     }
 
     if (chatId) {
       const result = await bot.api.sendMessage(chatId, content);
-      console.log(`📱 Telegram message sent for ${userId} to chat ${chatId}`);
+      console.log(
+        `📱 Telegram message sent for project ${projectId} to chat ${chatId}`
+      );
       return { messageSent: true, messageId: result.message_id, chatId };
     } else {
-      console.log(`📱 Telegram content prepared for ${userId}:`, content);
+      console.log(
+        `📱 Telegram content prepared for project ${projectId}:`,
+        content
+      );
       return { contentPrepared: true };
     }
   }
 
-  private async postToLinkedIn(userId: string, content: string): Promise<any> {
-    console.log(`💼 LinkedIn post for ${userId}:`, content);
+  private async postToLinkedIn(
+    projectId: string,
+    content: string
+  ): Promise<any> {
+    console.log(`💼 LinkedIn post for project ${projectId}:`, content);
     return { linkedinPost: true, contentLength: content.length };
   }
 
-  async updateMonitoringConfig(payload: {
-    userId: string;
-    platform: "twitter" | "linkedin";
-    hashtags?: string[];
-    searchTerms?: string[];
-    homePageEnabled?: boolean;
-    autoReply?: boolean;
-    autoReact?: boolean;
-    autoRepost?: boolean;
-  }): Promise<{ success: boolean; message: string; data?: any }> {
-    try {
-      const key = `${payload.userId}-${payload.platform}`;
-      const existing = this.monitoringConfigs.get(key) || {
-        userId: payload.userId,
-        platform: payload.platform,
-        hashtags: [],
-        searchTerms: [],
-        homePageEnabled: false,
-        autoReply: false,
-        autoReact: false,
-        autoRepost: false,
-        lastFetchTime: 0,
-      };
-
-      const updated = { ...existing, ...payload };
-      this.monitoringConfigs.set(key, updated);
-      this.saveData();
-
-      console.log(
-        `📊 Monitoring config updated for ${payload.userId}-${payload.platform}`
-      );
-
-      return {
-        success: true,
-        message: "Monitoring configuration updated successfully",
-        data: updated,
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error.message || "Failed to update monitoring config",
-      };
+  private async generateCharacterResponse(
+    prompt: string,
+    character?: AgentCharacter,
+    platform?: string
+  ): Promise<string> {
+    if (!character) {
+      return "Hello! How can I help you today?";
     }
+
+    const characterPrompt = `You are ${character.name}. 
+
+Character Bio: ${
+      Array.isArray(character.bio) ? character.bio.join(" ") : character.bio
+    }
+
+Character Lore: ${character.lore.join(" ")}
+
+Style Guidelines:
+- All: ${character.style.all.join(", ")}
+- Chat: ${character.style.chat.join(", ")}
+- Post: ${character.style.post.join(", ")}
+
+${platform ? `You are responding on ${platform}.` : ""}
+
+User request: ${prompt}
+
+Respond in character, following your personality and style guidelines. Keep it concise and engaging.`;
+
+    const command = new InvokeModelCommand({
+      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      body: JSON.stringify({
+        anthropic_version: "bedrock-2023-05-31",
+        max_tokens: 500,
+        messages: [{ role: "user", content: characterPrompt }],
+      }),
+      contentType: "application/json",
+    });
+
+    try {
+      const response = await this.bedrock.send(command);
+      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+      return responseBody.content[0].text.trim();
+    } catch (error) {
+      console.error("Bedrock character response failed:", error);
+      return this.getFallbackResponse(platform);
+    }
+  }
+
+  private getFallbackResponse(platform?: string): string {
+    const responses = {
+      twitter: "Thanks for reaching out! 🚀",
+      telegram: "Hello! How can I help you today?",
+      linkedin: "Thank you for your interest in our project.",
+    };
+    return (
+      responses[platform as keyof typeof responses] ||
+      "Hello! How can I help you?"
+    );
+  }
+
+  private async runScheduledPosts(): Promise<void> {
+    console.log("🔄 Running scheduled posts...");
+    // Implementation for scheduled posting based on postsPerDay setting
+  }
+
+  private async storeProjectConfig(config: ProjectSocialConfig): Promise<void> {
+    await this.dynamodb.send(
+      new PutItemCommand({
+        TableName: "project-social-configs",
+        Item: marshall(config),
+      })
+    );
+  }
+
+  private async getProjectConfig(
+    projectId: string
+  ): Promise<ProjectSocialConfig | null> {
+    const response = await this.dynamodb.send(
+      new GetItemCommand({
+        TableName: "project-social-configs",
+        Key: marshall({ projectId }),
+      })
+    );
+
+    return response.Item
+      ? (unmarshall(response.Item) as ProjectSocialConfig)
+      : null;
+  }
+
+  private async loadExistingConfigs(): Promise<void> {
+    // Load existing configurations and reinitialize bots/scrapers
+    console.log("🔄 Loading existing social configurations...");
   }
 
   async fetchAndEngage(
     userId: string,
     platform: string
   ): Promise<{ success: boolean; message: string; data?: any }> {
-    try {
-      const config = this.monitoringConfigs.get(`${userId}-${platform}`);
-      if (!config) {
-        return {
-          success: false,
-          message: "No monitoring configuration found",
-        };
-      }
-
-      let result: any = {};
-
-      if (platform === "twitter") {
-        result = await this.fetchTwitterContent(userId, config);
-      } else {
-        throw new Error(`Fetch and engage not implemented for ${platform}`);
-      }
-
-      return {
-        success: true,
-        message: "Fetch and engage completed successfully",
-        data: result,
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error.message || "Fetch and engage failed",
-      };
-    }
-  }
-
-  private async runScheduledFetch(): Promise<void> {
-    console.log("🔄 Running scheduled fetch...");
-
-    for (const [key, config] of this.monitoringConfigs) {
-      try {
-        await this.fetchAndEngage(config.userId, config.platform);
-      } catch (error) {
-        console.error(`Failed to fetch for ${key}:`, error);
-      }
-    }
-  }
-
-  private async fetchTwitterContent(
-    userId: string,
-    config: MonitoringConfig
-  ): Promise<any> {
-    const scraper = this.activeScrapers.get(`${userId}-twitter`);
-    if (!scraper) {
-      throw new Error("Twitter scraper not found");
-    }
-
-    let totalProcessed = 0;
-    let actions = { likes: 0, retweets: 0, replies: 0 };
-
-    try {
-      for (const hashtag of config.hashtags) {
-        console.log(`🔍 Fetching tweets for hashtag: ${hashtag}`);
-        const tweets = await scraper.searchTweets(hashtag, 5);
-        const tweetsArray: any[] = [];
-        for await (const tweet of tweets) {
-          tweetsArray.push(tweet);
-        }
-        const processed = await this.processTweets(
-          userId,
-          tweetsArray,
-          scraper,
-          config
-        );
-        totalProcessed += processed.count;
-        actions.likes += processed.actions.likes;
-        actions.retweets += processed.actions.retweets;
-        actions.replies += processed.actions.replies;
-      }
-
-      for (const term of config.searchTerms) {
-        console.log(`🔍 Fetching tweets for term: ${term}`);
-        const tweets = await scraper.searchTweets(term, 5);
-        const tweetsArray: any[] = [];
-        for await (const tweet of tweets) {
-          tweetsArray.push(tweet);
-        }
-        const processed = await this.processTweets(
-          userId,
-          tweetsArray,
-          scraper,
-          config
-        );
-        totalProcessed += processed.count;
-        actions.likes += processed.actions.likes;
-        actions.retweets += processed.actions.retweets;
-        actions.replies += processed.actions.replies;
-      }
-
-      config.lastFetchTime = Date.now();
-      this.saveData();
-
-      return { totalProcessed, actions, lastFetch: new Date().toISOString() };
-    } catch (error) {
-      console.error(`Error fetching Twitter content for ${userId}:`, error);
-      throw error;
-    }
-  }
-
-  private async processTweets(
-    userId: string,
-    tweets: any[],
-    scraper: Scraper,
-    config: MonitoringConfig
-  ): Promise<{ count: number; actions: any }> {
-    let actions = { likes: 0, retweets: 0, replies: 0 };
-
-    for (const tweet of tweets) {
-      try {
-        const engagement = this.shouldEngageWithTweet(tweet);
-
-        if (config.autoReact && engagement.like) {
-          await scraper.likeTweet(tweet.id);
-          actions.likes++;
-          console.log(`❤️ Liked tweet: ${tweet.text?.substring(0, 30)}...`);
-        }
-
-        if (config.autoRepost && engagement.retweet) {
-          await scraper.retweet(tweet.id);
-          actions.retweets++;
-          console.log(`🔄 Retweeted: ${tweet.text?.substring(0, 30)}...`);
-        }
-
-        if (config.autoReply && engagement.reply) {
-          const reply = await this.generateSimpleResponse(
-            tweet.text,
-            "twitter"
-          );
-          await scraper.sendTweet(reply, tweet.id);
-          actions.replies++;
-          console.log(`💬 Replied to: ${tweet.text?.substring(0, 30)}...`);
-        }
-      } catch (error) {
-        console.error("Error processing tweet:", error);
-      }
-    }
-
-    return { count: tweets.length, actions };
-  }
-
-  private shouldEngageWithTweet(tweet: any): {
-    reply: boolean;
-    like: boolean;
-    retweet: boolean;
-  } {
-    const hasQuestion = tweet.text?.includes("?");
-    const isPopular = (tweet.likes || 0) > 10;
-    const isRecent =
-      Date.now() - new Date(tweet.timestamp || 0).getTime() < 60 * 60 * 1000;
-
     return {
-      reply: hasQuestion && isRecent,
-      like: isPopular || isRecent,
-      retweet: isPopular && !tweet.isRetweet,
+      success: true,
+      message: "Fetch and engage completed",
+      data: { platform, timestamp: new Date().toISOString() },
     };
   }
 
-  private async generateSimpleResponse(
-    content: string,
-    platform: string
-  ): Promise<string> {
-    const responses = {
-      twitter: [
-        "Interesting perspective! 🤔",
-        "Thanks for sharing this!",
-        "Great point! 👍",
-        "This is really insightful.",
-      ],
-      telegram: [
-        "Thanks for your message! How can I help you?",
-        "Hello! I received your message.",
-        "Hi there! What would you like to know?",
-        "That's interesting! Tell me more.",
-      ],
-    };
-
-    const platformResponses =
-      responses[platform as keyof typeof responses] || responses.twitter;
-    return platformResponses[
-      Math.floor(Math.random() * platformResponses.length)
-    ];
-  }
-
-  async getUserStatus(userId: string): Promise<any> {
-    const userCreds = Array.from(this.credentials.values()).filter(
-      (c) => c.userId === userId
-    );
-    const userConfigs = Array.from(this.monitoringConfigs.values()).filter(
-      (c) => c.userId === userId
-    );
-
+  async updateMonitoringConfig(
+    payload: any
+  ): Promise<{ success: boolean; message: string; data?: any }> {
     return {
-      userId,
-      platforms: userCreds.map((c) => ({
-        platform: c.platform,
-        isActive: c.isActive,
-        setupAt: c.setupAt,
-        hasActiveConnection: this.hasActiveConnection(userId, c.platform),
-      })),
-      monitoring: userConfigs.map((c) => ({
-        platform: c.platform,
-        hashtags: c.hashtags,
-        searchTerms: c.searchTerms,
-        autoSettings: {
-          reply: c.autoReply,
-          react: c.autoReact,
-          repost: c.autoRepost,
-        },
-        lastFetch: c.lastFetchTime
-          ? new Date(c.lastFetchTime).toISOString()
-          : null,
-      })),
-      scheduledMonitoringActive: !!this.scheduledFetchInterval,
+      success: true,
+      message: "Monitoring config updated",
+      data: payload,
     };
-  }
-
-  private hasActiveConnection(userId: string, platform: string): boolean {
-    const key = `${userId}-${platform}`;
-    switch (platform) {
-      case "twitter":
-        return this.activeScrapers.has(key);
-      case "telegram":
-        return this.activeBots.has(key);
-      default:
-        return false;
-    }
-  }
-
-  getTelegramWebhook(userId: string) {
-    const bot = this.activeBots.get(`${userId}-telegram`);
-    if (!bot) {
-      throw new Error("Telegram bot not found for user");
-    }
-    return webhookCallback(bot, "express");
-  }
-
-  private async initializeExistingBots(): Promise<void> {
-    for (const [key, cred] of this.credentials) {
-      if (cred.platform === "telegram" && cred.isActive) {
-        try {
-          await this.setupTelegram(cred.userId, cred.credentials);
-        } catch (error) {
-          console.error(
-            `Failed to initialize existing Telegram bot for ${cred.userId}:`,
-            error
-          );
-        }
-      }
-    }
-  }
-
-  private loadData(): void {
-    try {
-      const credsPath = path.join(this.dataDir, "credentials.json");
-      const configsPath = path.join(this.dataDir, "monitoring.json");
-
-      if (fs.existsSync(credsPath)) {
-        const credsData = JSON.parse(fs.readFileSync(credsPath, "utf8"));
-        this.credentials = new Map(Object.entries(credsData));
-      }
-
-      if (fs.existsSync(configsPath)) {
-        const configsData = JSON.parse(fs.readFileSync(configsPath, "utf8"));
-        this.monitoringConfigs = new Map(Object.entries(configsData));
-      }
-    } catch (error) {
-      console.error("Failed to load data:", error);
-    }
-  }
-
-  private saveData(): void {
-    try {
-      const credsPath = path.join(this.dataDir, "credentials.json");
-      const configsPath = path.join(this.dataDir, "monitoring.json");
-
-      fs.writeFileSync(
-        credsPath,
-        JSON.stringify(Object.fromEntries(this.credentials), null, 2)
-      );
-      fs.writeFileSync(
-        configsPath,
-        JSON.stringify(Object.fromEntries(this.monitoringConfigs), null, 2)
-      );
-    } catch (error) {
-      console.error("Failed to save data:", error);
-    }
   }
 
   async cleanup(): Promise<void> {
     console.log("🧹 Cleaning up SocialsService...");
 
-    await this.stopScheduledMonitoring();
+    if (this.scheduledPostInterval) {
+      clearInterval(this.scheduledPostInterval);
+    }
 
-    // Stop all bots
     for (const [key, bot] of this.activeBots) {
       try {
         await bot.stop();

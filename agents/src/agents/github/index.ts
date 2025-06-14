@@ -6,8 +6,15 @@ import { RepositoryService } from "./services/repository";
 import { WebhookService } from "./services/webhook";
 import { ProjectService } from "../../services/project";
 import { TaskService } from "../../services/task";
-import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
+import {
+  BedrockRuntimeClient,
+  InvokeModelCommand,
+} from "@aws-sdk/client-bedrock-runtime";
 
+type CharacterInfo = {
+  name: string;
+  personality: string;
+};
 export class GitHubIntelligenceAgent {
   private octokit: Octokit;
   private dynamodb: DynamoDBClient;
@@ -125,8 +132,8 @@ export class GitHubIntelligenceAgent {
       }
 
       // Generate character response
-      if (characterInfo?.agentCharacter) {
-        characterResponse = this.generateCharacterResponse(
+      if (characterInfo) {
+        characterResponse = await this.generateCharacterResponse(
           characterInfo,
           result
         );
@@ -147,7 +154,7 @@ export class GitHubIntelligenceAgent {
         );
       }
     } catch (error: any) {
-      characterResponse = this.generateErrorResponse(characterInfo);
+      characterResponse = await this.generateErrorResponse(characterInfo);
       await this.taskService.reportTaskCompletion(
         task.taskId,
         task.workflowId,
@@ -158,19 +165,76 @@ export class GitHubIntelligenceAgent {
       throw error;
     }
   }
+  private async generateCharacterResponse(
+    characterInfo: CharacterInfo,
+    result: any
+  ): Promise<string> {
+    const prompt = `You are ${
+      characterInfo.name
+    }, a character with the following personality: ${characterInfo.personality}
+   
+   The task has been completed successfully with the following result:
+   ${JSON.stringify(result, null, 2)}
+   
+   Generate a response in character that acknowledges the completion of the task. Keep it brief (1-2 sentences) and stay true to the character's personality and speaking style.`;
 
-  private generateCharacterResponse(characterInfo: any, result: any): string {
-    if (characterInfo.side === "light") {
-      return "Repository analysis complete, it is. Served you well, I have. The odds of successful deployment are... quite good!";
+    const command = new InvokeModelCommand({
+      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      body: JSON.stringify({
+        anthropic_version: "bedrock-2023-05-31",
+        max_tokens: 200,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      contentType: "application/json",
+    });
+
+    try {
+      const response = await this.bedrock.send(command);
+      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+      return responseBody.content[0].text.trim();
+    } catch (error) {
+      console.error("Bedrock character response failed:", error);
+      return this.getFallbackCharacterResponse(characterInfo, true);
     }
-    return "*mechanical breathing* Your repository has been processed efficiently. The Empire's code standards, it meets.";
   }
 
-  private generateErrorResponse(characterInfo: any): string {
-    if (!characterInfo?.agentCharacter) return "";
+  private async generateErrorResponse(
+    characterInfo: CharacterInfo
+  ): Promise<string> {
+    const prompt = `You are ${characterInfo.name}, a character with the following personality: ${characterInfo.personality}
+   
+   A task has failed to complete. Generate a response in character that acknowledges the failure. Keep it brief (1-2 sentences) and stay true to the character's personality and speaking style.`;
 
-    return characterInfo.side === "light"
-      ? "Failed to complete the task, I have. Most unfortunate, this is."
-      : "*mechanical coughing* This failure will not be tolerated. Try again, I must.";
+    const command = new InvokeModelCommand({
+      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      body: JSON.stringify({
+        anthropic_version: "bedrock-2023-05-31",
+        max_tokens: 200,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      contentType: "application/json",
+    });
+
+    try {
+      const response = await this.bedrock.send(command);
+      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+      return responseBody.content[0].text.trim();
+    } catch (error) {
+      console.error("Bedrock error response failed:", error);
+      return this.getFallbackCharacterResponse(characterInfo, false);
+    }
+  }
+
+  private getFallbackCharacterResponse(
+    characterInfo: CharacterInfo,
+    success: boolean
+  ): string {
+    if (!characterInfo?.name) return "";
+
+    if (success) {
+      return `Task completed successfully by ${characterInfo.name}.`;
+    } else {
+      return `Task failed. ${characterInfo.name} will try again.`;
+    }
   }
 }

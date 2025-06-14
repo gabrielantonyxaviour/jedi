@@ -13,10 +13,7 @@ import {
   UpdateItemCommand,
   QueryCommand,
 } from "@aws-sdk/client-dynamodb";
-import {
-  EventBridgeClient,
-  PutEventsCommand,
-} from "@aws-sdk/client-eventbridge";
+
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import {
   BedrockRuntimeClient,
@@ -27,6 +24,31 @@ import { v4 as uuidv4 } from "uuid";
 import { BillingService } from "../services/billing";
 import crypto from "crypto";
 import { createCommercialRemixTerms } from "@/utils/utils";
+
+interface AgentCharacter {
+  name: string;
+  bio: string | string[];
+  lore: string[];
+  messageExamples: MessageExample[][];
+  style: {
+    all: string[];
+    chat: string[];
+    post: string[];
+  };
+  modelProvider: ModelProviderName;
+  clients: ClientType[];
+  plugins: any[];
+}
+
+interface MessageExample {
+  user: string;
+  content: {
+    text: string;
+  };
+}
+
+type ClientType = "discord" | "twitter" | "telegram" | "direct";
+type ModelProviderName = "openai" | "anthropic" | "grok";
 interface WorkflowRequest {
   type:
     | "GITHUB_ANALYSIS"
@@ -131,10 +153,10 @@ export class CoreOrchestratorAgent {
           type: "ANALYZE_AND_SETUP_PROJECT",
           payload: {
             repoUrl,
-            walletAddress,
             projectId,
             side,
-            characterName: characterContext.github.name,
+            owner: walletAddress,
+            characterInfo: characterContext.github,
             extractProjectInfo: true,
           },
           priority: "HIGH",
@@ -262,7 +284,14 @@ export class CoreOrchestratorAgent {
       async (req: any, res: any) => {
         try {
           const { projectId } = req.params;
-          const { twitter, linkedin, telegram } = req.body;
+          const {
+            twitter,
+            linkedin,
+            telegram,
+            autoPost,
+            character,
+            postsPerDay,
+          } = req.body;
 
           const workflowId = uuidv4();
           const project = await this.getProject(projectId);
@@ -278,6 +307,9 @@ export class CoreOrchestratorAgent {
           setupResult = await this.setupSocialsAgent(
             project,
             { twitter, linkedin, telegram },
+            autoPost,
+            character,
+            postsPerDay,
             workflowId
           );
           characterResponse =
@@ -917,7 +949,10 @@ export class CoreOrchestratorAgent {
 
   private async setupSocialsAgent(
     project: any,
-    config: any,
+    socials: any,
+    autoPost: boolean,
+    character: AgentCharacter,
+    postsPerDay: string,
     workflowId: string
   ) {
     await this.sendTaskToAgent("social-media", {
@@ -928,16 +963,16 @@ export class CoreOrchestratorAgent {
         projectId: project.projectId,
         projectName: project.name,
         description: project.description,
-        platforms: config.platforms || ["twitter", "linkedin"],
-        autoPost: config.autoPost || false,
-        contentStyle: config.contentStyle || "professional",
-        frequency: config.frequency || "weekly",
+        socials: socials,
+        autoPost: autoPost,
+        character: character,
+        postsPerDay: postsPerDay,
         characterName: this.getCharacterContext(project.side).social.name,
       },
       priority: "HIGH",
     });
 
-    return { platforms: config.platforms, status: "configuring" };
+    return { platforms: Object.keys(socials), status: "configuring" };
   }
 
   private async setupKarmaAgent(project: any, config: any, workflowId: string) {

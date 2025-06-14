@@ -5,6 +5,10 @@ import {
   DeleteMessageCommand,
   SendMessageCommand,
 } from "@aws-sdk/client-sqs";
+import {
+  BedrockRuntimeClient,
+  InvokeModelCommand,
+} from "@aws-sdk/client-bedrock-runtime";
 import { SocialsService } from "./service";
 
 export class SocialsAgent {
@@ -12,20 +16,22 @@ export class SocialsAgent {
   private queueUrl: string;
   private socialsService: SocialsService;
   private orchestratorQueue: string;
+  private bedrock: BedrockRuntimeClient;
 
   constructor() {
     this.sqs = new SQSClient({ region: process.env.AWS_REGION });
     this.queueUrl = process.env.SOCIALS_QUEUE_URL!;
     this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
+    this.bedrock = new BedrockRuntimeClient({
+      region: process.env.AWS_REGION || "us-east-1",
+    });
     this.socialsService = new SocialsService();
   }
 
   async startListening(): Promise<void> {
     console.log("🚀 Starting socials agent...");
-
     await this.socialsService.initialize();
-    await this.socialsService.startScheduledMonitoring();
-
+    await this.socialsService.startScheduledPosting();
     this.pollSQSMessages();
   }
 
@@ -77,8 +83,8 @@ export class SocialsAgent {
         case "SETUP_SOCIAL":
           result = await this.socialsService.setupSocial({
             ...task.payload,
-            characterName: characterInfo?.agentCharacter?.name,
-            characterSide: characterInfo?.side,
+            workflowId: task.workflowId,
+            taskId: task.taskId,
           });
           break;
 
@@ -86,7 +92,6 @@ export class SocialsAgent {
           result = await this.socialsService.postContent(task.payload);
           break;
 
-        // NEW TASK TYPES
         case "TWEET_ABOUT":
           result = await this.tweetAbout(task.payload);
           break;
@@ -144,22 +149,17 @@ export class SocialsAgent {
           throw new Error(`Unknown task type: ${task.type}`);
       }
 
-      // Generate character response
-      if (characterInfo?.agentCharacter) {
-        if (characterInfo.side === "light") {
-          characterResponse =
-            "Bold and spirited, our social presence becomes! The Force flows through our content, connect with communities we will.";
-        } else {
-          characterResponse =
-            "Fear and respect through social media, we command! The galaxy will know our power. Aggressive engagement, my way it is.";
-        }
+      if (characterInfo) {
+        characterResponse = await this.generateCharacterResponse(
+          characterInfo,
+          result
+        );
       }
 
       if (!result.success) {
         throw new Error(result.message);
       }
 
-      // Report task completion with character response
       await this.reportTaskCompletion(task.taskId, task.workflowId, {
         ...result,
         characterResponse,
@@ -167,11 +167,8 @@ export class SocialsAgent {
 
       console.log(`✅ Task completed: ${task.type}`);
     } catch (error: any) {
-      if (characterInfo?.agentCharacter) {
-        characterResponse =
-          characterInfo.side === "light"
-            ? "Failed in social engagement, I have. Disappointed, the Force is."
-            : "This social failure angers me! The dark side demands better performance!";
+      if (characterInfo) {
+        characterResponse = await this.generateErrorResponse(characterInfo);
       }
 
       await this.reportTaskCompletion(
@@ -187,23 +184,83 @@ export class SocialsAgent {
     }
   }
 
-  // NEW METHODS
+  private async generateCharacterResponse(
+    characterInfo: any,
+    result: any
+  ): Promise<string> {
+    const prompt = `You are ${
+      characterInfo.name || "a social media assistant"
+    } with the following personality: ${
+      characterInfo.personality || "helpful and engaging"
+    }
+
+The social media task has been completed successfully with these results:
+${JSON.stringify(result, null, 2)}
+
+Generate a brief response (1-2 sentences) in character that acknowledges the successful completion of the social media task. Stay true to the character's personality and speaking style.`;
+
+    const command = new InvokeModelCommand({
+      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      body: JSON.stringify({
+        anthropic_version: "bedrock-2023-05-31",
+        max_tokens: 200,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      contentType: "application/json",
+    });
+
+    try {
+      const response = await this.bedrock.send(command);
+      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+      return responseBody.content[0].text.trim();
+    } catch (error) {
+      console.error("Bedrock character response failed:", error);
+      return "Social media task completed successfully! 🚀";
+    }
+  }
+
+  private async generateErrorResponse(characterInfo: any): Promise<string> {
+    const prompt = `You are ${
+      characterInfo.name || "a social media assistant"
+    } with the following personality: ${
+      characterInfo.personality || "helpful and engaging"
+    }
+
+A social media task has failed to complete. Generate a brief response (1-2 sentences) in character that acknowledges the failure while staying positive and solution-oriented. Stay true to the character's personality and speaking style.`;
+
+    const command = new InvokeModelCommand({
+      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      body: JSON.stringify({
+        anthropic_version: "bedrock-2023-05-31",
+        max_tokens: 200,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      contentType: "application/json",
+    });
+
+    try {
+      const response = await this.bedrock.send(command);
+      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+      return responseBody.content[0].text.trim();
+    } catch (error) {
+      console.error("Bedrock error response failed:", error);
+      return "Something went wrong with the social media task. Let me try again! 💪";
+    }
+  }
+
+  // Keep all the existing methods (tweetAbout, modifyCharacter, etc.) unchanged
   async tweetAbout(payload: {
     projectId: string;
     content: string;
     media?: string[];
   }): Promise<any> {
     console.log(`🐦 Tweeting about project: ${payload.projectId}`);
-
-    // Implementation for posting to X/Twitter
-    return {
-      success: true,
+    return await this.socialsService.postContent({
+      projectId: payload.projectId,
       platform: "twitter",
       content: payload.content,
-      media: payload.media || [],
-      postedAt: new Date().toISOString(),
-      tweetId: `tweet_${Date.now()}`,
-    };
+      mediaData: payload.media,
+    });
   }
 
   async modifyCharacter(payload: {
@@ -212,8 +269,6 @@ export class SocialsAgent {
     tone: string;
   }): Promise<any> {
     console.log(`🎭 Modifying character for project: ${payload.projectId}`);
-
-    // Implementation for character modification
     return {
       success: true,
       projectId: payload.projectId,
@@ -229,8 +284,6 @@ export class SocialsAgent {
     platforms: string[];
   }): Promise<any> {
     console.log(`⏰ Setting frequency for project: ${payload.projectId}`);
-
-    // Implementation for frequency setting
     return {
       success: true,
       projectId: payload.projectId,
@@ -245,8 +298,6 @@ export class SocialsAgent {
     accounts: any;
   }): Promise<any> {
     console.log(`🔄 Changing accounts for project: ${payload.projectId}`);
-
-    // Implementation for account changes
     return {
       success: true,
       projectId: payload.projectId,
@@ -257,8 +308,6 @@ export class SocialsAgent {
 
   async getSocialSummary(payload: { projectId: string }): Promise<any> {
     console.log(`📊 Getting social summary for project: ${payload.projectId}`);
-
-    // Implementation for overall social media summary
     return {
       success: true,
       projectId: payload.projectId,
@@ -276,8 +325,6 @@ export class SocialsAgent {
 
   async getXSummary(payload: { projectId: string }): Promise<any> {
     console.log(`🐦 Getting X summary for project: ${payload.projectId}`);
-
-    // Implementation for X platform stats
     return {
       success: true,
       platform: "twitter",
@@ -298,8 +345,6 @@ export class SocialsAgent {
     console.log(
       `📱 Getting Telegram summary for project: ${payload.projectId}`
     );
-
-    // Implementation for Telegram stats
     return {
       success: true,
       platform: "telegram",
@@ -308,7 +353,6 @@ export class SocialsAgent {
         members: 234,
         messages: 156,
         active_users: 89,
-
         growth_rate: 12.5,
         engagement_score: 6.8,
       },
@@ -320,8 +364,6 @@ export class SocialsAgent {
     console.log(
       `💼 Getting LinkedIn summary for project: ${payload.projectId}`
     );
-
-    // Implementation for LinkedIn stats
     return {
       success: true,
       platform: "linkedin",
@@ -343,8 +385,6 @@ export class SocialsAgent {
     limit?: number;
   }): Promise<any> {
     console.log(`🐦 Getting latest tweets for project: ${payload.projectId}`);
-
-    // Implementation for latest tweets
     const tweets = [
       {
         id: "tweet_1",
@@ -380,8 +420,6 @@ export class SocialsAgent {
     console.log(
       `💼 Getting latest LinkedIn posts for project: ${payload.projectId}`
     );
-
-    // Implementation for latest LinkedIn posts
     const posts = [
       {
         id: "post_1",
