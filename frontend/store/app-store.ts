@@ -8,13 +8,14 @@ interface LogEntry {
   timestamp: Date;
   message: string;
   type: "info" | "success" | "error" | "warning";
+  agentId: string;
 }
 
 interface AppState {
   walletStatus: WalletStatus;
   userSide: UserSide;
   logs: LogEntry[];
-  addLog: (message: string, type?: LogEntry["type"]) => void;
+  addLog: (message: string, agentId: string, type?: LogEntry["type"]) => void;
   setUserSide: (side: UserSide) => void;
   setWalletStatus: (status: WalletStatus) => void;
 }
@@ -24,7 +25,11 @@ export const useAppStore = create<AppState>((set) => ({
   userSide: null,
   logs: [],
   setWalletStatus: (status: WalletStatus) => set({ walletStatus: status }),
-  addLog: (message: string, type: LogEntry["type"] = "info") => {
+  addLog: (
+    message: string,
+    agentId: string,
+    type: LogEntry["type"] = "info"
+  ) => {
     set((state) => ({
       logs: [
         {
@@ -32,6 +37,7 @@ export const useAppStore = create<AppState>((set) => ({
           timestamp: new Date(),
           message,
           type,
+          agentId,
         },
         ...state.logs,
       ],

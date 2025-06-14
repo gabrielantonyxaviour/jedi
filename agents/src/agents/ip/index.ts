@@ -9,16 +9,16 @@ import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
 import { Address, parseEther } from "viem";
 import { DisputeTargetTag } from "@story-protocol/core-sdk";
-import { client, networkInfo } from "../utils/config";
-import { mintNFT } from "../utils/mint-nft";
-import { uploadJSONToIPFS, uploadTextToIPFS } from "../utils/pinata";
+import { client, networkInfo } from "../../utils/config";
+import { mintNFT } from "../../utils/mint-nft";
+import { uploadJSONToIPFS, uploadTextToIPFS } from "../../utils/pinata";
 import {
   StoryProtocolService,
   ProjectIPMetadata,
   ProjectNFTMetadata,
   DerivativeProjectData,
   ProjectDisputeData,
-} from "../services/story";
+} from "./service";
 
 interface ProjectIPRegistration {
   registrationId: string;

@@ -12,6 +12,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
+import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface ProjectsSheetProps {
   side: "light" | "dark" | null;
@@ -24,7 +26,7 @@ interface ProjectsSheetProps {
 
 const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
   const [isOpen, setIsOpen] = useState(false);
-
+  const router = useRouter();
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger className="fixed left-0 top-1/2 -translate-y-1/2">
@@ -75,7 +77,7 @@ const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
                     console.log("clicked");
                     // TODO: Close the sheet
                   }}
-                  className="flex items-center space-x-4 p-3 rounded-lg hover:bg-zinc-800/50 transition-colors  cursor-pointer"
+                  className="flex items-center space-x-4 p-3 rounded-lg hover:bg-stone-800/50 transition-colors  cursor-pointer"
                 >
                   <div className="relative w-12 h-12 rounded-full overflow-hidden">
                     <Image
@@ -91,6 +93,18 @@ const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
                 </div>
               ))
             )}
+            <div
+              onClick={() => {
+                router.push("/");
+                setIsOpen(false);
+              }}
+              className="flex items-center justify-center space-x-3 p-3 cursor-pointer group"
+            >
+              <Plus className="h-5 w-5 text-stone-500 group-hover:text-white transition-colors" />
+              <span className="text-stone-500 font-medium group-hover:text-white transition-colors">
+                Create Project
+              </span>
+            </div>
           </div>
         </ScrollArea>
       </SheetContent>

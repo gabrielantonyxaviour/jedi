@@ -71,7 +71,7 @@ export default function Home() {
   const handleSideSelection = (side: "light" | "dark") => {
     setUserSide(side);
     setShowSideSelection(false);
-    addLog(`You have chosen the ${side} side`, "info");
+    addLog(`You have chosen the ${side} side`, "orchestrator", "info");
   };
 
   // Handle form submission
@@ -86,7 +86,7 @@ export default function Home() {
     setCreationSteps(steps);
     setCurrentStepIndex(-1);
 
-    addLog(`Processing GitHub URL: ${prompt}`, "info");
+    addLog(`Processing GitHub URL: ${prompt}`, "github", "info");
 
     // Process steps one by one
     for (let i = 0; i < steps.length; i++) {
@@ -107,7 +107,7 @@ export default function Home() {
         )
       );
 
-      addLog(steps[i].title + " completed", "success");
+      addLog(steps[i].title + " completed", "orchestrator", "success");
     }
 
     // Navigate to project page
