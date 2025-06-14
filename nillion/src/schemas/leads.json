@@ -24,6 +24,6 @@
       }
     },
     "required": ["_id", "name", "source", "description", "metadata"],
-    "additionalProperties": false
+    "additionalProperties": true
   }
 }

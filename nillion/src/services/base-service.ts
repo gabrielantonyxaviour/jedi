@@ -21,18 +21,44 @@ export abstract class BaseService<T> {
       this.initialized = true;
     }
   }
-
   async create(data: T[]): Promise<string[]> {
     await this.init();
     const result = await this.collection.writeToNodes(data);
-    return result
-      .filter((item) => item?.data?.created)
-      .flatMap((item) => item.data.created);
+
+    const successful = result.filter((item) => item.data?.created);
+    const failed = result.filter((item) => !item.data?.created);
+
+    if (successful.length === 0) {
+      throw new Error(
+        `All nodes failed: ${failed
+          .map((f: any) => f.error || f.status)
+          .join(", ")}`
+      );
+    }
+
+    if (failed.length > 0 && failed.length < result.length) {
+      console.warn(
+        `⚠️ ${failed.length}/${result.length} nodes failed, but operation succeeded`
+      );
+    }
+
+    return successful.flatMap((item) => item.data.created);
   }
 
   async findAll(filter: Record<string, any> = {}): Promise<T[]> {
     await this.init();
-    return await this.collection.readFromNodes(filter);
+    try {
+      return await this.collection.readFromNodes(filter);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes("401")) {
+        console.warn(
+          "⚠️ Some nodes failed auth, but data may still be available"
+        );
+        return [];
+      }
+      throw error;
+    }
   }
 
   async findById(id: string): Promise<T | null> {

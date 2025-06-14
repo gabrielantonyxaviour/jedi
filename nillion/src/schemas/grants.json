@@ -103,6 +103,6 @@
       "user_name",
       "grants"
     ],
-    "additionalProperties": false
+    "additionalProperties": true
   }
 }

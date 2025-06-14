@@ -180,9 +180,6 @@ async function runAnalytics() {
           telegramBots++;
           totalTelegramMessages += social.telegram.messages.length;
         }
-        if (social.linkedin) {
-          linkedinAccounts++;
-        }
       });
 
       console.log(

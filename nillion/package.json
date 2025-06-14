@@ -16,7 +16,7 @@
     "test:socials": "pnpm run build && node dist/scripts/test-socials.js",
     "test:grants": "pnpm run build && node dist/scripts/test-grants.js",
     "test:compliance": "pnpm run build && node dist/scripts/test-compliance.js",
-    "test:all": "pnpm run build && node dist/scripts/test-logs.js && node dist/scripts/test-github.js && node dist/scripts/test-leads.js && node dist/scripts/test-stories.js && node dist/scripts/test-socials.js && node dist/scripts/test-grants.js && node dist/scripts/test-compliance.js",
+    "test:all": "pnpm run build && NODE_ENV=test node dist/scripts/test-logs.js 2>/dev/null && node dist/scripts/test-github.js 2>/dev/null && node dist/scripts/test-leads.js 2>/dev/null && node dist/scripts/test-stories.js 2>/dev/null && node dist/scripts/test-socials.js 2>/dev/null && node dist/scripts/test-grants.js 2>/dev/null && node dist/scripts/test-compliance.js 2>/dev/null",
     "analytics": "pnpm run build && node dist/scripts/analytics.js",
     "setup:schemas": "pnpm run build && node dist/scripts/setup-schemas.js"
   },

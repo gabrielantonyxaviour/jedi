@@ -30,7 +30,8 @@ async function setupSchemas() {
     console.log(`${schema.envVar}=${schemaId}`);
 
     // Load schema file
-    const schemaPath = path.join(__dirname, "..", "schemas", schema.file);
+    const schemaPath = new URL(`../schemas/${schema.file}`, import.meta.url)
+      .pathname;
     if (fs.existsSync(schemaPath)) {
       const schemaContent = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
 

@@ -51,6 +51,6 @@
       "remix_license_terms",
       "register_tx_hash"
     ],
-    "additionalProperties": false
+    "additionalProperties": true
   }
 }

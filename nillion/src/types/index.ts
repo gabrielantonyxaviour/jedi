@@ -69,22 +69,17 @@ export interface TelegramMessage {
 }
 
 export interface Social {
-  id: string;
+  _id: string; // Changed from 'id'
   twitter?: {
     username: string;
-    email: { "%allot": string }; // encrypted
-    password: { "%allot": string }; // encrypted
+    email: { "%allot": string };
+    password: { "%allot": string };
     actions: TwitterAction[];
   };
   telegram?: {
     botusername: string;
-    bot_token: { "%allot": string }; // encrypted
+    bot_token: { "%allot": string };
     messages: TelegramMessage[];
-  };
-  linkedin?: {
-    linkedin_token: { "%allot": string }; // encrypted
-    linkedin_username: string;
-    actions: LinkedinAction[];
   };
 }
 

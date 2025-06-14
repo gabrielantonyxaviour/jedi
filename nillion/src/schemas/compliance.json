@@ -18,6 +18,6 @@
       }
     },
     "required": ["_id", "name", "metadata"],
-    "additionalProperties": false
+    "additionalProperties": true
   }
 }

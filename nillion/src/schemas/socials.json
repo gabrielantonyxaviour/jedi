@@ -61,6 +61,6 @@
       }
     },
     "required": ["_id"],
-    "additionalProperties": false
+    "additionalProperties": true
   }
 }

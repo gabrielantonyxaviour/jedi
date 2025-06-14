@@ -22,14 +22,31 @@ export class SocialsService extends BaseService<Social> {
     email: string,
     password: string
   ): Promise<string> {
-    // Encrypt sensitive data
     const social: Social = {
-      id: uuidv4(),
+      _id: uuidv4(),
       twitter: {
         username,
         email: { "%allot": email },
         password: { "%allot": password },
         actions: [],
+      },
+    };
+
+    console.log("Sending data:", JSON.stringify(social, null, 2)); // Debug log
+    const ids = await this.create([social]);
+    return ids[0];
+  }
+
+  async createTelegramBot(
+    botusername: string,
+    bot_token: string
+  ): Promise<string> {
+    const social: Social = {
+      _id: uuidv4(), // Changed from 'id'
+      telegram: {
+        botusername,
+        bot_token: { "%allot": bot_token },
+        messages: [],
       },
     };
 
@@ -55,23 +72,6 @@ export class SocialsService extends BaseService<Social> {
 
     social.twitter.actions.push(newAction);
     return await this.update(socialId, social);
-  }
-
-  async createTelegramBot(
-    botusername: string,
-    bot_token: string
-  ): Promise<string> {
-    const social: Social = {
-      id: uuidv4(),
-      telegram: {
-        botusername,
-        bot_token: { "%allot": bot_token },
-        messages: [],
-      },
-    };
-
-    const ids = await this.create([social]);
-    return ids[0];
   }
 
   async addTelegramMessage(

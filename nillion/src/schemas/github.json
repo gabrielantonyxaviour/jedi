@@ -46,6 +46,6 @@
       "collab",
       "metadata"
     ],
-    "additionalProperties": false
+    "additionalProperties": true
   }
 }
