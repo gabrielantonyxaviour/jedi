@@ -1211,6 +1211,7 @@ export class CoreOrchestratorAgent {
         ownerId: project.ownerId,
         title: project.name,
         description: project.description,
+        logoUrl: project.imageUrl,
         repositoryUrl:
           "https://github.com/" +
           project.developers[0].name +

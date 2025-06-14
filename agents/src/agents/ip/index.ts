@@ -296,18 +296,18 @@ export class IPAgent {
       updatedAt: new Date().toISOString(),
     };
 
-    // Update project in DynamoDB
-    await this.updateProjectWithIPData(payload.projectId, {
-      ipRegistration: registration,
-      ipMetadata: projectMetadata,
-      nftMetadata: nftMetadata,
+    console.log("🔍 IP Registration Data pushed to aws:");
+    console.log({
+      ipId: registration.ipId,
+      regTxHash: registration.txHash,
+      licenseTermsId: registration.licenseTermsIds[0].toString(),
     });
 
-    // Store metadata in S3
-    await this.storeProjectMetadata(payload.projectId, {
-      projectMetadata,
-      nftMetadata,
-      storyResponse,
+    // Update project in DynamoDB
+    await this.updateProjectWithIPData(payload.projectId, {
+      ipId: registration.ipId,
+      regTxHash: registration.txHash,
+      licenseTermsId: registration.licenseTermsIds[0].toString(),
     });
 
     console.log(`✅ Project registered with IP ID: ${registration.ipId}`);
@@ -587,12 +587,12 @@ export class IPAgent {
         TableName: this.projectsTableName,
         Key: marshall({ projectId }, { removeUndefinedValues: true }),
         UpdateExpression:
-          "SET ipRegistration = :ipRegistration, ipMetadata = :ipMetadata, nftMetadata = :nftMetadata, updatedAt = :updatedAt",
+          "SET ipId = :ipId, regTxHash = :regTxHash, licenseTermsId = :licenseTermsId, updatedAt = :updatedAt",
         ExpressionAttributeValues: marshall(
           {
-            ":ipRegistration": ipData.ipRegistration,
-            ":ipMetadata": ipData.ipMetadata,
-            ":nftMetadata": ipData.nftMetadata,
+            ":ipId": ipData.ipId,
+            ":regTxHash": ipData.regTxHash,
+            ":licenseTermsId": ipData.licenseTermsId,
             ":updatedAt": new Date().toISOString(),
           },
           { removeUndefinedValues: true }
@@ -600,7 +600,6 @@ export class IPAgent {
       })
     );
   }
-
   private async updateProjectWithLicenseData(
     projectId: string,
     license: ProjectLicense
