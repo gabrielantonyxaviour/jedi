@@ -201,7 +201,6 @@ export default function ProjectSetupDialog({
               : '"Good... let your creative ambitions flow through you. Your project shall become more powerful than you can possibly imagine."'}
           </p>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Image Upload */}
           <div className="space-y-2">
@@ -305,7 +304,6 @@ export default function ProjectSetupDialog({
             />
           </div>
 
-          {/* Submit Button */}
           <div className="flex justify-end pt-4">
             <Button
               type="submit"

@@ -19,6 +19,7 @@ import { useCardanoWallet } from "@/hooks/use-cardano-wallet";
 import { parseCardanoBalance } from "@/lib/cardano";
 import { useProjects } from "@/hooks/use-projects";
 import TransferDialog from "@/components/transfer-dialog";
+import { useProjectData } from "@/hooks/use-project-data";
 
 interface CreationStep {
   id: string;

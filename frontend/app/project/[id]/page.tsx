@@ -13,17 +13,9 @@ import IPAgent from "@/components/project/agents/ip";
 import ComplianceAgent from "@/components/project/agents/compliance";
 import KarmaAgent from "@/components/project/agents/karma";
 import ChatDialog from "@/components/project/chat-dialog";
-import {
-  Github,
-  TrendingUp,
-  Target,
-  Shield,
-  FileText,
-  Heart,
-  MessageCircle,
-} from "lucide-react";
 import Image from "next/image";
 import { useAppStore } from "@/store/app-store";
+import { useProjectData } from "@/hooks/use-project-data";
 
 interface AgentConfig {
   id: string;
@@ -51,6 +43,38 @@ const agents: AgentConfig[] = [
   { id: "karma", name: "Karma", component: KarmaAgent },
 ];
 
+const getEnabledAgents = (initState: string): string[] => {
+  switch (initState) {
+    case "GITHUB":
+      return ["github"];
+    case "SETUP":
+      return ["github", "leads"];
+    case "SOCIALS":
+      return ["github", "leads", "socials"];
+    case "KARMA":
+      return ["github", "leads", "socials", "karma"];
+    case "IP":
+      return ["github", "leads", "socials", "karma", "ip"];
+    default:
+      return ["github", "leads", "socials", "karma", "ip", "compliance"];
+  }
+};
+
+const getBlinkingAgent = (initState: string): string | null => {
+  switch (initState) {
+    case "GITHUB":
+      return "leads";
+    case "SETUP":
+      return "socials";
+    case "SOCIALS":
+      return "karma";
+    case "KARMA":
+      return "ip";
+    default:
+      return null;
+  }
+};
+
 export default function ProjectPage() {
   const searchParams = useSearchParams();
   const { userSide } = useAppStore();
@@ -60,6 +84,8 @@ export default function ProjectPage() {
   >({});
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [maxContainers] = useState(3);
+  const { projectId } = useAppStore();
+  const { data: projectData } = useProjectData(projectId || "");
 
   useEffect(() => {
     const handleResize = () => {
@@ -69,6 +95,11 @@ export default function ProjectPage() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    if (projectData) {
+    }
+  }, [projectData]);
 
   const getInitialPosition = (index: number): ContainerPosition => {
     const padding = 20;
@@ -132,9 +163,13 @@ export default function ProjectPage() {
   };
 
   const isAgentDisabled = (agentId: string) => {
+    const enabledAgents = getEnabledAgents(projectData?.init_state || "");
+    const isEnabled = enabledAgents.includes(agentId);
+
     return (
-      !activeContainers.includes(agentId) &&
-      activeContainers.length >= maxContainers
+      !isEnabled ||
+      (!activeContainers.includes(agentId) &&
+        activeContainers.length >= maxContainers)
     );
   };
 
@@ -180,22 +215,27 @@ export default function ProjectPage() {
             {/* First 3 agents */}
             {agents.slice(0, 3).map((agent) => {
               const isActive = activeContainers.includes(agent.id);
-              const isDisabled = isAgentDisabled(agent.id);
 
               return (
                 <button
                   key={agent.id}
                   onClick={() => handleAgentClick(agent.id)}
-                  disabled={isDisabled}
+                  disabled={isAgentDisabled(agent.id)}
                   className={`relative rounded-full transition-all duration-300 group
                     ${
                       isActive
                         ? userSide === "light"
                           ? "bg-stone-800/90 border-2 border-blue-500 shadow-lg shadow-blue-500/25"
                           : "bg-stone-800/90 border-2 border-red-500 shadow-lg shadow-red-500/25"
-                        : isDisabled
+                        : isAgentDisabled(agent.id)
                         ? "bg-stone-800/50 border border-stone-700 opacity-50 cursor-not-allowed"
                         : "bg-stone-800/80 border border-stone-600 hover:border-stone-500"
+                    }
+                    ${
+                      getBlinkingAgent(projectData?.init_state || "") ===
+                      agent.id
+                        ? "animate-pulse"
+                        : ""
                     }`}
                 >
                   <Image
@@ -204,12 +244,20 @@ export default function ProjectPage() {
                     width={70}
                     height={70}
                     className={`rounded-full
-                      ${isDisabled ? "opacity-40 grayscale" : ""}
+                      ${isAgentDisabled(agent.id) ? "opacity-40 grayscale" : ""}
                       ${
                         isActive
                           ? userSide === "light"
                             ? "ring-2 ring-blue-400 shadow-[0_0_12px_2px_rgba(59,130,246,0.6)]"
                             : "ring-2 ring-red-400 shadow-[0_0_12px_2px_rgba(248,113,113,0.6)]"
+                          : ""
+                      }
+                      ${
+                        getBlinkingAgent(projectData?.init_state || "") ===
+                        agent.id
+                          ? userSide === "light"
+                            ? "ring-4 ring-blue-300 shadow-[0_0_20px_4px_rgba(59,130,246,0.8)]"
+                            : "ring-4 ring-red-300 shadow-[0_0_20px_4px_rgba(248,113,113,0.8)]"
                           : ""
                       }
                       transition-all
@@ -261,22 +309,27 @@ export default function ProjectPage() {
             {/* Last 3 agents */}
             {agents.slice(3, 6).map((agent) => {
               const isActive = activeContainers.includes(agent.id);
-              const isDisabled = isAgentDisabled(agent.id);
 
               return (
                 <button
                   key={agent.id}
                   onClick={() => handleAgentClick(agent.id)}
-                  disabled={isDisabled}
+                  disabled={isAgentDisabled(agent.id)}
                   className={`relative rounded-full transition-all duration-300 group
                     ${
                       isActive
                         ? userSide === "light"
                           ? "bg-stone-800/90 border-2 border-blue-500 shadow-lg shadow-blue-500/25"
                           : "bg-stone-800/90 border-2 border-red-500 shadow-lg shadow-red-500/25"
-                        : isDisabled
+                        : isAgentDisabled(agent.id)
                         ? "bg-stone-800/50 border border-stone-700 opacity-50 cursor-not-allowed"
                         : "bg-stone-800/80 border border-stone-600 hover:border-stone-500"
+                    }
+                    ${
+                      getBlinkingAgent(projectData?.init_state || "") ===
+                      agent.id
+                        ? "animate-pulse"
+                        : ""
                     }`}
                 >
                   <Image
@@ -285,12 +338,20 @@ export default function ProjectPage() {
                     width={70}
                     height={70}
                     className={`rounded-full
-                      ${isDisabled ? "opacity-40 grayscale" : ""}
+                      ${isAgentDisabled(agent.id) ? "opacity-40 grayscale" : ""}
                       ${
                         isActive
                           ? userSide === "light"
                             ? "ring-2 ring-blue-400 shadow-[0_0_12px_2px_rgba(59,130,246,0.6)]"
                             : "ring-2 ring-red-400 shadow-[0_0_12px_2px_rgba(248,113,113,0.6)]"
+                          : ""
+                      }
+                      ${
+                        getBlinkingAgent(projectData?.init_state || "") ===
+                        agent.id
+                          ? userSide === "light"
+                            ? "ring-4 ring-blue-300 shadow-[0_0_20px_4px_rgba(59,130,246,0.8)]"
+                            : "ring-4 ring-red-300 shadow-[0_0_20px_4px_rgba(248,113,113,0.8)]"
                           : ""
                       }
                       transition-all

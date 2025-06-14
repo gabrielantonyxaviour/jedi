@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Github, GitBranch, Star, Users, Activity } from "lucide-react";
+import { useAppStore } from "@/store/app-store";
+import { useProjectData } from "@/hooks/use-project-data";
 
 interface GitHubAgentProps {
   userSide: "light" | "dark" | null;
@@ -9,28 +11,32 @@ interface GitHubAgentProps {
 
 export default function GitHubAgent({ userSide }: GitHubAgentProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const { projectId } = useAppStore();
+  const { data } = useProjectData(projectId || "");
 
-  const mockData = {
+  const repoData = {
     repo: {
-      name: "awesome-ai-project",
-      owner: "john-doe",
-      stars: 1247,
-      forks: 89,
-      issues: 23,
-      prs: 7,
+      name: data?.repo || "",
+      owner: data?.developers?.[0]?.github_username || "",
+      stars: 0, // These would need to be fetched from GitHub API
+      forks: 1, // From technicalSummary
+      issues: 0, // From technicalSummary
+      prs: 0,
     },
     stats: {
-      commits: 342,
-      contributors: 8,
-      languages: ["TypeScript", "Python", "JavaScript"],
-      lastCommit: "2 hours ago",
+      commits: 0, // Would need GitHub API
+      contributors: data?.developers?.length || 1,
+      languages: data?.ipMetadata?.programmingLanguages?.map(
+        (lang: any) => lang.S
+      ) || ["JavaScript"],
+      lastCommit: "2025-06-14", // From updatedAt
     },
     insights: [
-      "High code quality detected",
-      "Active development pattern",
-      "Good documentation coverage",
-      "Recommended: Add more tests",
-    ],
+      data?.summary || "",
+      data?.technicalDescription || "",
+      data?.technicalSummary?.split("\n")[0] || "",
+      `License: ${data?.ipMetadata?.license?.S || "MIT"}`,
+    ].filter(Boolean),
   };
 
   return (
@@ -77,7 +83,7 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
               <div className="flex items-center space-x-2 text-stone-300">
                 <Github className="w-4 h-4" />
                 <span>
-                  {mockData.repo.owner}/{mockData.repo.name}
+                  {repoData.repo.owner}/{repoData.repo.name}
                 </span>
               </div>
             </div>
@@ -87,7 +93,7 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
                 <div className="flex items-center space-x-2">
                   <Star className="w-4 h-4 text-yellow-400" />
                   <span className="text-white font-medium">
-                    {mockData.repo.stars}
+                    {repoData.repo.stars}
                   </span>
                 </div>
                 <p className="text-xs text-stone-400">Stars</p>
@@ -97,7 +103,7 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
                 <div className="flex items-center space-x-2">
                   <GitBranch className="w-4 h-4 text-green-400" />
                   <span className="text-white font-medium">
-                    {mockData.repo.forks}
+                    {repoData.repo.forks}
                   </span>
                 </div>
                 <p className="text-xs text-stone-400">Forks</p>
@@ -113,18 +119,18 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-stone-400">Total Commits</span>
-                  <span className="text-white">{mockData.stats.commits}</span>
+                  <span className="text-white">{repoData.stats.commits}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-400">Contributors</span>
                   <span className="text-white">
-                    {mockData.stats.contributors}
+                    {repoData.stats.contributors}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-400">Last Commit</span>
                   <span className="text-white">
-                    {mockData.stats.lastCommit}
+                    {repoData.stats.lastCommit}
                   </span>
                 </div>
               </div>
@@ -133,7 +139,7 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
             <div className="bg-stone-800/50 rounded-lg p-4">
               <h3 className="text-white font-medium mb-3">Languages</h3>
               <div className="flex flex-wrap gap-2">
-                {mockData.stats.languages.map((lang) => (
+                {repoData.stats.languages.map((lang: string) => (
                   <span
                     key={lang}
                     className={`px-2 py-1 rounded text-xs ${
@@ -153,7 +159,7 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
         {activeTab === "insights" && (
           <div className="space-y-3">
             <h3 className="text-white font-medium">AI Insights</h3>
-            {mockData.insights.map((insight, index) => (
+            {repoData.insights.map((insight, index) => (
               <div
                 key={index}
                 className="bg-stone-800/50 rounded-lg p-3 flex items-start space-x-3"
