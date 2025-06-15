@@ -16,6 +16,7 @@ export async function pushGrants(data: GrantsData): Promise<boolean> {
   const recordId = uuidv4();
 
   const [
+    projectIdShares,
     nameShares,
     descShares,
     linksShares,
@@ -27,6 +28,7 @@ export async function pushGrants(data: GrantsData): Promise<boolean> {
     grantsShares,
     milestonesShares,
   ] = await Promise.all([
+    encryption.encrypt(data.project_id),
     encryption.encrypt(data.name),
     encryption.encrypt(data.desc),
     encryption.encrypt(data.links),
@@ -45,6 +47,7 @@ export async function pushGrants(data: GrantsData): Promise<boolean> {
         index,
         {
           _id: recordId,
+          project_id: { "%share": projectIdShares[index] },
           name: { "%share": nameShares[index] },
           desc: { "%share": descShares[index] },
           links: { "%share": linksShares[index] },
@@ -55,7 +58,6 @@ export async function pushGrants(data: GrantsData): Promise<boolean> {
           user_name: { "%share": userNameShares[index] },
           grants: [
             {
-              // Store as single encrypted JSON item
               id: { "%share": grantsShares[index] },
               name: { "%share": grantsShares[index] },
               desc: { "%share": grantsShares[index] },
@@ -96,6 +98,7 @@ export async function fetchGrants(): Promise<GrantsData[]> {
   allRecords.flat().forEach((record) => {
     if (!recordMap.has(record._id)) {
       recordMap.set(record._id, {
+        projectIdShares: [],
         nameShares: [],
         descShares: [],
         linksShares: [],
@@ -109,6 +112,7 @@ export async function fetchGrants(): Promise<GrantsData[]> {
       });
     }
     const entry = recordMap.get(record._id);
+    entry.projectIdShares.push(record.project_id["%share"]);
     entry.nameShares.push(record.name["%share"]);
     entry.descShares.push(record.desc["%share"]);
     entry.linksShares.push(record.links["%share"]);
@@ -123,9 +127,10 @@ export async function fetchGrants(): Promise<GrantsData[]> {
 
   const decrypted: GrantsData[] = [];
   for (const [id, shares] of Array.from(recordMap.entries())) {
-    if (shares.nameShares.length === 3) {
+    if (shares.projectIdShares.length === 3) {
       try {
         const [
+          project_id,
           name,
           desc,
           links,
@@ -137,6 +142,7 @@ export async function fetchGrants(): Promise<GrantsData[]> {
           grantsStr,
           milestonesStr,
         ] = await Promise.all([
+          encryption.decrypt(shares.projectIdShares),
           encryption.decrypt(shares.nameShares),
           encryption.decrypt(shares.descShares),
           encryption.decrypt(shares.linksShares),
@@ -150,6 +156,7 @@ export async function fetchGrants(): Promise<GrantsData[]> {
         ]);
 
         decrypted.push({
+          project_id,
           name,
           desc,
           links,
@@ -169,8 +176,16 @@ export async function fetchGrants(): Promise<GrantsData[]> {
   return decrypted;
 }
 
+export async function fetchGrantsByAddress(
+  targetAddress: string
+): Promise<GrantsData[]> {
+  const allRecords = await fetchGrants();
+  return allRecords.filter((record) => record.owner_address === targetAddress);
+}
+
 async function main() {
   const success = await pushGrants({
+    project_id: "proj_123",
     name: "Blockchain Innovation Grant",
     desc: "Grant for developing innovative blockchain solutions",
     links: "https://example.com/grant-info",

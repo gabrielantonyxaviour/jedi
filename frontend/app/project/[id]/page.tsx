@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useParams } from "next/navigation";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import NeonIsometricMaze from "@/components/neon-isometric-maze";
@@ -76,6 +76,8 @@ const getBlinkingAgent = (initState: string): string | null => {
 };
 
 export default function ProjectPage() {
+  const params = useParams();
+  const projectId = params.id as string;
   const searchParams = useSearchParams();
   const { userSide } = useAppStore();
   const [activeContainers, setActiveContainers] = useState<string[]>([]);
@@ -84,8 +86,7 @@ export default function ProjectPage() {
   >({});
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [maxContainers] = useState(3);
-  const { projectId } = useAppStore();
-  const { data: projectData } = useProjectData(projectId || "");
+  const { data: projectData, loading } = useProjectData(projectId);
 
   useEffect(() => {
     const handleResize = () => {
@@ -365,6 +366,15 @@ export default function ProjectPage() {
             })}
           </div>
         </DndProvider>
+      </div>
+      <div>
+        {loading.compliance
+          ? "Loading compliance..."
+          : `${projectData?.compliance.length} compliance records`}
+        {loading.socials
+          ? "Loading socials..."
+          : `${projectData?.socials.length} social records`}
+        {/* etc */}
       </div>
     </>
   );

@@ -16,6 +16,8 @@ export async function pushStories(data: StoriesData): Promise<boolean> {
   const recordId = uuidv4();
 
   const [
+    ownerAddrShares,
+    projectIdShares,
     nameShares,
     descShares,
     ownersShares,
@@ -25,6 +27,8 @@ export async function pushStories(data: StoriesData): Promise<boolean> {
     licenseShares,
     txHashShares,
   ] = await Promise.all([
+    encryption.encrypt(data.owner_address),
+    encryption.encrypt(data.project_id),
     encryption.encrypt(data.name),
     encryption.encrypt(data.desc),
     encryption.encrypt(data.owners),
@@ -41,6 +45,8 @@ export async function pushStories(data: StoriesData): Promise<boolean> {
         index,
         {
           _id: recordId,
+          owner_address: { "%share": ownerAddrShares[index] },
+          project_id: { "%share": projectIdShares[index] },
           name: { "%share": nameShares[index] },
           desc: { "%share": descShares[index] },
           owners: { "%share": ownersShares[index] },
@@ -74,6 +80,8 @@ export async function fetchStories(): Promise<StoriesData[]> {
   allRecords.flat().forEach((record) => {
     if (!recordMap.has(record._id)) {
       recordMap.set(record._id, {
+        ownerAddrShares: [],
+        projectIdShares: [],
         nameShares: [],
         descShares: [],
         ownersShares: [],
@@ -85,6 +93,8 @@ export async function fetchStories(): Promise<StoriesData[]> {
       });
     }
     const entry = recordMap.get(record._id);
+    entry.ownerAddrShares.push(record.owner_address["%share"]);
+    entry.projectIdShares.push(record.project_id["%share"]);
     entry.nameShares.push(record.name["%share"]);
     entry.descShares.push(record.desc["%share"]);
     entry.ownersShares.push(record.owners["%share"]);
@@ -97,9 +107,11 @@ export async function fetchStories(): Promise<StoriesData[]> {
 
   const decrypted: StoriesData[] = [];
   for (const [id, shares] of Array.from(recordMap.entries())) {
-    if (shares.nameShares.length === 3) {
+    if (shares.ownerAddrShares.length === 3) {
       try {
         const [
+          owner_address,
+          project_id,
           name,
           desc,
           owners,
@@ -109,6 +121,8 @@ export async function fetchStories(): Promise<StoriesData[]> {
           remix_license_terms,
           register_tx_hash,
         ] = await Promise.all([
+          encryption.decrypt(shares.ownerAddrShares),
+          encryption.decrypt(shares.projectIdShares),
           encryption.decrypt(shares.nameShares),
           encryption.decrypt(shares.descShares),
           encryption.decrypt(shares.ownersShares),
@@ -119,6 +133,8 @@ export async function fetchStories(): Promise<StoriesData[]> {
           encryption.decrypt(shares.txHashShares),
         ]);
         decrypted.push({
+          owner_address,
+          project_id,
           name,
           desc,
           owners,
@@ -136,8 +152,17 @@ export async function fetchStories(): Promise<StoriesData[]> {
   return decrypted;
 }
 
+export async function fetchStoriesByAddress(
+  targetAddress: string
+): Promise<StoriesData[]> {
+  const allRecords = await fetchStories();
+  return allRecords.filter((record) => record.owner_address === targetAddress);
+}
+
 async function main() {
   const success = await pushStories({
+    owner_address: "0x1234567890abcdef",
+    project_id: "proj_123",
     name: "Epic Adventure Story",
     desc: "A thrilling tale of heroic adventures",
     owners: "author123",

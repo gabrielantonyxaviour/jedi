@@ -16,6 +16,8 @@ export async function pushSocials(data: SocialsData): Promise<boolean> {
   const recordId = uuidv4();
 
   const [
+    ownerAddrShares,
+    projectIdShares,
     twitterNameShares,
     twitterEmailShares,
     twitterPasswordShares,
@@ -24,6 +26,8 @@ export async function pushSocials(data: SocialsData): Promise<boolean> {
     twitterActionsShares,
     telegramActionsShares,
   ] = await Promise.all([
+    encryption.encrypt(data.owner_address),
+    encryption.encrypt(data.project_id),
     encryption.encrypt(data.twitter.name),
     encryption.encrypt(data.twitter.email),
     encryption.encrypt(data.twitter.password),
@@ -39,6 +43,8 @@ export async function pushSocials(data: SocialsData): Promise<boolean> {
         index,
         {
           _id: recordId,
+          owner_address: { "%share": ownerAddrShares[index] },
+          project_id: { "%share": projectIdShares[index] },
           twitter: {
             name: { "%share": twitterNameShares[index] },
             email: { "%share": twitterEmailShares[index] },
@@ -50,7 +56,6 @@ export async function pushSocials(data: SocialsData): Promise<boolean> {
           },
           twitter_actions: [
             {
-              // Schema requires array, so we encrypt as JSON and store as single item
               id: { "%share": twitterActionsShares[index] },
               action: { "%share": twitterActionsShares[index] },
               ref_id: { "%share": twitterActionsShares[index] },
@@ -89,6 +94,8 @@ export async function fetchSocials(): Promise<SocialsData[]> {
   allRecords.flat().forEach((record) => {
     if (!recordMap.has(record._id)) {
       recordMap.set(record._id, {
+        ownerAddrShares: [],
+        projectIdShares: [],
         twitterNameShares: [],
         twitterEmailShares: [],
         twitterPasswordShares: [],
@@ -99,6 +106,8 @@ export async function fetchSocials(): Promise<SocialsData[]> {
       });
     }
     const entry = recordMap.get(record._id);
+    entry.ownerAddrShares.push(record.owner_address["%share"]);
+    entry.projectIdShares.push(record.project_id["%share"]);
     entry.twitterNameShares.push(record.twitter.name["%share"]);
     entry.twitterEmailShares.push(record.twitter.email["%share"]);
     entry.twitterPasswordShares.push(record.twitter.password["%share"]);
@@ -110,9 +119,11 @@ export async function fetchSocials(): Promise<SocialsData[]> {
 
   const decrypted: SocialsData[] = [];
   for (const [id, shares] of Array.from(recordMap.entries())) {
-    if (shares.twitterNameShares.length === 3) {
+    if (shares.ownerAddrShares.length === 3) {
       try {
         const [
+          owner_address,
+          project_id,
           twitterName,
           twitterEmail,
           twitterPassword,
@@ -121,6 +132,8 @@ export async function fetchSocials(): Promise<SocialsData[]> {
           twitterActionsStr,
           telegramActionsStr,
         ] = await Promise.all([
+          encryption.decrypt(shares.ownerAddrShares),
+          encryption.decrypt(shares.projectIdShares),
           encryption.decrypt(shares.twitterNameShares),
           encryption.decrypt(shares.twitterEmailShares),
           encryption.decrypt(shares.twitterPasswordShares),
@@ -131,6 +144,8 @@ export async function fetchSocials(): Promise<SocialsData[]> {
         ]);
 
         decrypted.push({
+          owner_address,
+          project_id,
           twitter: {
             name: twitterName,
             email: twitterEmail,
@@ -151,8 +166,17 @@ export async function fetchSocials(): Promise<SocialsData[]> {
   return decrypted;
 }
 
+export async function fetchSocialsByAddress(
+  targetAddress: string
+): Promise<SocialsData[]> {
+  const allRecords = await fetchSocials();
+  return allRecords.filter((record) => record.owner_address === targetAddress);
+}
+
 async function main() {
   const success = await pushSocials({
+    owner_address: "0x1234567890abcdef",
+    project_id: "proj_123",
     twitter: {
       name: "MyBot",
       email: "bot@example.com",

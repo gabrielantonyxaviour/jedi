@@ -6,7 +6,7 @@ import {
   uploadToNode,
   fetchFromNode,
 } from "./base";
-import { ComplianceData } from "./types";
+import { ComplianceData } from "../types";
 
 export async function pushCompliance(data: ComplianceData): Promise<boolean> {
   const [encryption, jwts] = await Promise.all([
@@ -106,23 +106,4 @@ export async function fetchComplianceByAddress(
 ): Promise<ComplianceData[]> {
   const allRecords = await fetchCompliance();
   return allRecords.filter((record) => record.owner_address === targetAddress);
-}
-
-async function main() {
-  const success = await pushCompliance({
-    name: "KYC Compliance Check",
-    project_id: "proj_123",
-    owner_address: "0x1234567890abcdef",
-    source: "compliance_system",
-    data: "{'status': 'verified', 'timestamp': '2024-01-15T10:30:00Z'}",
-  });
-
-  console.log(success ? "✓ Compliance data pushed" : "✗ Push failed");
-
-  const records = await fetchCompliance();
-  console.log("Compliance records:", records);
-}
-
-if (require.main === module) {
-  main().catch(console.error);
 }
