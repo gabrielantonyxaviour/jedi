@@ -1,4 +1,5 @@
 import axios from "axios";
+import { NODE_URLS } from "@/lib/nilion";
 
 interface EncryptionService {
   encrypt(data: string): Promise<string[]>;
@@ -12,18 +13,14 @@ export async function generateJWTs(): Promise<string[]> {
 export async function createEncryptionService(): Promise<EncryptionService> {
   return {
     async encrypt(data: string): Promise<string[]> {
-      const shares = [
-        Buffer.from(data + "_share1").toString("base64"),
-        Buffer.from(data + "_share2").toString("base64"),
-        Buffer.from(data + "_share3").toString("base64"),
+      return [
+        Buffer.from(data + "_s1").toString("base64"),
+        Buffer.from(data + "_s2").toString("base64"),
+        Buffer.from(data + "_s3").toString("base64"),
       ];
-      return shares;
     },
-
     async decrypt(shares: string[]): Promise<string> {
-      if (shares.length < 3) throw new Error("Insufficient shares");
-      const decoded = Buffer.from(shares[0], "base64").toString();
-      return decoded.replace("_share1", "");
+      return Buffer.from(shares[0], "base64").toString().replace("_s1", "");
     },
   };
 }
@@ -36,13 +33,12 @@ export async function uploadToNode(
 ): Promise<boolean> {
   try {
     const response = await axios.post(
-      `https://node${nodeIndex}.example.com/upload`,
+      `${NODE_URLS[nodeIndex]}/upload`,
       { data, schema_id: schemaId },
       { headers: { Authorization: `Bearer ${jwt}` } }
     );
     return response.status === 200;
-  } catch (error) {
-    console.error(`Node ${nodeIndex} upload failed:`, error);
+  } catch {
     return false;
   }
 }
@@ -54,12 +50,11 @@ export async function fetchFromNode(
 ): Promise<any[]> {
   try {
     const response = await axios.get(
-      `https://node${nodeIndex}.example.com/fetch?schema_id=${schemaId}`,
+      `${NODE_URLS[nodeIndex]}/fetch?schema_id=${schemaId}`,
       { headers: { Authorization: `Bearer ${jwt}` } }
     );
     return response.data || [];
-  } catch (error) {
-    console.error(`Node ${nodeIndex} fetch failed:`, error);
+  } catch {
     return [];
   }
 }

@@ -7,7 +7,7 @@ import {
   GrantsData,
   CreatingData,
   GithubData,
-} from "@/types";
+} from "@/lib/types";
 
 interface ProjectData {
   compliance: ComplianceData[];
@@ -48,15 +48,29 @@ const initialLoading: LoadingState = {
 };
 
 export function useProjectData(projectId?: string, isCreating?: boolean) {
-  const [data, setData] = useState<ProjectData>(initialData);
-  const [loading, setLoading] = useState<LoadingState>(initialLoading);
+  const [data, setData] = useState<ProjectData>({
+    compliance: [],
+    socials: [],
+    stories: [],
+    logs: [],
+    grants: [],
+    creating: null,
+  });
+  const [loading, setLoading] = useState({
+    compliance: false,
+    socials: false,
+    stories: false,
+    logs: false,
+    grants: false,
+    creating: false,
+    github: false,
+  });
   const [githubData, setGithubData] = useState<GithubData[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const creatingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchProjectData = useCallback(async (id: string) => {
     const endpoints = ["compliance", "socials", "stories", "logs", "grants"];
-
     const promises = endpoints.map(async (endpoint) => {
       try {
         const response = await fetch(`/api/${endpoint}/${id}`);
@@ -67,9 +81,7 @@ export function useProjectData(projectId?: string, isCreating?: boolean) {
         return { endpoint, data: [] };
       }
     });
-
     const results = await Promise.all(promises);
-
     setData((prev) => {
       const updated = { ...prev };
       results.forEach(({ endpoint, data }) => {
@@ -77,7 +89,6 @@ export function useProjectData(projectId?: string, isCreating?: boolean) {
       });
       return updated;
     });
-
     setLoading((prev) => ({
       ...prev,
       compliance: false,
@@ -93,11 +104,8 @@ export function useProjectData(projectId?: string, isCreating?: boolean) {
       setLoading((prev) => ({ ...prev, creating: true }));
       const response = await fetch(`/api/creating/${id}`);
       const result = await response.json();
-
       const creatingData = result.success ? result.data : null;
       setData((prev) => ({ ...prev, creating: creatingData }));
-
-      // Stop polling if creation is complete
       if (!creatingData || creatingData.init_step === "ip") {
         if (creatingIntervalRef.current) {
           clearInterval(creatingIntervalRef.current);
@@ -116,10 +124,7 @@ export function useProjectData(projectId?: string, isCreating?: boolean) {
       setLoading((prev) => ({ ...prev, github: true }));
       const response = await fetch(`/api/github/${address}`);
       const result = await response.json();
-
-      if (result.success) {
-        setGithubData(result.data);
-      }
+      if (result.success) setGithubData(result.data);
       return result.data || [];
     } catch (error) {
       console.error("Error fetching github data:", error);
@@ -129,10 +134,8 @@ export function useProjectData(projectId?: string, isCreating?: boolean) {
     }
   }, []);
 
-  // Start/stop project data polling
   useEffect(() => {
     if (!projectId) return;
-
     setLoading((prev) => ({
       ...prev,
       compliance: true,
@@ -141,23 +144,13 @@ export function useProjectData(projectId?: string, isCreating?: boolean) {
       logs: true,
       grants: true,
     }));
-
-    // Initial fetch
     fetchProjectData(projectId);
-
-    // Set up polling
-    intervalRef.current = setInterval(() => {
-      fetchProjectData(projectId);
-    }, 5000);
-
+    intervalRef.current = setInterval(() => fetchProjectData(projectId), 5000);
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [projectId, fetchProjectData]);
 
-  // Start/stop creating data polling
   useEffect(() => {
     if (!isCreating || !projectId) {
       if (creatingIntervalRef.current) {
@@ -166,19 +159,14 @@ export function useProjectData(projectId?: string, isCreating?: boolean) {
       }
       return;
     }
-
-    // Initial fetch
     fetchCreatingData(projectId);
-
-    // Set up polling
-    creatingIntervalRef.current = setInterval(() => {
-      fetchCreatingData(projectId);
-    }, 5000);
-
+    creatingIntervalRef.current = setInterval(
+      () => fetchCreatingData(projectId),
+      5000
+    );
     return () => {
-      if (creatingIntervalRef.current) {
+      if (creatingIntervalRef.current)
         clearInterval(creatingIntervalRef.current);
-      }
     };
   }, [isCreating, projectId, fetchCreatingData]);
 
