@@ -1,10 +1,9 @@
-// src/config/nillion.ts
 import { config } from "dotenv";
 config();
 
 export const nillionConfig = {
   orgCredentials: {
-    secretKey: process.env.NILLION_SECRET_KEY!,
+    secretKey: process.env.NILLION_ORG_SECRET_KEY!,
     orgDid: process.env.NILLION_ORG_DID!,
   },
   nodes: [
@@ -31,4 +30,5 @@ export const SCHEMA_IDS = {
   SOCIALS: process.env.SOCIALS_SCHEMA_ID!,
   GRANTS: process.env.GRANTS_SCHEMA_ID!,
   COMPLIANCE: process.env.COMPLIANCE_SCHEMA_ID!,
+  CREATING: process.env.CREATING_SCHEMA_ID!,
 };

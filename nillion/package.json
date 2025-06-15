@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Multi-agent system with Nillion SecretVault integration",
   "main": "dist/index.js",
-  "type": "module",
   "scripts": {
     "build": "tsc",
     "dev": "pnpm run build && node dist/index.js",
@@ -30,6 +29,7 @@
   "dependencies": {
     "@nillion/nilql": "latest",
     "@types/jsonwebtoken": "^9.0.9",
+    "did-jwt": "^8.0.17",
     "dotenv": "^16.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.0.0",
