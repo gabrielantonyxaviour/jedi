@@ -18,6 +18,47 @@ interface Message {
   timestamp: Date;
 }
 
+const agents = [
+  { id: "github", name: "GitHub" },
+  { id: "socials", name: "Socials" },
+  { id: "leads", name: "Leads" },
+  { id: "compliance", name: "Compliance" },
+  { id: "ip", name: "IP" },
+  { id: "karma", name: "Karma" },
+  { id: "orchestrator", name: "Orchestrator" },
+];
+
+const getAgentDisplayName = (
+  agentId: string,
+  side: "light" | "dark" | null
+) => {
+  const nameMap = {
+    light: {
+      github: "C-3PO",
+      socials: "Ahsoka Tano",
+      leads: "Chewbacca",
+      compliance: "Princess Leia Organa",
+      ip: "Obi-Wan Kenobi",
+      karma: "Luke Skywalker",
+      orchestrator: "Yoda",
+    },
+    dark: {
+      github: "General Grievous",
+      socials: "Savage Opress",
+      leads: "Count Dooku",
+      compliance: "Darth Maul",
+      ip: "Kylo Ren",
+      karma: "Darth Vader",
+      orchestrator: "Emperor Palpatine",
+    },
+  };
+
+  if (side && nameMap[side][agentId as keyof typeof nameMap.light]) {
+    return nameMap[side][agentId as keyof typeof nameMap.light];
+  }
+  return agents.find((a) => a.id === agentId)?.name || agentId;
+};
+
 interface ChatDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -32,7 +73,10 @@ export default function ChatDialog({
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "Hello! I'm your AI assistant. How can I help you today?",
+      text:
+        userSide === "light"
+          ? "Help you, I will. What seek you, young one?"
+          : "Your commands, I await. Speak, and power shall be yours.",
       sender: "ai",
       timestamp: new Date(),
     },
@@ -91,17 +135,20 @@ export default function ChatDialog({
       <DialogContent className="max-w-2xl h-[600px] p-0 flex flex-col bg-stone-800/95 backdrop-blur-sm border border-stone-600/30 text-stone-100">
         <DialogHeader className="px-4 py-3 border-b border-stone-700 bg-stone-800/50">
           <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <Bot
-                className={`w-5 h-5 ${
-                  userSide === "light"
-                    ? "text-blue-400"
-                    : userSide === "dark"
-                    ? "text-red-400"
-                    : "text-stone-400"
-                }`}
+            <DialogTitle className="flex items-center gap-3">
+              <img
+                src={`/agents/${userSide}/orchestrator.png`}
+                alt="Orchestrator"
+                className="w-8 h-8 rounded-full object-cover"
               />
-              <span>AI Assistant</span>
+              <div>
+                <span className="text-lg">
+                  {getAgentDisplayName("orchestrator", userSide)}
+                </span>
+                <p className="text-xs text-stone-400 font-normal">
+                  Orchestrator Agent
+                </p>
+              </div>
             </DialogTitle>
           </div>
         </DialogHeader>
@@ -130,14 +177,10 @@ export default function ChatDialog({
                 {message.sender === "user" ? (
                   <User className="w-4 h-4 text-stone-400" />
                 ) : (
-                  <Bot
-                    className={`w-4 h-4 ${
-                      userSide === "light"
-                        ? "text-blue-400"
-                        : userSide === "dark"
-                        ? "text-red-400"
-                        : "text-stone-400"
-                    }`}
+                  <img
+                    src={`/agents/${userSide}/orchestrator.png`}
+                    alt="Orchestrator"
+                    className="w-10 h-10 rounded-full object-cover"
                   />
                 )}
               </div>
@@ -211,8 +254,12 @@ export default function ChatDialog({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type your message..."
-              className="placeholder:bg-stone-700 bg-stone-700 focus-visible:ring-0 focus-visible:ring-offset-0 border-none"
+              placeholder={
+                userSide === "light"
+                  ? "Share your thoughts, you must..."
+                  : "Command me, Master..."
+              }
+              className="placeholder:text-stone-500 bg-stone-700 focus-visible:ring-0 focus-visible:ring-offset-0 border-none"
             />
             <Button
               onClick={handleSendMessage}

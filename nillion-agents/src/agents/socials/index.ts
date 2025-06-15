@@ -592,7 +592,7 @@ Another step forward in our journey! 🎉
     await this.socialsService.cleanup();
   }
 
-  private async reportTaskCompletion(
+  async reportTaskCompletion(
     taskId: string,
     workflowId: string,
     ownerAddress: string,

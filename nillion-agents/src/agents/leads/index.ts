@@ -756,7 +756,7 @@ export class LeadsAgent {
     };
   }
 
-  private async reportTaskCompletion(
+  async reportTaskCompletion(
     taskId: string,
     workflowId: string,
     ownerAddress: string,
