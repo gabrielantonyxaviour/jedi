@@ -10,6 +10,15 @@
         "format": "uuid",
         "coerce": true
       },
+      "owner_address": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
       "project_id": {
         "type": "object",
         "properties": {
@@ -47,6 +56,13 @@
         "required": ["%share"]
       }
     },
-    "required": ["_id", "project_id", "agent_name", "text", "data"]
+    "required": [
+      "_id",
+      "owner_address",
+      "project_id",
+      "agent_name",
+      "text",
+      "data"
+    ]
   }
 }

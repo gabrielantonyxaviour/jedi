@@ -10,6 +10,24 @@
         "format": "uuid",
         "coerce": true
       },
+      "owner_address": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
+      "project_id": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
       "twitter": {
         "type": "object",
         "properties": {
@@ -153,6 +171,8 @@
     },
     "required": [
       "_id",
+      "owner_address",
+      "project_id",
       "twitter",
       "telegram",
       "twitter_actions",

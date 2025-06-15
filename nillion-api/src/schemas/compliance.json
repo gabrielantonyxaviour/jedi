@@ -19,6 +19,24 @@
         },
         "required": ["%share"]
       },
+      "project_id": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
+      "owner_address": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
       "source": {
         "type": "object",
         "properties": {
@@ -38,6 +56,6 @@
         "required": ["%share"]
       }
     },
-    "required": ["_id", "name", "source", "data"]
+    "required": ["_id", "name", "project_id", "owner_address", "source", "data"]
   }
 }

@@ -10,6 +10,24 @@
         "format": "uuid",
         "coerce": true
       },
+      "owner_address": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
+      "project_id": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
       "name": {
         "type": "object",
         "properties": {
@@ -92,6 +110,8 @@
       "ipa",
       "parent_ipa",
       "remix_license_terms",
+      "owner_address",
+      "project_id",
       "register_tx_hash"
     ]
   }

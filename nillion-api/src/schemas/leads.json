@@ -45,8 +45,34 @@
           }
         },
         "required": ["%share"]
+      },
+      "owner_address": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
+      "project_id": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       }
     },
-    "required": ["_id", "name", "source", "desc", "metadata"]
+    "required": [
+      "_id",
+      "name",
+      "source",
+      "desc",
+      "metadata",
+      "owner_address",
+      "project_id"
+    ]
   }
 }
