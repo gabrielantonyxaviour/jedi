@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Github Projects Collection",
+  "title": "Github Schema",
   "type": "array",
   "items": {
     "type": "object",
@@ -11,29 +11,76 @@
         "coerce": true
       },
       "name": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "description": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "technical_description": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "repo_url": {
-        "type": "string",
-        "format": "uri"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "owner": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "collab": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
+      "owner_address": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "metadata": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       }
     },
     "required": [
@@ -44,8 +91,8 @@
       "repo_url",
       "owner",
       "collab",
+      "owner_address",
       "metadata"
-    ],
-    "additionalProperties": true
+    ]
   }
 }

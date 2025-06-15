@@ -1,9 +1,9 @@
-import { BaseService } from "./base-service.js";
+// src/services/github-service.ts
+import { ApiBaseService } from "./api-base-service.js";
 import { GithubProject } from "../types/index.js";
 import { SCHEMA_IDS } from "../config/nillion.js";
-import { v4 as uuidv4 } from "uuid";
 
-export class GithubService extends BaseService<GithubProject> {
+export class GithubService extends ApiBaseService<GithubProject> {
   constructor() {
     super(SCHEMA_IDS.GITHUB);
   }
@@ -14,80 +14,23 @@ export class GithubService extends BaseService<GithubProject> {
     technical_description: string,
     repo_url: string,
     owner: string,
-    collab: string[] = [],
-    metadata: Record<string, any> = {}
+    collab: string,
+    owner_address: string,
+    metadata: string
   ): Promise<string> {
     const project: GithubProject = {
-      id: uuidv4(),
-      name,
-      description,
-      technical_description,
-      repo_url,
-      owner,
-      collab,
-      metadata,
+      _id: this.generateId(),
+      name: await this.encryptField(name),
+      description: await this.encryptField(description),
+      technical_description: await this.encryptField(technical_description),
+      repo_url: await this.encryptField(repo_url),
+      owner: await this.encryptField(owner),
+      collab: await this.encryptField(collab),
+      owner_address: await this.encryptField(owner_address),
+      metadata: await this.encryptField(metadata),
     };
 
     const ids = await this.create([project]);
     return ids[0];
-  }
-
-  async getProjectsByOwner(owner: string): Promise<GithubProject[]> {
-    return await this.findAll({ owner });
-  }
-
-  async getProjectsByCollaborator(
-    collaborator: string
-  ): Promise<GithubProject[]> {
-    return await this.findAll({ collab: { $in: [collaborator] } });
-  }
-
-  async searchProjects(searchTerm: string): Promise<GithubProject[]> {
-    return await this.findAll({
-      $or: [
-        { name: { $regex: searchTerm, $options: "i" } },
-        { description: { $regex: searchTerm, $options: "i" } },
-        { technical_description: { $regex: searchTerm, $options: "i" } },
-      ],
-    });
-  }
-
-  // Analytics
-  async getProjectsCountByOwner(): Promise<any[]> {
-    const pipeline = [
-      {
-        $group: {
-          _id: "$owner",
-          count: { $sum: 1 },
-        },
-      },
-      {
-        $sort: { count: -1 },
-      },
-    ];
-
-    return await this.query(pipeline);
-  }
-
-  async getCollaborationStats(): Promise<any[]> {
-    const pipeline = [
-      {
-        $project: {
-          name: 1,
-          owner: 1,
-          collabCount: { $size: "$collab" },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          avgCollaborators: { $avg: "$collabCount" },
-          maxCollaborators: { $max: "$collabCount" },
-          totalProjects: { $sum: 1 },
-        },
-      },
-    ];
-
-    return await this.query(pipeline);
   }
 }

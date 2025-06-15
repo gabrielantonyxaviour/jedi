@@ -1,15 +1,8 @@
+import { LogEntry } from "@/components/layout/logs-sheet";
 import { create } from "zustand";
 
 type UserSide = "light" | "dark" | null;
 type WalletStatus = "disconnected" | "connecting" | "connected";
-
-interface LogEntry {
-  id: string;
-  timestamp: Date;
-  message: string;
-  type: "info" | "success" | "error" | "warning";
-  agentId: string;
-}
 
 interface AppState {
   walletStatus: WalletStatus;
@@ -19,7 +12,7 @@ interface AppState {
   userSide: UserSide;
   logs: LogEntry[];
   jobResponse: any;
-  addLog: (message: string, agentId: string, type?: LogEntry["type"]) => void;
+  addLog: (message: string, agentId: string, type?: string) => void;
   setUserSide: (side: UserSide) => void;
   setWalletStatus: (status: WalletStatus) => void;
   setProjectId: (id: string) => void;
@@ -37,19 +30,15 @@ export const useAppStore = create<AppState>((set) => ({
   logs: [],
   jobResponse: null,
   setWalletStatus: (status: WalletStatus) => set({ walletStatus: status }),
-  addLog: (
-    message: string,
-    agentId: string,
-    type: LogEntry["type"] = "info"
-  ) => {
+  addLog: (message: string, agentId: string, type: string = "info") => {
     set((state) => ({
       logs: [
         {
-          id: Date.now().toString(),
-          timestamp: new Date(),
-          message,
-          type,
-          agentId,
+          _id: Date.now().toString(),
+          projectId: state.projectId,
+          agentName: agentId,
+          text: message,
+          data: {},
         },
         ...state.logs,
       ],

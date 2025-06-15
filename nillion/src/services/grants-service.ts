@@ -19,7 +19,7 @@ export class GrantsService extends BaseService<GrantsCollection> {
     user_name: string
   ): Promise<string> {
     const grantCollection: GrantsCollection = {
-      id: uuidv4(),
+      _id: uuidv4(),
       name,
       desc,
       links,

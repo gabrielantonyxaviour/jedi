@@ -1,10 +1,11 @@
-import { NillionConfig } from "../types/index.js";
+// src/config/nillion.ts
+
 import dotenv from "dotenv";
 dotenv.config();
 
-export const nillionConfig: NillionConfig = {
+export const nillionConfig = {
   orgCredentials: {
-    secretKey: process.env.NILLION_ORG_SECRET_KEY!,
+    secretKey: process.env.NILLION_SECRET_KEY!,
     orgDid: process.env.NILLION_ORG_DID!,
   },
   nodes: [
@@ -14,7 +15,7 @@ export const nillionConfig: NillionConfig = {
     },
     {
       url: "https://nildb-p3mx.nillion.network",
-      did: "did:nil:testtest:nillion1uak7fgsp69kzfhdd6lfqv69fnzh3lprg2mp3mx",
+      did: "did:nil:testnet:nillion1uak7fgsp69kzfhdd6lfqv69fnzh3lprg2mp3mx",
     },
     {
       url: "https://nildb-rugk.nillion.network",

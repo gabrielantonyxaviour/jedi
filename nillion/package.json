@@ -29,7 +29,9 @@
   },
   "dependencies": {
     "@nillion/nilql": "latest",
+    "@types/jsonwebtoken": "^9.0.9",
     "dotenv": "^16.0.0",
+    "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.0.0",
     "secretvaults": "latest",
     "tsx": "^4.20.3",

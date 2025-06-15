@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Twitter, Linkedin, Instagram, TrendingUp } from "lucide-react";
+import { getAgentDisplayName } from "@/utils/agentUtils";
 
 interface SocialsAgentProps {
   userSide: "light" | "dark" | null;
@@ -9,6 +10,7 @@ interface SocialsAgentProps {
 
 export default function SocialsAgent({ userSide }: SocialsAgentProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const agentId = "socials";
 
   const mockData = {
     platforms: [

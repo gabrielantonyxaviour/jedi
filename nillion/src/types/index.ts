@@ -9,50 +9,49 @@ export type AgentName =
 
 export interface LogEntry {
   _id: string;
-  projectId: string;
-  agentName: AgentName;
-  text: string;
-  data: Record<string, any>;
-  _created?: number;
-  _updated?: number;
+  project_id: EncryptedField;
+  agent_name: EncryptedField;
+  text: EncryptedField;
+  data: EncryptedField;
 }
 
 export interface GithubProject {
-  id: string;
-  name: string;
-  description: string;
-  technical_description: string;
-  repo_url: string;
-  owner: string;
-  collab: string[];
-  metadata: Record<string, any>;
+  _id: string;
+  name: EncryptedField;
+  description: EncryptedField;
+  technical_description: EncryptedField;
+  repo_url: EncryptedField;
+  owner: EncryptedField;
+  collab: EncryptedField;
+  owner_address: EncryptedField;
+  metadata: EncryptedField;
 }
 
 export interface Lead {
-  id: string;
-  name: string;
-  source: string;
-  description: string;
-  metadata: Record<string, any>;
+  _id: string;
+  name: EncryptedField;
+  source: EncryptedField;
+  desc: EncryptedField;
+  metadata: EncryptedField;
 }
 
 export interface Story {
-  id: string;
-  name: string;
-  desc: string;
-  owners: string[];
-  image_url: string;
-  ipa: string;
-  parent_ipa: string;
-  remix_license_terms: "commercial" | "non-commercial";
-  register_tx_hash: string;
+  _id: string;
+  name: EncryptedField;
+  desc: EncryptedField;
+  owners: EncryptedField;
+  image_url: EncryptedField;
+  ipa: EncryptedField;
+  parent_ipa: EncryptedField;
+  remix_license_terms: EncryptedField;
+  register_tx_hash: EncryptedField;
 }
 
 export interface TwitterAction {
-  id: string;
-  action: "tweet" | "reply" | "like" | "retweet" | "quote";
-  ref_id?: string;
-  text: string;
+  id: EncryptedField;
+  action: EncryptedField;
+  ref_id: EncryptedField;
+  text: EncryptedField;
 }
 
 export interface LinkedinAction {
@@ -62,59 +61,61 @@ export interface LinkedinAction {
   text: string;
 }
 
-export interface TelegramMessage {
-  id: string;
-  user_id: string;
-  text: string;
+export interface TelegramAction {
+  id: EncryptedField;
+  text: EncryptedField;
+  ref_user_id: EncryptedField;
 }
 
 export interface Social {
-  _id: string; // Changed from 'id'
-  twitter?: {
-    username: string;
-    email: { "%allot": string };
-    password: { "%allot": string };
-    actions: TwitterAction[];
+  _id: string;
+  twitter: {
+    name: EncryptedField;
+    email: EncryptedField;
+    password: EncryptedField;
   };
-  telegram?: {
-    botusername: string;
-    bot_token: { "%allot": string };
-    messages: TelegramMessage[];
+  telegram: {
+    username: EncryptedField;
+    bot_token: EncryptedField;
   };
-}
-
-export interface GrantMilestone {
-  id: string;
-  name: string;
-  desc: string;
-  created_at: number;
+  twitter_actions: TwitterAction[];
+  telegram_actions: TelegramAction[];
 }
 
 export interface Grant {
-  id: string;
-  name: string;
-  desc: string;
-  applied_at: number;
-  milestones: GrantMilestone[];
+  id: EncryptedField;
+  name: EncryptedField;
+  desc: EncryptedField;
+  applied_at: EncryptedField;
+}
+
+export interface Milestone {
+  id: EncryptedField;
+  grant_id: EncryptedField;
+  name: EncryptedField;
+  desc: EncryptedField;
+  created_at: EncryptedField;
 }
 
 export interface GrantsCollection {
-  id: string;
-  name: string;
-  desc: string;
-  links: string[];
-  image_url: string;
-  owner: string;
-  members: string[];
-  user_email: { "%allot": string }; // encrypted
-  user_name: string;
+  _id: string;
+  name: EncryptedField;
+  desc: EncryptedField;
+  links: EncryptedField;
+  image_url: EncryptedField;
+  owner_address: EncryptedField;
+  members: EncryptedField;
+  user_email: EncryptedField;
+  user_name: EncryptedField;
   grants: Grant[];
+  milestones: Milestone[];
 }
 
 export interface Compliance {
-  id: string;
-  name: string;
-  metadata: Record<string, any>;
+  _id: string;
+  name: EncryptedField;
+  source: EncryptedField;
+  data: EncryptedField;
 }
 
 export interface NillionConfig {
@@ -141,3 +142,7 @@ export interface SocialsCollection {
   accounts: Social[];
   metadata: Record<string, any>;
 }
+
+export type EncryptedField = {
+  "%share": string;
+};

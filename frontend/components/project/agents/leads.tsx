@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Target } from "lucide-react";
+import { getAgentDisplayName } from "@/utils/agentUtils";
 
 interface LeadsAgentProps {
   userSide: "light" | "dark" | null;
@@ -9,6 +10,7 @@ interface LeadsAgentProps {
 
 export default function LeadsAgent({ userSide }: LeadsAgentProps) {
   const [activeTab, setActiveTab] = useState("pipeline");
+  const agentId = "leads";
 
   const mockData = {
     pipeline: [

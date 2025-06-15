@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FileText, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { getAgentDisplayName } from "@/utils/agentUtils";
 
 interface ComplianceAgentProps {
   userSide: "light" | "dark" | null;
@@ -9,6 +10,7 @@ interface ComplianceAgentProps {
 
 export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
   const [activeTab, setActiveTab] = useState("status");
+  const agentId = "compliance";
 
   const mockData = {
     regulations: [

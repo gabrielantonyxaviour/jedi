@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Github, GitBranch, Star, Users, Activity } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { useProjectData } from "@/hooks/use-project-data";
+import { getAgentDisplayName } from "@/utils/agentUtils";
 
 interface GitHubAgentProps {
   userSide: "light" | "dark" | null;
@@ -12,7 +13,8 @@ interface GitHubAgentProps {
 export default function GitHubAgent({ userSide }: GitHubAgentProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const { projectId } = useAppStore();
-  const { data } = useProjectData(projectId || "");
+  const { currentProject: data } = useProjectData(projectId || "");
+  const agentId = "github";
 
   const repoData = {
     repo: {

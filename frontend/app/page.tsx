@@ -17,7 +17,6 @@ import { motion } from "framer-motion";
 // import { isPublicRepo } from "@/lib/github/check-public";
 import { parseCardanoBalance } from "@/lib/cardano";
 import { useProjects } from "@/hooks/use-projects";
-import TransferDialog from "@/components/transfer-dialog";
 import { useAccount } from "wagmi";
 import { useBalance } from "wagmi";
 import { formatEther } from "viem";
@@ -86,8 +85,7 @@ export default function Home() {
       setUserSide(firstProjectSide);
       addLog(
         `User side set to ${firstProjectSide} from existing projects`,
-        "orchestrator",
-        "info"
+        "orchestrator"
       );
     }
   }, [initialized, projects, userSide, setUserSide, addLog]);
@@ -100,12 +98,12 @@ export default function Home() {
   const handleSideSelection = (side: "light" | "dark") => {
     setUserSide(side);
     setShowSideSelection(false);
-    addLog(`You have chosen the ${side} side`, "orchestrator", "info");
+    addLog(`You have chosen the ${side} side`, "orchestrator");
   };
 
   // Handle project setup completion
   const handleProjectSetup = async (projectData: ProjectSetupData) => {
-    addLog("Project setup completed", "orchestrator", "success");
+    addLog("Project setup completed", "orchestrator");
 
     // Here you would typically save the project to your backend
     console.log("Project data:", projectData);
@@ -128,40 +126,47 @@ export default function Home() {
     //   return;
     // }
 
-    if (parseFloat(formatEther(balance?.value ?? BigInt("0"))) < 10) {
+    if (parseFloat(formatEther(balance?.value ?? BigInt("0"))) < 0.1) {
       setError("Please top up your wallet with at least 10 STORY to continue");
       return;
     }
 
     setError("");
 
-    addLog(`Creating a Masumi Job: ${prompt}`, "orchestrator", "info");
-    try {
-      const response = await fetch("/api/start_job", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          identifier_from_purchaser: address?.slice(0, 15),
-          input_data: {
-            text: prompt,
-          },
-        }),
-      });
+    setGithubUrl(prompt);
+    setIsSubmitting(true);
+    setIsCreating(true);
 
-      if (!response.ok) {
-        throw new Error("Failed to start job");
-      }
+    const steps = initializeSteps();
+    setCreationSteps(steps);
+    setCurrentStepIndex(-1);
 
-      const data = await response.json();
-      setJobResponse(data);
-      addLog("Job started successfully", "orchestrator", "success");
-    } catch (error) {
-      console.error("Error starting job:", error);
-      addLog("Failed to start job", "orchestrator", "error");
+    addLog(`Processing GitHub URL: ${prompt}`, "github");
+
+    // Process steps one by one
+    for (let i = 0; i < steps.length; i++) {
+      setCurrentStepIndex(i);
+
+      setCreationSteps((prev) =>
+        prev.map((step, index) =>
+          index === i ? { ...step, status: "processing" } : step
+        )
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      setCreationSteps((prev) =>
+        prev.map((step, index) =>
+          index === i ? { ...step, status: "completed" } : step
+        )
+      );
+
+      addLog(steps[i].title + " completed", "orchestrator");
     }
-    setShowTransferDialog(true);
+
+    // Show project setup dialog instead of navigating directly
+    setIsCreating(false);
+    setIsSubmitting(false);
+    setShowProjectSetup(true);
   };
 
   // Handle keyboard shortcuts
@@ -367,78 +372,6 @@ export default function Home() {
         userSide={userSide!}
         githubUrl={githubUrl}
       />
-
-      {showTransferDialog && (
-        <TransferDialog
-          open={showTransferDialog}
-          onClose={async () => {
-            setShowTransferDialog(false);
-
-            setGithubUrl(prompt);
-            setIsSubmitting(true);
-            setIsCreating(true);
-
-            const steps = initializeSteps();
-            setCreationSteps(steps);
-            setCurrentStepIndex(-1);
-
-            addLog(`Processing GitHub URL: ${prompt}`, "github", "info");
-
-            // Process steps one by one
-            for (let i = 0; i < steps.length; i++) {
-              setCurrentStepIndex(i);
-
-              setCreationSteps((prev) =>
-                prev.map((step, index) =>
-                  index === i ? { ...step, status: "processing" } : step
-                )
-              );
-
-              try {
-                const response = await fetch("/api/agent/create-project", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    repoUrl: prompt,
-                    walletAddress: address,
-                    side: userSide,
-                  }),
-                });
-
-                if (!response.ok) {
-                  throw new Error("Failed to create project");
-                }
-
-                const data = await response.json();
-                addLog(
-                  `Project created successfully: ${data.projectId}`,
-                  "orchestrator",
-                  "success"
-                );
-                setProjectId(data.projectId);
-              } catch (error) {
-                console.error("Error creating project:", error);
-                addLog("Failed to create project", "orchestrator", "error");
-                throw error;
-              }
-              setCreationSteps((prev) =>
-                prev.map((step, index) =>
-                  index === i ? { ...step, status: "completed" } : step
-                )
-              );
-
-              addLog(steps[i].title + " completed", "orchestrator", "success");
-            }
-
-            // Show project setup dialog instead of navigating directly
-            setIsCreating(false);
-            setIsSubmitting(false);
-            setShowProjectSetup(true);
-          }}
-        />
-      )}
     </>
   );
 }

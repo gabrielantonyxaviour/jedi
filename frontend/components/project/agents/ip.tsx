@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Shield, FileText, AlertTriangle, CheckCircle } from "lucide-react";
+import { getAgentDisplayName } from "@/utils/agentUtils";
 
 interface IPAgentProps {
   userSide: "light" | "dark" | null;
@@ -9,6 +10,7 @@ interface IPAgentProps {
 
 export default function IPAgent({ userSide }: IPAgentProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const agentId = "ip";
 
   const mockData = {
     patents: [

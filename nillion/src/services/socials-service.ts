@@ -24,6 +24,7 @@ export class SocialsService extends BaseService<Social> {
   ): Promise<string> {
     const social: Social = {
       _id: uuidv4(),
+
       twitter: {
         username,
         email: { "%allot": email },
@@ -70,6 +71,8 @@ export class SocialsService extends BaseService<Social> {
       ref_id,
     };
 
+    console.log(social);
+
     social.twitter.actions.push(newAction);
     return await this.update(socialId, social);
   }
@@ -87,6 +90,8 @@ export class SocialsService extends BaseService<Social> {
       user_id,
       text,
     };
+
+    console.log(social);
 
     social.telegram.messages.push(newMessage);
     return await this.update(socialId, social);

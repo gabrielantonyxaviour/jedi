@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Leads Collection",
+  "title": "Leads Schema",
   "type": "array",
   "items": {
     "type": "object",
@@ -11,19 +11,42 @@
         "coerce": true
       },
       "name": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "source": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
-      "description": {
-        "type": "string"
+      "desc": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "metadata": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       }
     },
-    "required": ["_id", "name", "source", "description", "metadata"],
-    "additionalProperties": true
+    "required": ["_id", "name", "source", "desc", "metadata"]
   }
 }

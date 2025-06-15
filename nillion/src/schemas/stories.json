@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Stories Collection",
+  "title": "Stories Schema",
   "type": "array",
   "items": {
     "type": "object",
@@ -11,33 +11,76 @@
         "coerce": true
       },
       "name": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "desc": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "owners": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "image_url": {
-        "type": "string",
-        "format": "uri"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "ipa": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "parent_ipa": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "remix_license_terms": {
-        "type": "string",
-        "enum": ["commercial", "non-commercial"]
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "register_tx_hash": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       }
     },
     "required": [
@@ -50,7 +93,6 @@
       "parent_ipa",
       "remix_license_terms",
       "register_tx_hash"
-    ],
-    "additionalProperties": true
+    ]
   }
 }

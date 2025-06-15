@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Socials Collection",
+  "title": "Socials Schema",
   "type": "array",
   "items": {
     "type": "object",
@@ -13,54 +13,150 @@
       "twitter": {
         "type": "object",
         "properties": {
-          "username": {
-            "type": "string"
+          "name": {
+            "type": "object",
+            "properties": {
+              "%share": {
+                "type": "string"
+              }
+            },
+            "required": ["%share"]
           },
           "email": {
             "type": "object",
             "properties": {
-              "%allot": {
+              "%share": {
                 "type": "string"
               }
             },
-            "required": ["%allot"]
+            "required": ["%share"]
           },
           "password": {
             "type": "object",
             "properties": {
-              "%allot": {
+              "%share": {
                 "type": "string"
               }
             },
-            "required": ["%allot"]
+            "required": ["%share"]
+          }
+        },
+        "required": ["name", "email", "password"]
+      },
+      "telegram": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "object",
+            "properties": {
+              "%share": {
+                "type": "string"
+              }
+            },
+            "required": ["%share"]
           },
-          "actions": {
-            "type": "array",
-            "items": {
+          "bot_token": {
+            "type": "object",
+            "properties": {
+              "%share": {
+                "type": "string"
+              }
+            },
+            "required": ["%share"]
+          }
+        },
+        "required": ["username", "bot_token"]
+      },
+      "twitter_actions": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
               "type": "object",
               "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "action": {
-                  "type": "string",
-                  "enum": ["tweet", "reply", "like", "retweet", "quote"]
-                },
-                "ref_id": {
-                  "type": "string"
-                },
-                "text": {
+                "%share": {
                   "type": "string"
                 }
               },
-              "required": ["id", "action", "text"]
+              "required": ["%share"]
+            },
+            "action": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
+            },
+            "ref_id": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
+            },
+            "text": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
             }
-          }
-        },
-        "required": ["username", "email", "password", "actions"]
+          },
+          "required": ["id", "action", "ref_id", "text"]
+        }
+      },
+      "telegram_actions": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
+            },
+            "text": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
+            },
+            "ref_user_id": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
+            }
+          },
+          "required": ["id", "text", "ref_user_id"]
+        }
       }
     },
-    "required": ["_id"],
-    "additionalProperties": true
+    "required": [
+      "_id",
+      "twitter",
+      "telegram",
+      "twitter_actions",
+      "telegram_actions"
+    ]
   }
 }

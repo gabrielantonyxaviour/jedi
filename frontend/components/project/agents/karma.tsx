@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Heart, Star } from "lucide-react";
+import { getAgentDisplayName } from "@/utils/agentUtils";
 
 interface KarmaAgentProps {
   userSide: "light" | "dark" | null;
@@ -9,6 +10,7 @@ interface KarmaAgentProps {
 
 export default function KarmaAgent({ userSide }: KarmaAgentProps) {
   const [activeTab, setActiveTab] = useState("score");
+  const agentId = "karma";
 
   const mockData = {
     karmaScore: 8750,

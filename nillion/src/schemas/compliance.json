@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Compliance Collection",
+  "title": "Compliance Schema",
   "type": "array",
   "items": {
     "type": "object",
@@ -11,13 +11,33 @@
         "coerce": true
       },
       "name": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
-      "metadata": {
-        "type": "object"
+      "source": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
+      "data": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       }
     },
-    "required": ["_id", "name", "metadata"],
-    "additionalProperties": true
+    "required": ["_id", "name", "source", "data"]
   }
 }

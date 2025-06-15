@@ -22,10 +22,11 @@ import Image from "next/image";
 export interface LogEntry {
   _id: string;
   projectId: string;
-  agentName: AgentName;
+  agentName: string;
   text: string;
   data: Record<string, any>;
 }
+
 interface LogsSheetProps {
   logs: LogEntry[];
   side: "light" | "dark" | null;
@@ -125,7 +126,7 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
   };
 
   const filteredLogs = selectedAgent
-    ? logs.filter((log) => log.agentId === selectedAgent)
+    ? logs.filter((log) => log.agentName === selectedAgent)
     : logs;
 
   const handleAgentClick = (agentId: string) => {
@@ -231,7 +232,7 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
               ) : (
                 filteredLogs.map((log) => (
                   <div
-                    key={log.id}
+                    key={log._id}
                     className={`border rounded-lg p-4 ${
                       side === "light"
                         ? "border-blue-900/30 bg-blue-950/20"
@@ -243,8 +244,8 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
                     <div className="flex items-start gap-3">
                       {/* Agent Avatar */}
                       <Image
-                        src={`/agents/${side}/${log.agentId}.png`}
-                        alt={getAgentDisplayName(log.agentId, side)}
+                        src={`/agents/${side}/${log.agentName}.png`}
+                        alt={getAgentDisplayName(log.agentName, side)}
                         width={40}
                         height={40}
                         className="rounded-full flex-shrink-0"
@@ -254,17 +255,17 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
                         {/* Agent Name and Time */}
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-medium text-white text-sm">
-                            {getAgentDisplayName(log.agentId, side)} (
-                            {agents.find((a) => a.id === log.agentId)?.name})
+                            {getAgentDisplayName(log.agentName, side)} (
+                            {agents.find((a) => a.id === log.agentName)?.name})
                           </h4>
-                          <span className="text-xs text-stone-400">
-                            {formatTimeAgo(log.timestamp)}
-                          </span>
+                          {/* <span className="text-xs text-stone-400">
+                            {formatTimeAgo(log.createdAt)}
+                          </span> */}
                         </div>
 
                         {/* Log Message */}
                         <p className="text-sm text-stone-300 mb-2 leading-relaxed">
-                          {log.message}
+                          {log.text}
                         </p>
 
                         {/* Expand Button */}
@@ -304,7 +305,7 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
           </DialogHeader>
           <div className="mt-4">
             <pre className="whitespace-pre-wrap text-sm text-stone-300 bg-stone-900/50 p-4 rounded-lg overflow-auto max-h-[60vh]">
-              {selectedLog && formatMessage(selectedLog.message)}
+              {selectedLog && formatMessage(selectedLog.text)}
             </pre>
           </div>
         </DialogContent>

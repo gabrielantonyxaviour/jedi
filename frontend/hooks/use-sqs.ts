@@ -48,7 +48,7 @@ export const useQueues = () => {
         for (const message of response.Messages) {
           try {
             const task = JSON.parse(message.Body || "{}");
-            addLog(JSON.stringify(task), queueName, "info");
+            addLog(JSON.stringify(task), queueName);
 
             // Delete the message after processing
             await client.send(
@@ -106,7 +106,7 @@ export const useQueues = () => {
       });
 
       const response = await client.send(command);
-      addLog(`Message sent to ${queueName} queue`, queueName, "success");
+      addLog(`Message sent to ${queueName} queue`, queueName);
       return response.MessageId;
     } catch (err) {
       const errorMsg =

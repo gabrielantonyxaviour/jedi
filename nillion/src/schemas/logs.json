@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Agent Logs Collection",
+  "title": "Logs",
   "type": "array",
   "items": {
     "type": "object",
@@ -10,30 +10,43 @@
         "format": "uuid",
         "coerce": true
       },
-      "projectId": {
-        "type": "string",
-        "format": "uuid"
+      "project_id": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
-      "agentName": {
-        "type": "string",
-        "enum": [
-          "github",
-          "leads",
-          "socials",
-          "karma",
-          "ip",
-          "compliance",
-          "orchestrator"
-        ]
+      "agent_name": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "text": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "data": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       }
     },
-    "required": ["_id", "projectId", "agentName", "text", "data"],
-    "additionalProperties": true
+    "required": ["_id", "project_id", "agent_name", "text", "data"]
   }
 }

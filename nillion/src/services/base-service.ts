@@ -1,7 +1,6 @@
 import { SecretVaultWrapper } from "secretvaults";
 import { nillionConfig } from "../config/nillion.js";
-import dotenv from "dotenv";
-dotenv.config();
+import { v4 as uuidv4 } from "uuid";
 
 export abstract class BaseService<T> {
   protected collection: SecretVaultWrapper;
@@ -21,6 +20,15 @@ export abstract class BaseService<T> {
       this.initialized = true;
     }
   }
+
+  protected encryptField(value: string): { "%share": string } {
+    return { "%share": value };
+  }
+
+  protected generateId(): string {
+    return uuidv4();
+  }
+
   async create(data: T[]): Promise<string[]> {
     await this.init();
     const result = await this.collection.writeToNodes(data);

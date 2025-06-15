@@ -49,23 +49,24 @@ export default function ProjectSetupDialog({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addLog, projectId } = useAppStore();
-  const { data: projectData, loading, error } = useProjectData(projectId || "");
+  const { currentProject, loading, error } = useProjectData(projectId || "");
   const [formInitialized, setFormInitialized] = useState(false);
 
-  useEffect(() => {
-    if (!projectData) return;
-    console.log("projectData");
-    console.log(projectData);
-    if (!formInitialized && projectData?.init_state === "GITHUB") {
-      setFormData({
-        name: projectData.name || "",
-        summary: projectData.summary || "",
-        technicalSummary: projectData.technicalSummary || "",
-        image: null,
-      });
-      setFormInitialized(true);
-    }
-  }, [formInitialized, projectData]);
+  // useEffect(() => {
+  //   if (!currentProject) return;
+  //   console.log("currentProject");
+  //   console.log(currentProject);
+  //   if (!formInitialized && currentProject?.init_state === "GITHUB") {
+  //     setFormData({
+  //       name: projectData.name || "",
+  //       summary: projectData.summary || "",
+  //       technicalSummary: projectData.technicalSummary || "",
+  //       image: null,
+  //     });
+  //     setFormInitialized(true);
+  //   }
+  // }, [formInitialized, projectData]);
+
   function extractRepoName(url: string): string {
     try {
       const parts = url.split("/");
@@ -121,39 +122,39 @@ export default function ProjectSetupDialog({
         imageUri = ipfsUri;
       } catch (error) {
         console.error("Error uploading image:", error);
-        addLog("Failed to upload project image", "orchestrator", "error");
+        addLog("Failed to upload project image", "orchestrator");
         setIsSubmitting(false);
         return;
       }
     }
 
-    try {
-      const response = await fetch("/api/agent/setup-project", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectId,
-          name: formData.name,
-          description: formData.summary,
-          technicalDescription: formData.technicalSummary,
-          imageUrl: imageUri,
-        }),
-      });
+    // try {
+    //   const response = await fetch("/api/agent/setup-project", {
+    //     method: "POST",
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //     },
+    //     body: JSON.stringify({
+    //       projectId,
+    //       name: formData.name,
+    //       description: formData.summary,
+    //       technicalDescription: formData.technicalSummary,
+    //       imageUrl: imageUri,
+    //     }),
+    //   });
 
-      if (!response.ok) {
-        throw new Error("Failed to setup project");
-      }
+    //   if (!response.ok) {
+    //     throw new Error("Failed to setup project");
+    //   }
 
-      const data = await response.json();
-      addLog("Project setup successful", "orchestrator", "success");
-    } catch (error) {
-      console.error("Error setting up project:", error);
-      addLog("Failed to setup project", "orchestrator", "error");
-      setIsSubmitting(false);
-      return;
-    }
+    //   const data = await response.json();
+    //   addLog("Project setup successful", "orchestrator");
+    // } catch (error) {
+    //   console.error("Error setting up project:", error);
+    //   addLog("Failed to setup project", "orchestrator");
+    //   setIsSubmitting(false);
+    //   return;
+    // }
 
     onSubmit(formData);
     setIsSubmitting(false);
@@ -307,18 +308,14 @@ export default function ProjectSetupDialog({
           <div className="flex justify-end pt-4">
             <Button
               type="submit"
-              disabled={isSubmitting || !formInitialized}
+              disabled={isSubmitting}
               className={`px-8 ${
                 userSide === "light"
                   ? "bg-blue-600 hover:bg-blue-700"
                   : "bg-red-600 hover:bg-red-700"
               } text-white`}
             >
-              {isSubmitting
-                ? "Creating Project..."
-                : !formInitialized
-                ? "Waiting for Github Agent"
-                : "Create Project"}
+              {isSubmitting ? "Creating Project..." : "Create Project"}
             </Button>
           </div>
         </form>

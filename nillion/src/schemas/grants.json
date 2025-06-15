@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Grants Collection",
+  "title": "Grants Schema",
   "type": "array",
   "items": {
     "type": "object",
@@ -11,83 +11,176 @@
         "coerce": true
       },
       "name": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "desc": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "links": {
-        "type": "array",
-        "items": {
-          "type": "string",
-          "format": "uri"
-        }
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "image_url": {
-        "type": "string",
-        "format": "uri"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
-      "owner": {
-        "type": "string"
+      "owner_address": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "members": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "user_email": {
         "type": "object",
         "properties": {
-          "%allot": {
+          "%share": {
             "type": "string"
           }
         },
-        "required": ["%allot"]
+        "required": ["%share"]
       },
       "user_name": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
       },
       "grants": {
         "type": "array",
+        "minItems": 1,
         "items": {
           "type": "object",
           "properties": {
             "id": {
-              "type": "string"
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
             },
             "name": {
-              "type": "string"
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
             },
             "desc": {
-              "type": "string"
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
             },
             "applied_at": {
-              "type": "number"
-            },
-            "milestones": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "desc": {
-                    "type": "string"
-                  },
-                  "created_at": {
-                    "type": "number"
-                  }
-                },
-                "required": ["id", "name", "desc", "created_at"]
-              }
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
             }
           },
-          "required": ["id", "name", "desc", "applied_at", "milestones"]
+          "required": ["id", "name", "desc", "applied_at"]
+        }
+      },
+      "milestones": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
+            },
+            "grant_id": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
+            },
+            "name": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
+            },
+            "desc": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
+            },
+            "created_at": {
+              "type": "object",
+              "properties": {
+                "%share": {
+                  "type": "string"
+                }
+              },
+              "required": ["%share"]
+            }
+          },
+          "required": ["id", "grant_id", "name", "desc", "created_at"]
         }
       }
     },
@@ -97,12 +190,12 @@
       "desc",
       "links",
       "image_url",
-      "owner",
+      "owner_address",
       "members",
       "user_email",
       "user_name",
-      "grants"
-    ],
-    "additionalProperties": true
+      "grants",
+      "milestones"
+    ]
   }
 }
