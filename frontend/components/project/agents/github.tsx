@@ -69,7 +69,7 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
           <img
             src={`/agents/${userSide}/${agentId}.png`}
             alt=""
-            className="w-5 h-5"
+            className="w-9 h-9"
           />
           <span className="font-medium text-white">
             {getAgentDisplayName(agentId, userSide)}

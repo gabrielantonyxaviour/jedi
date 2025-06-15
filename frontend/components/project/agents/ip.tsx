@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, FileText, ExternalLink, Users } from "lucide-react";
+import { Shield, ExternalLink, Users, Eye } from "lucide-react";
 import { getAgentDisplayName } from "@/utils/agentUtils";
 
 interface IPAgentProps {
@@ -11,29 +11,30 @@ interface IPAgentProps {
 const extractValue = (obj: { "%share": string }) => obj["%share"];
 
 export default function IPAgent({ userSide }: IPAgentProps) {
-  const [activeTab, setActiveTab] = useState("stories");
+  const [activeTab, setActiveTab] = useState("assets");
   const agentId = "ip";
 
-  // Mock data matching stories schema
-  const storiesData = [
+  // Mock Story Protocol IP assets
+  const ipAssets = [
     {
       _id: "story-001",
-      name: { "%share": "MasumiAI Core Engine" },
+      name: { "%share": "MasumiAI Core" },
       desc: {
         "%share":
-          "AI-powered development assistant with advanced code analysis capabilities",
+          "AI-powered development assistant with advanced code analysis and intelligent suggestions",
       },
       owners: {
-        "%share": JSON.stringify(["0x1234567890abcdef", "0x2345678901bcdef0"]),
+        "%share": JSON.stringify([
+          "0x1234567890abcdef1234567890abcdef12345678",
+          "0x2345678901bcdef02345678901bcdef023456789",
+        ]),
       },
-      image_url: { "%share": "https://example.com/masumi-ai-logo.png" },
-      ipa: { "%share": "0xABC123456789DEF" },
-      parent_ipa: { "%share": "0x000000000000000" },
-      remix_license_terms: {
-        "%share": "MIT License with attribution requirements",
-      },
+      image_url: { "%share": "https://example.com/masumi-logo.png" },
+      ipa: { "%share": "0x789abc123def456" },
+      parent_ipa: { "%share": "empty" },
+      remix_license_terms: { "%share": "commercial" },
       register_tx_hash: {
-        "%share": "0x789abc123def456ghi789jkl012mno345pqr678stu901vwx234yz",
+        "%share": "0x456def789abc123ghi456jkl789mno012pqr345stu678vwx901yz234",
       },
     },
     {
@@ -41,30 +42,38 @@ export default function IPAgent({ userSide }: IPAgentProps) {
       name: { "%share": "Code Analysis Module" },
       desc: {
         "%share":
-          "Specialized module for real-time code quality assessment and suggestions",
+          "Specialized module for real-time code quality assessment derived from MasumiAI Core",
       },
-      owners: { "%share": JSON.stringify(["0x1234567890abcdef"]) },
-      image_url: { "%share": "https://example.com/code-module.png" },
-      ipa: { "%share": "0xDEF456789ABC123" },
-      parent_ipa: { "%share": "0xABC123456789DEF" },
-      remix_license_terms: { "%share": "Apache 2.0 with patent grant" },
+      owners: {
+        "%share": JSON.stringify([
+          "0x1234567890abcdef1234567890abcdef12345678",
+        ]),
+      },
+      image_url: { "%share": "https://example.com/module-logo.png" },
+      ipa: { "%share": "0xdef456789abc123" },
+      parent_ipa: { "%share": "0x789abc123def456" },
+      remix_license_terms: { "%share": "non-commercial" },
       register_tx_hash: {
-        "%share": "0x456def789abc123ghi456jkl789mno012pqr345stu678vwx901yz",
+        "%share": "0x789abc456def123ghi789jkl456mno123pqr789stu456vwx123yz789",
       },
     },
   ];
 
-  const stories = storiesData.map((story) => ({
-    id: story._id,
-    name: extractValue(story.name),
-    description: extractValue(story.desc),
-    owners: JSON.parse(extractValue(story.owners)),
-    imageUrl: extractValue(story.image_url),
-    ipa: extractValue(story.ipa),
-    parentIpa: extractValue(story.parent_ipa),
-    license: extractValue(story.remix_license_terms),
-    txHash: extractValue(story.register_tx_hash),
+  const assets = ipAssets.map((asset) => ({
+    id: asset._id,
+    name: extractValue(asset.name),
+    description: extractValue(asset.desc),
+    owners: JSON.parse(extractValue(asset.owners)),
+    imageUrl: extractValue(asset.image_url),
+    ipa: extractValue(asset.ipa),
+    parentIpa: extractValue(asset.parent_ipa),
+    licenseType: extractValue(asset.remix_license_terms),
+    txHash: extractValue(asset.register_tx_hash),
   }));
+
+  const openExplorer = (txHash: string) => {
+    window.open(`https://explorer.story.foundation/tx/${txHash}`, "_blank");
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -73,7 +82,7 @@ export default function IPAgent({ userSide }: IPAgentProps) {
           <img
             src={`/agents/${userSide}/${agentId}.png`}
             alt=""
-            className="w-5 h-5"
+            className="w-9 h-9"
           />
           <span className="font-medium text-white">
             {getAgentDisplayName(agentId, userSide)}
@@ -86,12 +95,12 @@ export default function IPAgent({ userSide }: IPAgentProps) {
               : "bg-red-900/30 text-red-300"
           }`}
         >
-          {stories.length} Stories
+          Story Protocol
         </div>
       </div>
 
       <div className="flex border-b border-stone-700">
-        {["stories", "licensing", "blockchain"].map((tab) => (
+        {["assets", "ownership", "lineage"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -109,88 +118,124 @@ export default function IPAgent({ userSide }: IPAgentProps) {
       </div>
 
       <div className="flex-1 p-4 overflow-y-auto">
-        {activeTab === "stories" && (
+        {activeTab === "assets" && (
           <div className="space-y-4">
-            <h3 className="text-white font-medium">IP Stories</h3>
-            {stories.map((story) => (
-              <div key={story.id} className="bg-stone-800/50 rounded-lg p-3">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="text-white font-medium">{story.name}</div>
-                  <div className="flex items-center space-x-2">
-                    <Users className="w-4 h-4 text-stone-400" />
-                    <span className="text-xs text-stone-400">
-                      {story.owners.length}
-                    </span>
+            {assets.map((asset) => (
+              <div key={asset.id} className="bg-stone-800/50 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-white font-medium text-lg">
+                      {asset.name}
+                    </h3>
+                    <p className="text-sm text-stone-300 mt-1">
+                      {asset.description}
+                    </p>
+                  </div>
+                  <div
+                    className={`px-2 py-1 rounded text-xs ${
+                      asset.licenseType === "commercial"
+                        ? "bg-green-900/30 text-green-300"
+                        : "bg-blue-900/30 text-blue-300"
+                    }`}
+                  >
+                    {asset.licenseType}
                   </div>
                 </div>
-                <p className="text-sm text-stone-300 mb-2">
-                  {story.description}
-                </p>
-                <div className="text-xs text-stone-500">
-                  IPA: {story.ipa.slice(0, 10)}...
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
 
-        {activeTab === "licensing" && (
-          <div className="space-y-4">
-            <h3 className="text-white font-medium">License Terms</h3>
-            {stories.map((story) => (
-              <div key={story.id} className="bg-stone-800/50 rounded-lg p-3">
-                <div className="text-white font-medium mb-2">{story.name}</div>
-                <div className="text-sm text-stone-300 mb-2">
-                  {story.license}
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-stone-500">
-                    Parent:{" "}
-                    {story.parentIpa === "0x000000000000000"
-                      ? "Root"
-                      : `${story.parentIpa.slice(0, 10)}...`}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {activeTab === "blockchain" && (
-          <div className="space-y-4">
-            <h3 className="text-white font-medium">Blockchain Records</h3>
-            {stories.map((story) => (
-              <div key={story.id} className="bg-stone-800/50 rounded-lg p-3">
-                <div className="text-white font-medium mb-2">{story.name}</div>
-                <div className="space-y-1 text-xs">
+                <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-stone-400">TX Hash:</span>
+                    <span className="text-stone-400">IPA ID:</span>
                     <span className="text-stone-300 font-mono">
-                      {story.txHash.slice(0, 16)}...
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-400">IPA:</span>
-                    <span className="text-stone-300 font-mono">
-                      {story.ipa}
+                      {asset.ipa}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-stone-400">Owners:</span>
                     <span className="text-stone-300">
-                      {story.owners.length}
+                      {asset.owners.length}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-400">Type:</span>
+                    <span className="text-stone-300">
+                      {asset.parentIpa === "empty"
+                        ? "Parent Asset"
+                        : "Child Asset"}
                     </span>
                   </div>
                 </div>
+
                 <button
-                  className={`mt-2 px-2 py-1 rounded text-xs ${
+                  onClick={() => openExplorer(asset.txHash)}
+                  className={`mt-3 flex items-center space-x-2 px-3 py-1 rounded text-sm ${
                     userSide === "light"
-                      ? "bg-blue-600 text-white"
-                      : "bg-red-600 text-white"
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-red-600 text-white hover:bg-red-700"
                   }`}
                 >
-                  View on Explorer
+                  <ExternalLink className="w-4 h-4" />
+                  <span>View on Explorer</span>
                 </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "ownership" && (
+          <div className="space-y-4">
+            {assets.map((asset) => (
+              <div key={asset.id} className="bg-stone-800/50 rounded-lg p-4">
+                <h3 className="text-white font-medium mb-3">{asset.name}</h3>
+                <div className="space-y-2">
+                  {asset.owners.map((owner: string, index: number) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Users className="w-4 h-4 text-stone-400" />
+                        <span className="text-stone-300 font-mono text-sm">
+                          {owner.slice(0, 6)}...{owner.slice(-4)}
+                        </span>
+                      </div>
+                      <span className="text-xs text-stone-400">
+                        Owner {index + 1}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "lineage" && (
+          <div className="space-y-4">
+            {assets.map((asset) => (
+              <div key={asset.id} className="bg-stone-800/50 rounded-lg p-4">
+                <h3 className="text-white font-medium mb-3">{asset.name}</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-stone-400">Current IPA:</span>
+                    <span className="text-stone-300 font-mono">
+                      {asset.ipa}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-400">Parent IPA:</span>
+                    <span className="text-stone-300 font-mono">
+                      {asset.parentIpa === "empty"
+                        ? "Root Asset"
+                        : asset.parentIpa}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-400">License:</span>
+                    <span className="text-stone-300 capitalize">
+                      {asset.licenseType}
+                    </span>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
