@@ -1,59 +1,83 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, FileText, AlertTriangle, CheckCircle } from "lucide-react";
+import { Shield, FileText, ExternalLink, Users } from "lucide-react";
 import { getAgentDisplayName } from "@/utils/agentUtils";
 
 interface IPAgentProps {
   userSide: "light" | "dark" | null;
 }
 
+const extractValue = (obj: { "%share": string }) => obj["%share"];
+
 export default function IPAgent({ userSide }: IPAgentProps) {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("stories");
   const agentId = "ip";
 
-  const mockData = {
-    patents: [
-      {
-        title: "AI-powered Code Analysis",
-        status: "Filed",
-        date: "2024-01-15",
+  // Mock data matching stories schema
+  const storiesData = [
+    {
+      _id: "story-001",
+      name: { "%share": "MasumiAI Core Engine" },
+      desc: {
+        "%share":
+          "AI-powered development assistant with advanced code analysis capabilities",
       },
-      {
-        title: "Distributed Computing Method",
-        status: "Pending",
-        date: "2024-03-22",
+      owners: {
+        "%share": JSON.stringify(["0x1234567890abcdef", "0x2345678901bcdef0"]),
       },
-    ],
-    trademarks: [
-      { name: "MasumiAI", status: "Registered", class: "Software" },
-      { name: "CodeGenius", status: "Applied", class: "AI Tools" },
-    ],
-    risks: [
-      {
-        type: "Copyright",
-        level: "Low",
-        description: "Open source dependencies review needed",
+      image_url: { "%share": "https://example.com/masumi-ai-logo.png" },
+      ipa: { "%share": "0xABC123456789DEF" },
+      parent_ipa: { "%share": "0x000000000000000" },
+      remix_license_terms: {
+        "%share": "MIT License with attribution requirements",
       },
-      {
-        type: "Patent",
-        level: "Medium",
-        description: "Similar patent found - needs analysis",
+      register_tx_hash: {
+        "%share": "0x789abc123def456ghi789jkl012mno345pqr678stu901vwx234yz",
       },
-    ],
-    compliance: {
-      gdpr: "Compliant",
-      ccpa: "Compliant",
-      opensource: "Under Review",
     },
-  };
+    {
+      _id: "story-002",
+      name: { "%share": "Code Analysis Module" },
+      desc: {
+        "%share":
+          "Specialized module for real-time code quality assessment and suggestions",
+      },
+      owners: { "%share": JSON.stringify(["0x1234567890abcdef"]) },
+      image_url: { "%share": "https://example.com/code-module.png" },
+      ipa: { "%share": "0xDEF456789ABC123" },
+      parent_ipa: { "%share": "0xABC123456789DEF" },
+      remix_license_terms: { "%share": "Apache 2.0 with patent grant" },
+      register_tx_hash: {
+        "%share": "0x456def789abc123ghi456jkl789mno012pqr345stu678vwx901yz",
+      },
+    },
+  ];
+
+  const stories = storiesData.map((story) => ({
+    id: story._id,
+    name: extractValue(story.name),
+    description: extractValue(story.desc),
+    owners: JSON.parse(extractValue(story.owners)),
+    imageUrl: extractValue(story.image_url),
+    ipa: extractValue(story.ipa),
+    parentIpa: extractValue(story.parent_ipa),
+    license: extractValue(story.remix_license_terms),
+    txHash: extractValue(story.register_tx_hash),
+  }));
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-stone-700">
         <div className="flex items-center space-x-2">
-          <Shield className="w-5 h-5 text-white" />
-          <span className="font-medium text-white">IP Agent</span>
+          <img
+            src={`/agents/${userSide}/${agentId}.png`}
+            alt=""
+            className="w-5 h-5"
+          />
+          <span className="font-medium text-white">
+            {getAgentDisplayName(agentId, userSide)}
+          </span>
         </div>
         <div
           className={`px-2 py-1 rounded text-xs ${
@@ -62,12 +86,12 @@ export default function IPAgent({ userSide }: IPAgentProps) {
               : "bg-red-900/30 text-red-300"
           }`}
         >
-          Protected
+          {stories.length} Stories
         </div>
       </div>
 
       <div className="flex border-b border-stone-700">
-        {["overview", "patents", "risks"].map((tab) => (
+        {["stories", "licensing", "blockchain"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -85,130 +109,88 @@ export default function IPAgent({ userSide }: IPAgentProps) {
       </div>
 
       <div className="flex-1 p-4 overflow-y-auto">
-        {activeTab === "overview" && (
+        {activeTab === "stories" && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-stone-800/50 rounded-lg p-3">
-                <div className="text-white font-medium text-lg">
-                  {mockData.patents.length}
-                </div>
-                <div className="text-xs text-stone-400">Patents</div>
-              </div>
-              <div className="bg-stone-800/50 rounded-lg p-3">
-                <div className="text-white font-medium text-lg">
-                  {mockData.trademarks.length}
-                </div>
-                <div className="text-xs text-stone-400">Trademarks</div>
-              </div>
-            </div>
-
-            <div className="bg-stone-800/50 rounded-lg p-4">
-              <h3 className="text-white font-medium mb-3">Compliance Status</h3>
-              <div className="space-y-2">
-                {Object.entries(mockData.compliance).map(([key, value]) => (
-                  <div key={key} className="flex justify-between items-center">
-                    <span className="text-stone-400 uppercase">{key}</span>
-                    <div className="flex items-center space-x-2">
-                      {value === "Compliant" ? (
-                        <CheckCircle className="w-4 h-4 text-green-400" />
-                      ) : (
-                        <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                      )}
-                      <span
-                        className={`text-sm ${
-                          value === "Compliant"
-                            ? "text-green-400"
-                            : "text-yellow-400"
-                        }`}
-                      >
-                        {value}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "patents" && (
-          <div className="space-y-4">
-            <div className="space-y-3">
-              <h3 className="text-white font-medium">Patent Applications</h3>
-              {mockData.patents.map((patent, index) => (
-                <div key={index} className="bg-stone-800/50 rounded-lg p-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-white font-medium">
-                        {patent.title}
-                      </div>
-                      <div className="text-sm text-stone-400">
-                        {patent.date}
-                      </div>
-                    </div>
-                    <div
-                      className={`px-2 py-1 rounded text-xs ${
-                        patent.status === "Filed"
-                          ? "bg-green-900/30 text-green-300"
-                          : "bg-yellow-900/30 text-yellow-300"
-                      }`}
-                    >
-                      {patent.status}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="text-white font-medium">Trademarks</h3>
-              {mockData.trademarks.map((trademark, index) => (
-                <div key={index} className="bg-stone-800/50 rounded-lg p-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-white font-medium">
-                        {trademark.name}
-                      </div>
-                      <div className="text-sm text-stone-400">
-                        {trademark.class}
-                      </div>
-                    </div>
-                    <div
-                      className={`px-2 py-1 rounded text-xs ${
-                        trademark.status === "Registered"
-                          ? "bg-green-900/30 text-green-300"
-                          : "bg-yellow-900/30 text-yellow-300"
-                      }`}
-                    >
-                      {trademark.status}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "risks" && (
-          <div className="space-y-4">
-            <h3 className="text-white font-medium">Risk Assessment</h3>
-            {mockData.risks.map((risk, index) => (
-              <div key={index} className="bg-stone-800/50 rounded-lg p-3">
+            <h3 className="text-white font-medium">IP Stories</h3>
+            {stories.map((story) => (
+              <div key={story.id} className="bg-stone-800/50 rounded-lg p-3">
                 <div className="flex justify-between items-start mb-2">
-                  <div className="text-white font-medium">{risk.type} Risk</div>
-                  <div
-                    className={`px-2 py-1 rounded text-xs ${
-                      risk.level === "Low"
-                        ? "bg-green-900/30 text-green-300"
-                        : risk.level === "Medium"
-                        ? "bg-yellow-900/30 text-yellow-300"
-                        : "bg-red-900/30 text-red-300"
-                    }`}
-                  >
-                    {risk.level}
+                  <div className="text-white font-medium">{story.name}</div>
+                  <div className="flex items-center space-x-2">
+                    <Users className="w-4 h-4 text-stone-400" />
+                    <span className="text-xs text-stone-400">
+                      {story.owners.length}
+                    </span>
                   </div>
                 </div>
-                <p className="text-sm text-stone-400">{risk.description}</p>
+                <p className="text-sm text-stone-300 mb-2">
+                  {story.description}
+                </p>
+                <div className="text-xs text-stone-500">
+                  IPA: {story.ipa.slice(0, 10)}...
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "licensing" && (
+          <div className="space-y-4">
+            <h3 className="text-white font-medium">License Terms</h3>
+            {stories.map((story) => (
+              <div key={story.id} className="bg-stone-800/50 rounded-lg p-3">
+                <div className="text-white font-medium mb-2">{story.name}</div>
+                <div className="text-sm text-stone-300 mb-2">
+                  {story.license}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-stone-500">
+                    Parent:{" "}
+                    {story.parentIpa === "0x000000000000000"
+                      ? "Root"
+                      : `${story.parentIpa.slice(0, 10)}...`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "blockchain" && (
+          <div className="space-y-4">
+            <h3 className="text-white font-medium">Blockchain Records</h3>
+            {stories.map((story) => (
+              <div key={story.id} className="bg-stone-800/50 rounded-lg p-3">
+                <div className="text-white font-medium mb-2">{story.name}</div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-stone-400">TX Hash:</span>
+                    <span className="text-stone-300 font-mono">
+                      {story.txHash.slice(0, 16)}...
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-400">IPA:</span>
+                    <span className="text-stone-300 font-mono">
+                      {story.ipa}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-400">Owners:</span>
+                    <span className="text-stone-300">
+                      {story.owners.length}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  className={`mt-2 px-2 py-1 rounded text-xs ${
+                    userSide === "light"
+                      ? "bg-blue-600 text-white"
+                      : "bg-red-600 text-white"
+                  }`}
+                >
+                  View on Explorer
+                </button>
               </div>
             ))}
           </div>

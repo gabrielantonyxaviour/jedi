@@ -1,72 +1,85 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { Search, ExternalLink, GitBranch, Star } from "lucide-react";
 import { getAgentDisplayName } from "@/utils/agentUtils";
 
 interface ComplianceAgentProps {
   userSide: "light" | "dark" | null;
 }
 
+const extractValue = (obj: { "%share": string }) => obj["%share"];
+
 export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
-  const [activeTab, setActiveTab] = useState("status");
+  const [activeTab, setActiveTab] = useState("similar");
   const agentId = "compliance";
 
-  const mockData = {
-    regulations: [
-      {
-        name: "SOC 2",
-        status: "Compliant",
-        lastAudit: "2024-01-15",
-        nextDue: "2024-07-15",
+  // Mock data for similar projects found
+  const mockData = [
+    {
+      _id: "comp-001",
+      name: { "%share": "CodeGPT" },
+      source: { "%share": "GitHub" },
+      data: {
+        "%share":
+          "AI-powered code assistant with 15.2k stars. Similar TypeScript/React architecture for developer tools.",
       },
-      {
-        name: "ISO 27001",
-        status: "In Progress",
-        lastAudit: "2023-12-01",
-        nextDue: "2024-06-01",
+    },
+    {
+      _id: "comp-002",
+      name: { "%share": "Copilot Alternative" },
+      source: { "%share": "Product Hunt" },
+      data: {
+        "%share":
+          "Open-source AI coding assistant. Featured as top product with similar functionality to your project.",
       },
-      {
-        name: "GDPR",
-        status: "Compliant",
-        lastAudit: "2024-02-01",
-        nextDue: "2024-08-01",
+    },
+    {
+      _id: "comp-003",
+      name: { "%share": "DevAssist Pro" },
+      source: { "%share": "Hacker News" },
+      data: {
+        "%share":
+          "Developer productivity tool using AI. Discussed in recent HN thread about AI development tools.",
       },
-    ],
-    policies: [
-      { name: "Privacy Policy", status: "Updated", lastReview: "2024-03-01" },
-      {
-        name: "Terms of Service",
-        status: "Needs Review",
-        lastReview: "2023-11-15",
+    },
+    {
+      _id: "comp-004",
+      name: { "%share": "SmartCode AI" },
+      source: { "%share": "Reddit" },
+      data: {
+        "%share":
+          "Similar React-based AI development platform. Active community discussion in r/programming.",
       },
-      { name: "Cookie Policy", status: "Updated", lastReview: "2024-02-20" },
-    ],
-    tasks: [
-      {
-        task: "Update data retention policy",
-        priority: "High",
-        dueDate: "2024-06-20",
-      },
-      {
-        task: "Review vendor agreements",
-        priority: "Medium",
-        dueDate: "2024-07-01",
-      },
-      {
-        task: "Conduct security training",
-        priority: "Low",
-        dueDate: "2024-08-15",
-      },
-    ],
-  };
+    },
+  ];
+
+  // Transform data for UI
+  const similarProjects = mockData.map((item) => ({
+    id: item._id,
+    name: extractValue(item.name),
+    source: extractValue(item.source),
+    description: extractValue(item.data),
+  }));
+
+  const sources = [...new Set(similarProjects.map((p) => p.source))];
+  const sourceStats = sources.map((source) => ({
+    name: source,
+    count: similarProjects.filter((p) => p.source === source).length,
+  }));
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-stone-700">
         <div className="flex items-center space-x-2">
-          <FileText className="w-5 h-5 text-white" />
-          <span className="font-medium text-white">Compliance Agent</span>
+          <img
+            src={`/agents/${userSide}/${agentId}.png`}
+            alt=""
+            className="w-5 h-5"
+          />
+          <span className="font-medium text-white">
+            {getAgentDisplayName(agentId, userSide)}
+          </span>
         </div>
         <div
           className={`px-2 py-1 rounded text-xs ${
@@ -75,12 +88,12 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
               : "bg-red-900/30 text-red-300"
           }`}
         >
-          Monitoring
+          {similarProjects.length} Found
         </div>
       </div>
 
       <div className="flex border-b border-stone-700">
-        {["status", "policies", "tasks"].map((tab) => (
+        {["similar", "sources", "analysis"].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -98,112 +111,75 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
       </div>
 
       <div className="flex-1 p-4 overflow-y-auto">
-        {activeTab === "status" && (
+        {activeTab === "similar" && (
           <div className="space-y-4">
-            <h3 className="text-white font-medium">Compliance Status</h3>
-            {mockData.regulations.map((reg, index) => (
-              <div key={index} className="bg-stone-800/50 rounded-lg p-3">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="text-white font-medium">{reg.name}</div>
-                  <div className="flex items-center space-x-2">
-                    {reg.status === "Compliant" ? (
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                    ) : (
-                      <Clock className="w-4 h-4 text-yellow-400" />
-                    )}
-                    <span
-                      className={`text-xs px-2 py-1 rounded ${
-                        reg.status === "Compliant"
-                          ? "bg-green-900/30 text-green-300"
-                          : "bg-yellow-900/30 text-yellow-300"
-                      }`}
-                    >
-                      {reg.status}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-sm text-stone-400">
-                  Last audit: {reg.lastAudit} • Next due: {reg.nextDue}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+            <div className="flex items-center space-x-2 mb-4">
+              <Search className="w-4 h-4 text-stone-400" />
+              <span className="text-sm text-stone-400">
+                Similar projects to your development
+              </span>
+            </div>
 
-        {activeTab === "policies" && (
-          <div className="space-y-4">
-            <h3 className="text-white font-medium">Policy Documents</h3>
-            {mockData.policies.map((policy, index) => (
-              <div key={index} className="bg-stone-800/50 rounded-lg p-3">
+            {similarProjects.map((project) => (
+              <div key={project.id} className="bg-stone-800/50 rounded-lg p-3">
                 <div className="flex justify-between items-start mb-2">
-                  <div className="text-white font-medium">{policy.name}</div>
+                  <div className="text-white font-medium">{project.name}</div>
                   <div className="flex items-center space-x-2">
-                    {policy.status === "Updated" ? (
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-400" />
-                    )}
                     <span
                       className={`text-xs px-2 py-1 rounded ${
-                        policy.status === "Updated"
-                          ? "bg-green-900/30 text-green-300"
+                        userSide === "light"
+                          ? "bg-blue-900/30 text-blue-300"
                           : "bg-red-900/30 text-red-300"
                       }`}
                     >
-                      {policy.status}
+                      {project.source}
                     </span>
+                    <ExternalLink className="w-4 h-4 text-stone-400 hover:text-white cursor-pointer" />
                   </div>
                 </div>
-                <div className="text-sm text-stone-400">
-                  Last review: {policy.lastReview}
-                </div>
-                <button
-                  className={`mt-2 px-3 py-1 rounded text-xs ${
-                    userSide === "light"
-                      ? "bg-blue-600 text-white"
-                      : "bg-red-600 text-white"
-                  }`}
-                >
-                  Review
-                </button>
+                <p className="text-sm text-stone-300">{project.description}</p>
               </div>
             ))}
           </div>
         )}
 
-        {activeTab === "tasks" && (
+        {activeTab === "sources" && (
           <div className="space-y-4">
-            <h3 className="text-white font-medium">Compliance Tasks</h3>
-            {mockData.tasks.map((task, index) => (
+            <h3 className="text-white font-medium">Discovery Sources</h3>
+            {sourceStats.map((source, index) => (
               <div key={index} className="bg-stone-800/50 rounded-lg p-3">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="text-white font-medium">{task.task}</div>
-                  <div
-                    className={`px-2 py-1 rounded text-xs ${
-                      task.priority === "High"
-                        ? "bg-red-900/30 text-red-300"
-                        : task.priority === "Medium"
-                        ? "bg-yellow-900/30 text-yellow-300"
-                        : "bg-green-900/30 text-green-300"
-                    }`}
-                  >
-                    {task.priority}
-                  </div>
+                <div className="flex justify-between items-center">
+                  <div className="text-white font-medium">{source.name}</div>
+                  <div className="text-stone-400">{source.count} projects</div>
                 </div>
-                <div className="text-sm text-stone-400 mb-2">
-                  Due: {task.dueDate}
-                </div>
-                <button
-                  className={`px-3 py-1 rounded text-xs ${
-                    userSide === "light"
-                      ? "bg-blue-600 text-white"
-                      : "bg-red-600 text-white"
-                  }`}
-                >
-                  Start Task
-                </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {activeTab === "analysis" && (
+          <div className="space-y-4">
+            <div className="bg-stone-800/50 rounded-lg p-4">
+              <h3 className="text-white font-medium mb-3">Market Analysis</h3>
+              <div className="space-y-2 text-sm text-stone-300">
+                <p>• {similarProjects.length} similar projects identified</p>
+                <p>
+                  • Most common source:{" "}
+                  {sourceStats.sort((a, b) => b.count - a.count)[0]?.name}
+                </p>
+                <p>• High activity in AI development tools space</p>
+                <p>• Competitive landscape shows strong developer interest</p>
+              </div>
+            </div>
+
+            <div className="bg-stone-800/50 rounded-lg p-4">
+              <h3 className="text-white font-medium mb-3">Recommendations</h3>
+              <div className="space-y-2 text-sm text-stone-300">
+                <p>• Monitor competitor feature releases</p>
+                <p>• Engage with communities discussing similar tools</p>
+                <p>• Consider collaboration opportunities</p>
+              </div>
+            </div>
           </div>
         )}
       </div>

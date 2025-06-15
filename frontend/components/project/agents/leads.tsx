@@ -8,44 +8,116 @@ interface LeadsAgentProps {
   userSide: "light" | "dark" | null;
 }
 
+const extractValue = (obj: { "%share": string }) => obj["%share"];
+
 export default function LeadsAgent({ userSide }: LeadsAgentProps) {
   const [activeTab, setActiveTab] = useState("pipeline");
   const agentId = "leads";
 
-  const mockData = {
-    pipeline: [
-      { name: "TechCorp Inc", stage: "Qualified", score: 85, value: "$15K" },
-      { name: "StartupXYZ", stage: "Proposal", score: 72, value: "$8K" },
-      { name: "Enterprise Co", stage: "Discovery", score: 90, value: "$25K" },
-    ],
-    metrics: {
-      totalLeads: 47,
-      qualified: 23,
-      converted: 8,
-      revenue: "$156K",
+  // Mock data matching schema
+  const leadsData = [
+    {
+      _id: "lead-001",
+      name: { "%share": "TechCorp Inc" },
+      source: { "%share": "GitHub" },
+      desc: {
+        "%share": "Enterprise company interested in AI development tools",
+      },
+      metadata: {
+        "%share": JSON.stringify({
+          stage: "Qualified",
+          score: 85,
+          value: 15000,
+          contact: "john@techcorp.com",
+          industry: "Technology",
+        }),
+      },
     },
-    sources: [
-      { name: "GitHub", leads: 18, conversion: "12%" },
-      { name: "LinkedIn", leads: 15, conversion: "8%" },
-      { name: "Website", leads: 14, conversion: "15%" },
-    ],
+    {
+      _id: "lead-002",
+      name: { "%share": "StartupXYZ" },
+      source: { "%share": "LinkedIn" },
+      desc: {
+        "%share": "Early-stage startup looking for development assistance",
+      },
+      metadata: {
+        "%share": JSON.stringify({
+          stage: "Proposal",
+          score: 72,
+          value: 8000,
+          contact: "founder@startupxyz.com",
+          industry: "Fintech",
+        }),
+      },
+    },
+    {
+      _id: "lead-003",
+      name: { "%share": "Enterprise Co" },
+      source: { "%share": "Website" },
+      desc: { "%share": "Large enterprise seeking AI integration solutions" },
+      metadata: {
+        "%share": JSON.stringify({
+          stage: "Discovery",
+          score: 90,
+          value: 25000,
+          contact: "cto@enterprise.com",
+          industry: "Manufacturing",
+        }),
+      },
+    },
+  ];
+
+  // Transform data for UI
+  const pipeline = leadsData.map((lead) => {
+    const metadata = JSON.parse(extractValue(lead.metadata));
+    return {
+      name: extractValue(lead.name),
+      stage: metadata.stage,
+      score: metadata.score,
+      value: `$${(metadata.value / 1000).toFixed(0)}K`,
+      source: extractValue(lead.source),
+      description: extractValue(lead.desc),
+    };
+  });
+
+  const sources = leadsData.reduce((acc: any[], lead) => {
+    const source = extractValue(lead.source);
+    const existing = acc.find((s) => s.name === source);
+    if (existing) {
+      existing.leads += 1;
+    } else {
+      acc.push({
+        name: source,
+        leads: 1,
+        conversion:
+          source === "Website" ? "15%" : source === "GitHub" ? "12%" : "8%",
+      });
+    }
+    return acc;
+  }, []);
+
+  const metrics = {
+    totalLeads: leadsData.length,
+    qualified: pipeline.filter((p) => p.stage === "Qualified").length,
+    converted: 0, // Would be calculated from actual data
+    revenue: pipeline.reduce((sum, lead) => {
+      const value = parseInt(lead.value.replace(/[$K]/g, "")) * 1000;
+      return sum + value;
+    }, 0),
   };
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-stone-700">
         <div className="flex items-center space-x-2">
-          <Target className="w-5 h-5 text-white" />
-          <span className="font-medium text-white">Leads Agent</span>
-        </div>
-        <div
-          className={`px-2 py-1 rounded text-xs ${
-            userSide === "light"
-              ? "bg-blue-900/30 text-blue-300"
-              : "bg-red-900/30 text-red-300"
-          }`}
-        >
-          Tracking
+          <img
+            src={`/agents/${userSide}/${agentId}.png`}
+            alt=""
+            className="w-5 h-5"
+          />
+          <span className="font-medium text-white">
+            {getAgentDisplayName(agentId, userSide)}
+          </span>
         </div>
       </div>
 
@@ -73,23 +145,23 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-stone-800/50 rounded-lg p-3">
                 <div className="text-white font-medium text-lg">
-                  {mockData.metrics.totalLeads}
+                  {metrics.totalLeads}
                 </div>
                 <div className="text-xs text-stone-400">Total Leads</div>
               </div>
               <div className="bg-stone-800/50 rounded-lg p-3">
                 <div className="text-green-400 font-medium text-lg">
-                  {mockData.metrics.revenue}
+                  ${(metrics.revenue / 1000).toFixed(0)}K
                 </div>
-                <div className="text-xs text-stone-400">Revenue</div>
+                <div className="text-xs text-stone-400">Pipeline Value</div>
               </div>
             </div>
 
             <div className="space-y-3">
               <h3 className="text-white font-medium">Active Pipeline</h3>
-              {mockData.pipeline.map((lead, index) => (
+              {pipeline.map((lead, index) => (
                 <div key={index} className="bg-stone-800/50 rounded-lg p-3">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start mb-2">
                     <div>
                       <div className="text-white font-medium">{lead.name}</div>
                       <div className="text-sm text-stone-400">{lead.stage}</div>
@@ -107,6 +179,9 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
                       </div>
                     </div>
                   </div>
+                  <div className="text-xs text-stone-500">
+                    {lead.description}
+                  </div>
                 </div>
               ))}
             </div>
@@ -116,7 +191,7 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
         {activeTab === "sources" && (
           <div className="space-y-4">
             <h3 className="text-white font-medium">Lead Sources</h3>
-            {mockData.sources.map((source, index) => (
+            {sources.map((source, index) => (
               <div key={index} className="bg-stone-800/50 rounded-lg p-3">
                 <div className="flex justify-between items-center">
                   <div>
@@ -137,6 +212,7 @@ export default function LeadsAgent({ userSide }: LeadsAgentProps) {
           </div>
         )}
 
+        {/* Keep outreach tab unchanged */}
         {activeTab === "outreach" && (
           <div className="space-y-4">
             <div className="bg-stone-800/50 rounded-lg p-4">
