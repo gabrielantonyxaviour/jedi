@@ -5,6 +5,7 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateRecord,
 } from "./base";
 import { StoriesData } from "./types";
 
@@ -177,6 +178,24 @@ async function main() {
 
   const records = await fetchStories();
   console.log("Stories records:", records);
+}
+
+export async function updateStories(
+  recordId: string,
+  updates: Partial<StoriesData>
+): Promise<boolean> {
+  return updateRecord(recordId, updates, SCHEMA_IDS.STORIES, [
+    "owner_address",
+    "project_id",
+    "name",
+    "desc",
+    "owners",
+    "image_url",
+    "ipa",
+    "parent_ipa",
+    "remix_license_terms",
+    "register_tx_hash",
+  ]);
 }
 
 if (require.main === module) {

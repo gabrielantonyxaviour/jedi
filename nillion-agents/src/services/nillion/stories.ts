@@ -5,8 +5,9 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateAtNode,
 } from "./base";
-import { StoriesData } from "./types";
+import { StoriesData } from "../../types/nillion";
 
 export async function pushStories(data: StoriesData): Promise<boolean> {
   const [encryption, jwts] = await Promise.all([
@@ -60,6 +61,87 @@ export async function pushStories(data: StoriesData): Promise<boolean> {
         SCHEMA_IDS.STORIES
       )
     )
+  );
+
+  return results.every(Boolean);
+}
+
+export async function updateStories(
+  recordId: string,
+  updates: Partial<StoriesData>
+): Promise<boolean> {
+  const [encryption, jwts] = await Promise.all([
+    createEncryptionService(),
+    generateJWTs(),
+  ]);
+
+  const encryptedUpdates: any = {};
+
+  if (updates.owner_address !== undefined) {
+    const ownerAddrShares = await encryption.encrypt(updates.owner_address);
+    encryptedUpdates.owner_address = { "%share": ownerAddrShares };
+  }
+
+  if (updates.project_id !== undefined) {
+    const projectIdShares = await encryption.encrypt(updates.project_id);
+    encryptedUpdates.project_id = { "%share": projectIdShares };
+  }
+
+  if (updates.name !== undefined) {
+    const nameShares = await encryption.encrypt(updates.name);
+    encryptedUpdates.name = { "%share": nameShares };
+  }
+
+  if (updates.desc !== undefined) {
+    const descShares = await encryption.encrypt(updates.desc);
+    encryptedUpdates.desc = { "%share": descShares };
+  }
+
+  if (updates.owners !== undefined) {
+    const ownersShares = await encryption.encrypt(updates.owners);
+    encryptedUpdates.owners = { "%share": ownersShares };
+  }
+
+  if (updates.image_url !== undefined) {
+    const imageShares = await encryption.encrypt(updates.image_url);
+    encryptedUpdates.image_url = { "%share": imageShares };
+  }
+
+  if (updates.ipa !== undefined) {
+    const ipaShares = await encryption.encrypt(updates.ipa);
+    encryptedUpdates.ipa = { "%share": ipaShares };
+  }
+
+  if (updates.parent_ipa !== undefined) {
+    const parentIpaShares = await encryption.encrypt(updates.parent_ipa);
+    encryptedUpdates.parent_ipa = { "%share": parentIpaShares };
+  }
+
+  if (updates.remix_license_terms !== undefined) {
+    const licenseShares = await encryption.encrypt(updates.remix_license_terms);
+    encryptedUpdates.remix_license_terms = { "%share": licenseShares };
+  }
+
+  if (updates.register_tx_hash !== undefined) {
+    const txHashShares = await encryption.encrypt(updates.register_tx_hash);
+    encryptedUpdates.register_tx_hash = { "%share": txHashShares };
+  }
+
+  const results = await Promise.all(
+    [0, 1, 2].map((index) => {
+      const nodeUpdate: any = {};
+      Object.keys(encryptedUpdates).forEach((key) => {
+        nodeUpdate[key] = { "%share": encryptedUpdates[key]["%share"][index] };
+      });
+
+      return updateAtNode(
+        index,
+        recordId,
+        nodeUpdate,
+        jwts[index],
+        SCHEMA_IDS.STORIES
+      );
+    })
   );
 
   return results.every(Boolean);
@@ -157,28 +239,4 @@ export async function fetchStoriesByAddress(
 ): Promise<StoriesData[]> {
   const allRecords = await fetchStories();
   return allRecords.filter((record) => record.owner_address === targetAddress);
-}
-
-async function main() {
-  const success = await pushStories({
-    owner_address: "0x1234567890abcdef",
-    project_id: "proj_123",
-    name: "Epic Adventure Story",
-    desc: "A thrilling tale of heroic adventures",
-    owners: "author123",
-    image_url: "https://example.com/story-cover.jpg",
-    ipa: "ipa_address_123",
-    parent_ipa: "parent_ipa_456",
-    remix_license_terms: "CC BY-SA 4.0",
-    register_tx_hash: "0xabcdef123456",
-  });
-
-  console.log(success ? "✓ Stories data pushed" : "✗ Push failed");
-
-  const records = await fetchStories();
-  console.log("Stories records:", records);
-}
-
-if (require.main === module) {
-  main().catch(console.error);
 }

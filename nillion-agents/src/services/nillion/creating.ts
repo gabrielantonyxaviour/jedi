@@ -5,8 +5,9 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateAtNode,
 } from "./base";
-import { CreatingData } from "./types";
+import { CreatingData } from "../../types/nillion";
 
 export async function pushCreating(data: CreatingData): Promise<boolean> {
   const [encryption, jwts] = await Promise.all([
@@ -33,6 +34,47 @@ export async function pushCreating(data: CreatingData): Promise<boolean> {
         SCHEMA_IDS.CREATING
       )
     )
+  );
+
+  return results.every(Boolean);
+}
+
+export async function updateCreating(
+  recordId: string,
+  updates: Partial<CreatingData>
+): Promise<boolean> {
+  const [encryption, jwts] = await Promise.all([
+    createEncryptionService(),
+    generateJWTs(),
+  ]);
+
+  const encryptedUpdates: any = {};
+
+  if (updates.address !== undefined) {
+    const addressShares = await encryption.encrypt(updates.address);
+    encryptedUpdates.address = { "%share": addressShares };
+  }
+
+  if (updates.init_step !== undefined) {
+    const initStepShares = await encryption.encrypt(updates.init_step);
+    encryptedUpdates.init_step = { "%share": initStepShares };
+  }
+
+  const results = await Promise.all(
+    [0, 1, 2].map((index) => {
+      const nodeUpdate: any = {};
+      Object.keys(encryptedUpdates).forEach((key) => {
+        nodeUpdate[key] = { "%share": encryptedUpdates[key]["%share"][index] };
+      });
+
+      return updateAtNode(
+        index,
+        recordId,
+        nodeUpdate,
+        jwts[index],
+        SCHEMA_IDS.CREATING
+      );
+    })
   );
 
   return results.every(Boolean);
@@ -84,26 +126,4 @@ export async function fetchByAddress(
 ): Promise<CreatingData | null> {
   const allRecords = await fetchCreating();
   return allRecords.find((record) => record.address === targetAddress) || null;
-}
-
-async function main() {
-  const success = await pushCreating({
-    address: "0x0690675C3Fea492a5FB98A9F20DA27efc40602b4",
-    init_step: "github",
-  });
-
-  console.log(success ? "✓ Creating data pushed" : "✗ Push failed");
-
-  const records = await fetchCreating();
-  console.log("Creating records:", records);
-
-  // Test fetch by address
-  const specific = await fetchByAddress(
-    "0x0690675C3Fea492a5FB98A9F20DA27efc40602b4"
-  );
-  console.log("Found by address:", specific);
-}
-
-if (require.main === module) {
-  main().catch(console.error);
 }

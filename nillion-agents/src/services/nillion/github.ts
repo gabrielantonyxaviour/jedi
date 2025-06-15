@@ -5,8 +5,9 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateAtNode,
 } from "./base";
-import { GithubData } from "./types";
+import { GithubData } from "../../types/nillion";
 
 export async function pushGithub(data: GithubData): Promise<boolean> {
   const [encryption, jwts] = await Promise.all([
@@ -54,6 +55,79 @@ export async function pushGithub(data: GithubData): Promise<boolean> {
         SCHEMA_IDS.GITHUB
       )
     )
+  );
+
+  return results.every(Boolean);
+}
+
+export async function updateGithub(
+  recordId: string,
+  updates: Partial<GithubData>
+): Promise<boolean> {
+  const [encryption, jwts] = await Promise.all([
+    createEncryptionService(),
+    generateJWTs(),
+  ]);
+
+  const encryptedUpdates: any = {};
+
+  if (updates.name !== undefined) {
+    const nameShares = await encryption.encrypt(updates.name);
+    encryptedUpdates.name = { "%share": nameShares };
+  }
+
+  if (updates.description !== undefined) {
+    const descShares = await encryption.encrypt(updates.description);
+    encryptedUpdates.description = { "%share": descShares };
+  }
+
+  if (updates.technical_description !== undefined) {
+    const techDescShares = await encryption.encrypt(
+      updates.technical_description
+    );
+    encryptedUpdates.technical_description = { "%share": techDescShares };
+  }
+
+  if (updates.repo_url !== undefined) {
+    const repoShares = await encryption.encrypt(updates.repo_url);
+    encryptedUpdates.repo_url = { "%share": repoShares };
+  }
+
+  if (updates.owner !== undefined) {
+    const ownerShares = await encryption.encrypt(updates.owner);
+    encryptedUpdates.owner = { "%share": ownerShares };
+  }
+
+  if (updates.collab !== undefined) {
+    const collabShares = await encryption.encrypt(updates.collab);
+    encryptedUpdates.collab = { "%share": collabShares };
+  }
+
+  if (updates.owner_address !== undefined) {
+    const ownerAddrShares = await encryption.encrypt(updates.owner_address);
+    encryptedUpdates.owner_address = { "%share": ownerAddrShares };
+  }
+
+  if (updates.metadata !== undefined) {
+    const metadataShares = await encryption.encrypt(updates.metadata);
+    encryptedUpdates.metadata = { "%share": metadataShares };
+  }
+
+  const results = await Promise.all(
+    [0, 1, 2].map((index) => {
+      const nodeUpdate: any = {};
+      Object.keys(encryptedUpdates).forEach((key) => {
+        nodeUpdate[key] = { "%share": encryptedUpdates[key]["%share"][index] };
+      });
+
+      return updateAtNode(
+        index,
+        recordId,
+        nodeUpdate,
+        jwts[index],
+        SCHEMA_IDS.GITHUB
+      );
+    })
   );
 
   return results.every(Boolean);
@@ -136,24 +210,9 @@ export async function fetchGithub(): Promise<GithubData[]> {
   return decrypted;
 }
 
-async function main() {
-  const success = await pushGithub({
-    name: "My Awesome Project",
-    description: "A revolutionary blockchain application",
-    technical_description: "Built with React, Node.js, and Solidity",
-    repo_url: "https://github.com/user/awesome-project",
-    owner: "john_doe",
-    collab: "jane_smith",
-    owner_address: "0x1234567890abcdef",
-    metadata: "Additional project metadata",
-  });
-
-  console.log(success ? "✓ Github data pushed" : "✗ Push failed");
-
-  const records = await fetchGithub();
-  console.log("Github records:", records);
-}
-
-if (require.main === module) {
-  main().catch(console.error);
+export async function fetchGithubByAddress(
+  targetAddress: string
+): Promise<GithubData[]> {
+  const allRecords = await fetchGithub();
+  return allRecords.filter((record) => record.owner_address === targetAddress);
 }

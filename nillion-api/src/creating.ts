@@ -5,6 +5,7 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateRecord,
 } from "./base";
 import { CreatingData } from "./types";
 
@@ -104,6 +105,17 @@ async function main() {
   console.log("Found by address:", specific);
 }
 
+export async function updateCreating(
+  recordId: string,
+  updates: Partial<CreatingData>
+): Promise<boolean> {
+  return updateRecord(
+    recordId,
+    updates,
+    SCHEMA_IDS.CREATING,
+    ["address", "init_step"] // fields to encrypt
+  );
+}
 if (require.main === module) {
   main().catch(console.error);
 }

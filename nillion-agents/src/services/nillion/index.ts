@@ -2,6 +2,7 @@ export {
   generateJWTs,
   createEncryptionService,
   uploadToNode,
+  updateAtNode,
   fetchFromNode,
   encryptFields,
   decryptShares,
@@ -9,27 +10,54 @@ export {
 
 export {
   pushCompliance,
+  updateCompliance,
   fetchCompliance,
   fetchComplianceByAddress,
 } from "./compliance";
 
 export {
   pushCreating,
+  updateCreating,
   fetchCreating,
   fetchByAddress as fetchCreatingByAddress,
 } from "./creating";
 
-export { pushGithub, fetchGithub } from "./github";
+export {
+  pushGithub,
+  updateGithub,
+  fetchGithub,
+  fetchGithubByAddress,
+} from "./github";
 
-export { pushGrants, fetchGrants, fetchGrantsByAddress } from "./grants";
+export {
+  pushGrants,
+  updateGrants,
+  fetchGrants,
+  fetchGrantsByAddress,
+} from "./grants";
 
-export { pushLeads, fetchLeads, fetchLeadsByAddress } from "./leads";
+export {
+  pushLeads,
+  updateLeads,
+  fetchLeads,
+  fetchLeadsByAddress,
+} from "./leads";
 
-export { pushLogs, fetchLogs, fetchLogsByAddress } from "./logs";
+export { pushLogs, updateLogs, fetchLogs, fetchLogsByAddress } from "./logs";
 
-export { pushSocials, fetchSocials, fetchSocialsByAddress } from "./socials";
+export {
+  pushSocials,
+  updateSocials,
+  fetchSocials,
+  fetchSocialsByAddress,
+} from "./socials";
 
-export { pushStories, fetchStories, fetchStoriesByAddress } from "./stories";
+export {
+  pushStories,
+  updateStories,
+  fetchStories,
+  fetchStoriesByAddress,
+} from "./stories";
 
 // Re-export config if needed
 export { nillionConfig, SCHEMA_IDS } from "./config";

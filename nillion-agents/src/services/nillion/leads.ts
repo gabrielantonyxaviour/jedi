@@ -5,8 +5,9 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateAtNode,
 } from "./base";
-import { LeadsData } from "./types";
+import { LeadsData } from "../../types/nillion";
 
 export async function pushLeads(data: LeadsData): Promise<boolean> {
   const [encryption, jwts] = await Promise.all([
@@ -48,6 +49,67 @@ export async function pushLeads(data: LeadsData): Promise<boolean> {
         SCHEMA_IDS.LEADS
       )
     )
+  );
+
+  return results.every(Boolean);
+}
+
+export async function updateLeads(
+  recordId: string,
+  updates: Partial<LeadsData>
+): Promise<boolean> {
+  const [encryption, jwts] = await Promise.all([
+    createEncryptionService(),
+    generateJWTs(),
+  ]);
+
+  const encryptedUpdates: any = {};
+
+  if (updates.name !== undefined) {
+    const nameShares = await encryption.encrypt(updates.name);
+    encryptedUpdates.name = { "%share": nameShares };
+  }
+
+  if (updates.source !== undefined) {
+    const sourceShares = await encryption.encrypt(updates.source);
+    encryptedUpdates.source = { "%share": sourceShares };
+  }
+
+  if (updates.desc !== undefined) {
+    const descShares = await encryption.encrypt(updates.desc);
+    encryptedUpdates.desc = { "%share": descShares };
+  }
+
+  if (updates.metadata !== undefined) {
+    const metadataShares = await encryption.encrypt(updates.metadata);
+    encryptedUpdates.metadata = { "%share": metadataShares };
+  }
+
+  if (updates.owner_address !== undefined) {
+    const ownerAddrShares = await encryption.encrypt(updates.owner_address);
+    encryptedUpdates.owner_address = { "%share": ownerAddrShares };
+  }
+
+  if (updates.project_id !== undefined) {
+    const projectIdShares = await encryption.encrypt(updates.project_id);
+    encryptedUpdates.project_id = { "%share": projectIdShares };
+  }
+
+  const results = await Promise.all(
+    [0, 1, 2].map((index) => {
+      const nodeUpdate: any = {};
+      Object.keys(encryptedUpdates).forEach((key) => {
+        nodeUpdate[key] = { "%share": encryptedUpdates[key]["%share"][index] };
+      });
+
+      return updateAtNode(
+        index,
+        recordId,
+        nodeUpdate,
+        jwts[index],
+        SCHEMA_IDS.LEADS
+      );
+    })
   );
 
   return results.every(Boolean);
@@ -119,24 +181,4 @@ export async function fetchLeadsByAddress(
 ): Promise<LeadsData[]> {
   const allRecords = await fetchLeads();
   return allRecords.filter((record) => record.owner_address === targetAddress);
-}
-
-async function main() {
-  const success = await pushLeads({
-    name: "John Smith",
-    source: "LinkedIn",
-    desc: "Senior Developer interested in blockchain",
-    metadata: "Location: San Francisco, Skills: React, Node.js",
-    owner_address: "0x1234567890abcdef",
-    project_id: "proj_123",
-  });
-
-  console.log(success ? "✓ Leads data pushed" : "✗ Push failed");
-
-  const records = await fetchLeads();
-  console.log("Leads records:", records);
-}
-
-if (require.main === module) {
-  main().catch(console.error);
 }

@@ -5,8 +5,9 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateAtNode,
 } from "./base";
-import { GrantsData } from "./types";
+import { GrantsData } from "../../types/nillion";
 
 export async function pushGrants(data: GrantsData): Promise<boolean> {
   const [encryption, jwts] = await Promise.all([
@@ -78,6 +79,123 @@ export async function pushGrants(data: GrantsData): Promise<boolean> {
         SCHEMA_IDS.GRANTS
       )
     )
+  );
+
+  return results.every(Boolean);
+}
+
+export async function updateGrants(
+  recordId: string,
+  updates: Partial<GrantsData>
+): Promise<boolean> {
+  const [encryption, jwts] = await Promise.all([
+    createEncryptionService(),
+    generateJWTs(),
+  ]);
+
+  const encryptedUpdates: any = {};
+
+  if (updates.project_id !== undefined) {
+    const projectIdShares = await encryption.encrypt(updates.project_id);
+    encryptedUpdates.project_id = { "%share": projectIdShares };
+  }
+
+  if (updates.name !== undefined) {
+    const nameShares = await encryption.encrypt(updates.name);
+    encryptedUpdates.name = { "%share": nameShares };
+  }
+
+  if (updates.desc !== undefined) {
+    const descShares = await encryption.encrypt(updates.desc);
+    encryptedUpdates.desc = { "%share": descShares };
+  }
+
+  if (updates.links !== undefined) {
+    const linksShares = await encryption.encrypt(updates.links);
+    encryptedUpdates.links = { "%share": linksShares };
+  }
+
+  if (updates.image_url !== undefined) {
+    const imageShares = await encryption.encrypt(updates.image_url);
+    encryptedUpdates.image_url = { "%share": imageShares };
+  }
+
+  if (updates.owner_address !== undefined) {
+    const ownerAddrShares = await encryption.encrypt(updates.owner_address);
+    encryptedUpdates.owner_address = { "%share": ownerAddrShares };
+  }
+
+  if (updates.members !== undefined) {
+    const membersShares = await encryption.encrypt(updates.members);
+    encryptedUpdates.members = { "%share": membersShares };
+  }
+
+  if (updates.user_email !== undefined) {
+    const userEmailShares = await encryption.encrypt(updates.user_email);
+    encryptedUpdates.user_email = { "%share": userEmailShares };
+  }
+
+  if (updates.user_name !== undefined) {
+    const userNameShares = await encryption.encrypt(updates.user_name);
+    encryptedUpdates.user_name = { "%share": userNameShares };
+  }
+
+  if (updates.grants !== undefined) {
+    const grantsShares = await encryption.encrypt(
+      JSON.stringify(updates.grants)
+    );
+    encryptedUpdates.grants = [
+      {
+        id: { "%share": grantsShares },
+        name: { "%share": grantsShares },
+        desc: { "%share": grantsShares },
+        applied_at: { "%share": grantsShares },
+      },
+    ];
+  }
+
+  if (updates.milestones !== undefined) {
+    const milestonesShares = await encryption.encrypt(
+      JSON.stringify(updates.milestones)
+    );
+    encryptedUpdates.milestones = [
+      {
+        id: { "%share": milestonesShares },
+        grant_id: { "%share": milestonesShares },
+        name: { "%share": milestonesShares },
+        desc: { "%share": milestonesShares },
+        created_at: { "%share": milestonesShares },
+      },
+    ];
+  }
+
+  const results = await Promise.all(
+    [0, 1, 2].map((index) => {
+      const nodeUpdate: any = {};
+      Object.keys(encryptedUpdates).forEach((key) => {
+        if (key === "grants" || key === "milestones") {
+          nodeUpdate[key] = encryptedUpdates[key].map((item: any) => {
+            const updatedItem: any = {};
+            Object.keys(item).forEach((subKey) => {
+              updatedItem[subKey] = { "%share": item[subKey]["%share"][index] };
+            });
+            return updatedItem;
+          });
+        } else {
+          nodeUpdate[key] = {
+            "%share": encryptedUpdates[key]["%share"][index],
+          };
+        }
+      });
+
+      return updateAtNode(
+        index,
+        recordId,
+        nodeUpdate,
+        jwts[index],
+        SCHEMA_IDS.GRANTS
+      );
+    })
   );
 
   return results.every(Boolean);
@@ -181,44 +299,4 @@ export async function fetchGrantsByAddress(
 ): Promise<GrantsData[]> {
   const allRecords = await fetchGrants();
   return allRecords.filter((record) => record.owner_address === targetAddress);
-}
-
-async function main() {
-  const success = await pushGrants({
-    project_id: "proj_123",
-    name: "Blockchain Innovation Grant",
-    desc: "Grant for developing innovative blockchain solutions",
-    links: "https://example.com/grant-info",
-    image_url: "https://example.com/grant-logo.png",
-    owner_address: "0x123456789abcdef",
-    members: "team@blockchain.com",
-    user_email: "applicant@example.com",
-    user_name: "John Developer",
-    grants: [
-      {
-        id: "grant_1",
-        name: "Phase 1 Grant",
-        desc: "Initial development phase",
-        applied_at: "2024-01-15",
-      },
-    ],
-    milestones: [
-      {
-        id: "milestone_1",
-        grant_id: "grant_1",
-        name: "MVP Development",
-        desc: "Build minimum viable product",
-        created_at: "2024-01-20",
-      },
-    ],
-  });
-
-  console.log(success ? "✓ Grants data pushed" : "✗ Push failed");
-
-  const records = await fetchGrants();
-  console.log("Grants records:", records);
-}
-
-if (require.main === module) {
-  main().catch(console.error);
 }

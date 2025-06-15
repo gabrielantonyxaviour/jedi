@@ -5,6 +5,7 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateAtNode,
 } from "./base";
 import { ComplianceData } from "../../types/nillion";
 
@@ -45,6 +46,62 @@ export async function pushCompliance(data: ComplianceData): Promise<boolean> {
         SCHEMA_IDS.COMPLIANCE
       )
     )
+  );
+
+  return results.every(Boolean);
+}
+
+export async function updateCompliance(
+  recordId: string,
+  updates: Partial<ComplianceData>
+): Promise<boolean> {
+  const [encryption, jwts] = await Promise.all([
+    createEncryptionService(),
+    generateJWTs(),
+  ]);
+
+  const encryptedUpdates: any = {};
+
+  if (updates.name !== undefined) {
+    const nameShares = await encryption.encrypt(updates.name);
+    encryptedUpdates.name = { "%share": nameShares };
+  }
+
+  if (updates.project_id !== undefined) {
+    const projectIdShares = await encryption.encrypt(updates.project_id);
+    encryptedUpdates.project_id = { "%share": projectIdShares };
+  }
+
+  if (updates.owner_address !== undefined) {
+    const ownerAddrShares = await encryption.encrypt(updates.owner_address);
+    encryptedUpdates.owner_address = { "%share": ownerAddrShares };
+  }
+
+  if (updates.source !== undefined) {
+    const sourceShares = await encryption.encrypt(updates.source);
+    encryptedUpdates.source = { "%share": sourceShares };
+  }
+
+  if (updates.data !== undefined) {
+    const dataShares = await encryption.encrypt(updates.data);
+    encryptedUpdates.data = { "%share": dataShares };
+  }
+
+  const results = await Promise.all(
+    [0, 1, 2].map((index) => {
+      const nodeUpdate: any = {};
+      Object.keys(encryptedUpdates).forEach((key) => {
+        nodeUpdate[key] = { "%share": encryptedUpdates[key]["%share"][index] };
+      });
+
+      return updateAtNode(
+        index,
+        recordId,
+        nodeUpdate,
+        jwts[index],
+        SCHEMA_IDS.COMPLIANCE
+      );
+    })
   );
 
   return results.every(Boolean);
@@ -106,23 +163,4 @@ export async function fetchComplianceByAddress(
 ): Promise<ComplianceData[]> {
   const allRecords = await fetchCompliance();
   return allRecords.filter((record) => record.owner_address === targetAddress);
-}
-
-async function main() {
-  const success = await pushCompliance({
-    name: "KYC Compliance Check",
-    project_id: "proj_123",
-    owner_address: "0x1234567890abcdef",
-    source: "compliance_system",
-    data: "{'status': 'verified', 'timestamp': '2024-01-15T10:30:00Z'}",
-  });
-
-  console.log(success ? "✓ Compliance data pushed" : "✗ Push failed");
-
-  const records = await fetchCompliance();
-  console.log("Compliance records:", records);
-}
-
-if (require.main === module) {
-  main().catch(console.error);
 }

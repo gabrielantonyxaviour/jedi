@@ -5,6 +5,7 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateAtNode,
 } from "./base";
 import { ComplianceData } from "./types";
 
@@ -109,6 +110,7 @@ export async function fetchComplianceByAddress(
 }
 
 async function main() {
+  // Create initial record
   const success = await pushCompliance({
     name: "KYC Compliance Check",
     project_id: "proj_123",
@@ -119,8 +121,90 @@ async function main() {
 
   console.log(success ? "✓ Compliance data pushed" : "✗ Push failed");
 
+  // Fetch records to get ID
   const records = await fetchCompliance();
   console.log("Compliance records:", records);
+
+  if (records.length > 0) {
+    // Update the first record
+    const recordToUpdate = records[0];
+    const updateSuccess = await updateCompliance(recordToUpdate._id, {
+      name: "Updated KYC Compliance Check",
+      data: "{'status': 'updated', 'timestamp': '2024-01-16T11:00:00Z'}",
+    });
+
+    console.log(
+      updateSuccess ? "✓ Compliance data updated" : "✗ Update failed"
+    );
+
+    // Fetch updated records
+    const updatedRecords = await fetchCompliance();
+    console.log("Updated compliance records:", updatedRecords);
+  }
+}
+
+export async function updateCompliance(
+  recordId: string,
+  updates: Partial<ComplianceData>
+): Promise<boolean> {
+  const [encryption, jwts] = await Promise.all([
+    createEncryptionService(),
+    generateJWTs(),
+  ]);
+
+  // Encrypt only the fields that are being updated
+  const encryptedUpdates: any = {};
+
+  if (updates.name !== undefined) {
+    const nameShares = await encryption.encrypt(updates.name);
+    encryptedUpdates.name = { "%share": nameShares };
+  }
+
+  if (updates.project_id !== undefined) {
+    const projectIdShares = await encryption.encrypt(updates.project_id);
+    encryptedUpdates.project_id = { "%share": projectIdShares };
+  }
+
+  if (updates.owner_address !== undefined) {
+    const ownerAddrShares = await encryption.encrypt(updates.owner_address);
+    encryptedUpdates.owner_address = { "%share": ownerAddrShares };
+  }
+
+  if (updates.source !== undefined) {
+    const sourceShares = await encryption.encrypt(updates.source);
+    encryptedUpdates.source = { "%share": sourceShares };
+  }
+
+  if (updates.data !== undefined) {
+    const dataShares = await encryption.encrypt(updates.data);
+    encryptedUpdates.data = { "%share": dataShares };
+  }
+
+  // Update across all nodes
+  const results = await Promise.all(
+    [0, 1, 2].map((index) => {
+      const nodeUpdate: any = {};
+
+      // Build node-specific updates with the correct share index
+      Object.keys(encryptedUpdates).forEach((key) => {
+        if (encryptedUpdates[key]["%share"]) {
+          nodeUpdate[key] = {
+            "%share": encryptedUpdates[key]["%share"][index],
+          };
+        }
+      });
+
+      return updateAtNode(
+        index,
+        recordId,
+        nodeUpdate,
+        jwts[index],
+        SCHEMA_IDS.COMPLIANCE
+      );
+    })
+  );
+
+  return results.every(Boolean);
 }
 
 if (require.main === module) {

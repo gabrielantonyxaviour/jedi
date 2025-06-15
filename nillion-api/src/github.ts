@@ -5,6 +5,7 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateRecord,
 } from "./base";
 import { GithubData } from "./types";
 
@@ -152,6 +153,22 @@ async function main() {
 
   const records = await fetchGithub();
   console.log("Github records:", records);
+}
+
+export async function updateGithub(
+  recordId: string,
+  updates: Partial<GithubData>
+): Promise<boolean> {
+  return updateRecord(recordId, updates, SCHEMA_IDS.GITHUB, [
+    "name",
+    "description",
+    "technical_description",
+    "repo_url",
+    "owner",
+    "collab",
+    "owner_address",
+    "metadata",
+  ]);
 }
 
 if (require.main === module) {

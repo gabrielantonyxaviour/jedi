@@ -110,3 +110,81 @@ export async function decryptShares(
   }
   return decrypted;
 }
+
+export async function updateAtNode(
+  nodeIndex: number,
+  recordId: string,
+  updates: any,
+  jwt: string,
+  schemaId: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${NODE_URLS[nodeIndex]}/api/v1/data/update`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        schema: schemaId,
+        filter: { _id: recordId },
+        update: updates,
+      }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error(`Failed to update at node ${nodeIndex}:`, error);
+    return false;
+  }
+}
+
+// Add this to base.ts
+export async function updateRecord<T>(
+  recordId: string,
+  updates: Partial<T>,
+  schemaId: string,
+  fieldsToEncrypt: (keyof T)[]
+): Promise<boolean> {
+  const [encryption, jwts] = await Promise.all([
+    createEncryptionService(),
+    generateJWTs(),
+  ]);
+
+  const encryptedUpdates: any = {};
+
+  // Process each field in updates
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined) {
+      if (fieldsToEncrypt.includes(key as keyof T)) {
+        // Encrypt this field
+        const shares = await encryption.encrypt(String(value));
+        encryptedUpdates[key] = { "%share": shares };
+      } else {
+        // Keep as plaintext
+        encryptedUpdates[key] = value;
+      }
+    }
+  }
+
+  // Update across all nodes
+  const results = await Promise.all(
+    [0, 1, 2].map((index) => {
+      const nodeUpdate: any = {};
+
+      // Build node-specific updates
+      Object.keys(encryptedUpdates).forEach((key) => {
+        if (encryptedUpdates[key] && encryptedUpdates[key]["%share"]) {
+          nodeUpdate[key] = {
+            "%share": encryptedUpdates[key]["%share"][index],
+          };
+        } else {
+          nodeUpdate[key] = encryptedUpdates[key];
+        }
+      });
+
+      return updateAtNode(index, recordId, nodeUpdate, jwts[index], schemaId);
+    })
+  );
+
+  return results.every(Boolean);
+}

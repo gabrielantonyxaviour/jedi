@@ -64,6 +64,33 @@ export async function uploadToNode(
   }
 }
 
+export async function updateAtNode(
+  nodeIndex: number,
+  recordId: string,
+  updates: any,
+  jwt: string,
+  schemaId: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${NODE_URLS[nodeIndex]}/api/v1/data/update`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        schema: schemaId,
+        filter: { _id: recordId },
+        update: updates,
+      }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.error(`Failed to update at node ${nodeIndex}:`, error);
+    return false;
+  }
+}
+
 export async function fetchFromNode(
   nodeIndex: number,
   jwt: string,

@@ -5,8 +5,9 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateAtNode,
 } from "./base";
-import { LogsData } from "./types";
+import { LogsData } from "../../types/nillion";
 
 export async function pushLogs(data: LogsData): Promise<boolean> {
   const [encryption, jwts] = await Promise.all([
@@ -45,6 +46,62 @@ export async function pushLogs(data: LogsData): Promise<boolean> {
         SCHEMA_IDS.LOGS
       )
     )
+  );
+
+  return results.every(Boolean);
+}
+
+export async function updateLogs(
+  recordId: string,
+  updates: Partial<LogsData>
+): Promise<boolean> {
+  const [encryption, jwts] = await Promise.all([
+    createEncryptionService(),
+    generateJWTs(),
+  ]);
+
+  const encryptedUpdates: any = {};
+
+  if (updates.owner_address !== undefined) {
+    const ownerAddrShares = await encryption.encrypt(updates.owner_address);
+    encryptedUpdates.owner_address = { "%share": ownerAddrShares };
+  }
+
+  if (updates.project_id !== undefined) {
+    const projectIdShares = await encryption.encrypt(updates.project_id);
+    encryptedUpdates.project_id = { "%share": projectIdShares };
+  }
+
+  if (updates.agent_name !== undefined) {
+    const agentNameShares = await encryption.encrypt(updates.agent_name);
+    encryptedUpdates.agent_name = { "%share": agentNameShares };
+  }
+
+  if (updates.text !== undefined) {
+    const textShares = await encryption.encrypt(updates.text);
+    encryptedUpdates.text = { "%share": textShares };
+  }
+
+  if (updates.data !== undefined) {
+    const dataShares = await encryption.encrypt(updates.data);
+    encryptedUpdates.data = { "%share": dataShares };
+  }
+
+  const results = await Promise.all(
+    [0, 1, 2].map((index) => {
+      const nodeUpdate: any = {};
+      Object.keys(encryptedUpdates).forEach((key) => {
+        nodeUpdate[key] = { "%share": encryptedUpdates[key]["%share"][index] };
+      });
+
+      return updateAtNode(
+        index,
+        recordId,
+        nodeUpdate,
+        jwts[index],
+        SCHEMA_IDS.LOGS
+      );
+    })
   );
 
   return results.every(Boolean);
@@ -104,23 +161,4 @@ export async function fetchLogsByAddress(
 ): Promise<LogsData[]> {
   const allRecords = await fetchLogs();
   return allRecords.filter((record) => record.owner_address === targetAddress);
-}
-
-async function main() {
-  const success = await pushLogs({
-    owner_address: "0x1234567890abcdef",
-    project_id: "proj_123",
-    agent_name: "DataAgent",
-    text: "Successfully processed user request",
-    data: "{'action': 'user_login', 'timestamp': '2024-01-15T10:30:00Z'}",
-  });
-
-  console.log(success ? "✓ Logs data pushed" : "✗ Push failed");
-
-  const records = await fetchLogs();
-  console.log("Logs records:", records);
-}
-
-if (require.main === module) {
-  main().catch(console.error);
 }

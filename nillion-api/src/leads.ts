@@ -5,6 +5,7 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateRecord,
 } from "./base";
 import { LeadsData } from "./types";
 
@@ -135,6 +136,20 @@ async function main() {
 
   const records = await fetchLeads();
   console.log("Leads records:", records);
+}
+
+export async function updateLeads(
+  recordId: string,
+  updates: Partial<LeadsData>
+): Promise<boolean> {
+  return updateRecord(recordId, updates, SCHEMA_IDS.LEADS, [
+    "name",
+    "source",
+    "desc",
+    "metadata",
+    "owner_address",
+    "project_id",
+  ]);
 }
 
 if (require.main === module) {

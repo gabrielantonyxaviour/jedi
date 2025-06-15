@@ -5,8 +5,9 @@ import {
   createEncryptionService,
   uploadToNode,
   fetchFromNode,
+  updateAtNode,
 } from "./base";
-import { SocialsData } from "./types";
+import { SocialsData } from "../../types/nillion";
 
 export async function pushSocials(data: SocialsData): Promise<boolean> {
   const [encryption, jwts] = await Promise.all([
@@ -74,6 +75,122 @@ export async function pushSocials(data: SocialsData): Promise<boolean> {
         SCHEMA_IDS.SOCIALS
       )
     )
+  );
+
+  return results.every(Boolean);
+}
+
+export async function updateSocials(
+  recordId: string,
+  updates: Partial<SocialsData>
+): Promise<boolean> {
+  const [encryption, jwts] = await Promise.all([
+    createEncryptionService(),
+    generateJWTs(),
+  ]);
+
+  const encryptedUpdates: any = {};
+
+  if (updates.owner_address !== undefined) {
+    const ownerAddrShares = await encryption.encrypt(updates.owner_address);
+    encryptedUpdates.owner_address = { "%share": ownerAddrShares };
+  }
+
+  if (updates.project_id !== undefined) {
+    const projectIdShares = await encryption.encrypt(updates.project_id);
+    encryptedUpdates.project_id = { "%share": projectIdShares };
+  }
+
+  if (updates.twitter !== undefined) {
+    const twitterNameShares = await encryption.encrypt(updates.twitter.name);
+    const twitterEmailShares = await encryption.encrypt(updates.twitter.email);
+    const twitterPasswordShares = await encryption.encrypt(
+      updates.twitter.password
+    );
+
+    encryptedUpdates.twitter = {
+      name: { "%share": twitterNameShares },
+      email: { "%share": twitterEmailShares },
+      password: { "%share": twitterPasswordShares },
+    };
+  }
+
+  if (updates.telegram !== undefined) {
+    const telegramUsernameShares = await encryption.encrypt(
+      updates.telegram.username
+    );
+    const telegramBotTokenShares = await encryption.encrypt(
+      updates.telegram.bot_token
+    );
+
+    encryptedUpdates.telegram = {
+      username: { "%share": telegramUsernameShares },
+      bot_token: { "%share": telegramBotTokenShares },
+    };
+  }
+
+  if (updates.twitter_actions !== undefined) {
+    const twitterActionsShares = await encryption.encrypt(
+      JSON.stringify(updates.twitter_actions)
+    );
+    encryptedUpdates.twitter_actions = [
+      {
+        id: { "%share": twitterActionsShares },
+        action: { "%share": twitterActionsShares },
+        ref_id: { "%share": twitterActionsShares },
+        text: { "%share": twitterActionsShares },
+      },
+    ];
+  }
+
+  if (updates.telegram_actions !== undefined) {
+    const telegramActionsShares = await encryption.encrypt(
+      JSON.stringify(updates.telegram_actions)
+    );
+    encryptedUpdates.telegram_actions = [
+      {
+        id: { "%share": telegramActionsShares },
+        text: { "%share": telegramActionsShares },
+        ref_user_id: { "%share": telegramActionsShares },
+      },
+    ];
+  }
+
+  const results = await Promise.all(
+    [0, 1, 2].map((index) => {
+      const nodeUpdate: any = {};
+
+      Object.keys(encryptedUpdates).forEach((key) => {
+        if (key === "twitter" || key === "telegram") {
+          nodeUpdate[key] = {};
+          Object.keys(encryptedUpdates[key]).forEach((subKey) => {
+            nodeUpdate[key][subKey] = {
+              "%share": encryptedUpdates[key][subKey]["%share"][index],
+            };
+          });
+        } else if (key === "twitter_actions" || key === "telegram_actions") {
+          nodeUpdate[key] = encryptedUpdates[key].map((item: any) => {
+            const updatedItem: any = {};
+            Object.keys(item).forEach((subKey) => {
+              updatedItem[subKey] = { "%share": item[subKey]["%share"][index] };
+            });
+            return updatedItem;
+          });
+        } else {
+          nodeUpdate[key] = {
+            "%share": encryptedUpdates[key]["%share"][index],
+          };
+        }
+      });
+
+      return updateAtNode(
+        index,
+        recordId,
+        nodeUpdate,
+        jwts[index],
+        SCHEMA_IDS.SOCIALS
+      );
+    })
   );
 
   return results.every(Boolean);
@@ -171,44 +288,4 @@ export async function fetchSocialsByAddress(
 ): Promise<SocialsData[]> {
   const allRecords = await fetchSocials();
   return allRecords.filter((record) => record.owner_address === targetAddress);
-}
-
-async function main() {
-  const success = await pushSocials({
-    owner_address: "0x1234567890abcdef",
-    project_id: "proj_123",
-    twitter: {
-      name: "MyBot",
-      email: "bot@example.com",
-      password: "securepassword123",
-    },
-    telegram: {
-      username: "mybot_telegram",
-      bot_token: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
-    },
-    twitter_actions: [
-      {
-        id: "action_1",
-        action: "tweet",
-        ref_id: "ref_123",
-        text: "Hello Twitter!",
-      },
-    ],
-    telegram_actions: [
-      {
-        id: "tg_action_1",
-        text: "Hello Telegram!",
-        ref_user_id: "user_456",
-      },
-    ],
-  });
-
-  console.log(success ? "✓ Socials data pushed" : "✗ Push failed");
-
-  const records = await fetchSocials();
-  console.log("Socials records:", records);
-}
-
-if (require.main === module) {
-  main().catch(console.error);
 }
