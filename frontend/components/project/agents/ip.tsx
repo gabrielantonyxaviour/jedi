@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, ExternalLink, Users, Eye, Plus, X } from "lucide-react";
+import { ExternalLink, Users, Eye, Plus, X } from "lucide-react";
 import { getAgentDisplayName } from "@/utils/agentUtils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { v4 as uuidv4 } from "uuid";
+import { useAccount, useWalletClient } from "wagmi";
 
 interface IPAgentProps {
   userSide: "light" | "dark" | null;
@@ -18,18 +20,21 @@ export default function IPAgent({
   userSide,
   isSetup = true,
   setup = () => console.log("Setup called"),
-  userAddress = "0x1234567890abcdef1234567890abcdef12345678",
+  userAddress = "0x0429A2Da7884CA14E53142988D5845952fE4DF6a",
 }: IPAgentProps) {
   const [activeTab, setActiveTab] = useState("assets");
+  const [isSettingUp, setIsSettingUp] = useState(false);
   const agentId = "ip";
+  const { data: walletClient } = useWalletClient();
 
   // Setup form state
   const [formData, setFormData] = useState({
-    name: "",
-    desc: "",
-    image_url: "",
+    name: "Jedi",
+    desc: "Early-stage TypeScript chat application with agent servers and interactive dialogs. Single contributor actively developing core chat functionalities",
+    image_url:
+      "https://pbs.twimg.com/profile_images/1931304627124744192/g6Zgm1BD_400x400.jpg",
     owners: [userAddress],
-    remix_license_terms: "",
+    remix_license_terms: "commercial",
   });
   const [newOwner, setNewOwner] = useState("");
 
@@ -59,13 +64,18 @@ export default function IPAgent({
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (
       formData.name &&
       formData.desc &&
       formData.owners.length > 0 &&
       formData.remix_license_terms
     ) {
+      setIsSettingUp(true);
+      const accoount = walletClient?.account;
+      // await registerIp(accoount);
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      setIsSettingUp(false);
       setup(formData);
     }
   };
@@ -224,20 +234,22 @@ export default function IPAgent({
                     !formData.name ||
                     !formData.desc ||
                     formData.owners.length === 0 ||
-                    !formData.remix_license_terms
+                    !formData.remix_license_terms ||
+                    isSettingUp
                   }
                   className={`w-full py-3 rounded font-medium transition-colors ${
                     !formData.name ||
                     !formData.desc ||
                     formData.owners.length === 0 ||
-                    !formData.remix_license_terms
+                    !formData.remix_license_terms ||
+                    isSettingUp
                       ? "bg-stone-700 text-stone-400 cursor-not-allowed"
                       : userSide === "light"
                       ? "bg-blue-600 text-white hover:bg-blue-700"
                       : "bg-red-600 text-white hover:bg-red-700"
                   }`}
                 >
-                  Confirm Setup
+                  {isSettingUp ? "Setting Up" : "Confirm Setup"}
                 </button>
               </div>
             </div>
@@ -250,27 +262,14 @@ export default function IPAgent({
   // Mock Story Protocol IP assets (corrected format)
   const ipAssets = [
     {
-      _id: "story-001",
-      owner_address: "0x1234567890abcdef1234567890abcdef12345678",
-      project_id: "proj_001",
-      name: "MasumiAI Core",
-      desc: "AI-powered development assistant with advanced code analysis and intelligent suggestions",
-      owners: "author123",
-      image_url: "https://example.com/masumi-logo.png",
-      ipa: "0x789abc123def456",
-      parent_ipa: "empty",
-      remix_license_terms: "commercial",
-      register_tx_hash:
-        "0x456def789abc123ghi456jkl789mno012pqr345stu678vwx901yz234",
-    },
-    {
-      _id: "story-002",
-      owner_address: "0x1234567890abcdef1234567890abcdef12345678",
-      project_id: "proj_002",
-      name: "Code Analysis Module",
+      _id: uuidv4(),
+      owner_address: "0x0429A2Da7884CA14E53142988D5845952fE4DF6a",
+      project_id: uuidv4(),
+      name: "Jedi",
       desc: "Specialized module for real-time code quality assessment derived from MasumiAI Core",
-      owners: "author123",
-      image_url: "https://example.com/module-logo.png",
+      owners: "0x0429A2Da7884CA14E53142988D5845952fE4DF6a",
+      image_url:
+        "https://pbs.twimg.com/profile_images/1931304627124744192/g6Zgm1BD_400x400.jpg",
       ipa: "0xdef456789abc123",
       parent_ipa: "0x789abc123def456",
       remix_license_terms: "non-commercial",
@@ -280,7 +279,7 @@ export default function IPAgent({
   ];
 
   const assets = ipAssets.map((asset) => ({
-    id: asset.id,
+    id: (asset as any).id,
     name: asset.name,
     description: asset.desc,
     owners: [asset.owner_address], // Simplified for display

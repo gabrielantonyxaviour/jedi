@@ -22,7 +22,7 @@ export class GitHubIntelligenceAgent {
   private openai: OpenAI;
   private repositoryService: RepositoryService;
   private webhookService: WebhookService;
-  private agentName: string = "github-intelligence-agent";
+  private agentName: string = "github-intelligence";
 
   constructor() {
     this.octokit = new Octokit({
@@ -203,9 +203,16 @@ export class GitHubIntelligenceAgent {
     technicalSummary: string;
     developers: any[];
   }): Promise<any> {
+    console.log(
+      `[GitHubIntelligenceAgent] Creating project for ${data.repoUrl}`
+    );
     const { owner, repo } = this.parseRepoUrl(data.repoUrl);
+    console.log(`[GitHubIntelligenceAgent] Parsed repo: ${owner}/${repo}`);
 
     // Store in GitHub collection
+    console.log(
+      `[GitHubIntelligenceAgent] Storing project in GitHub collection`
+    );
     await pushGithub({
       project_id: data.projectId,
       name: data.name,
@@ -222,13 +229,19 @@ export class GitHubIntelligenceAgent {
         createdAt: new Date().toISOString(),
       }),
     });
+    console.log(`[GitHubIntelligenceAgent] Project stored successfully`);
 
     // Update creating collection to mark github step as complete
+    console.log(`[GitHubIntelligenceAgent] Updating creating collection`);
     await pushCreating({
       address: data.ownerAddress,
       init_step: "setup", // Move to next step
     });
+    console.log(`[GitHubIntelligenceAgent] Creating collection updated`);
 
+    console.log(
+      `[GitHubIntelligenceAgent] Project creation completed successfully`
+    );
     return {
       projectId: data.projectId,
       name: data.name,
@@ -333,7 +346,7 @@ export class GitHubIntelligenceAgent {
         id: uuidv4(),
         owner_address: ownerAddress,
         project_id: workflowId,
-        agent_name: this.agentName,
+        agent_name: "orchestrator",
         text: error
           ? `Task ${taskId} failed: ${error}`
           : `Task ${taskId} completed successfully`,

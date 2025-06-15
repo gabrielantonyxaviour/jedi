@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Github, GitBranch, Star, Users, Activity } from "lucide-react";
+import { GitBranch, Star, Activity, Github } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { useProjectData } from "@/hooks/use-project-data";
 import { getAgentDisplayName } from "@/utils/agentUtils";
@@ -21,34 +21,39 @@ export default function GitHubAgent({ userSide }: GitHubAgentProps) {
   // Mock data matching schema
   const githubData = {
     _id: "gh-001",
-    name: { "%share": data?.repo || "masumi-ai" },
+    name: { "%share": data?.repo || "jedi" },
     description: {
-      "%share": data?.summary || "AI-powered development assistant",
+      "%share":
+        data?.summary ||
+        "Early-stage TypeScript chat application with agent servers and interactive dialogs. Single contributor actively developing core chat functionalities",
     },
     technical_description: {
       "%share":
         data?.technicalDescription ||
-        "React/TypeScript application with AI integration",
+        "The Jedi AI Framework implements a TypeScript-based distributed chat system using an agent server architecture where multiple server instances coordinate to handle chat requests and manage real-time communication flows. The 5841 KB codebase suggests a substantial implementation with strongly-typed message contracts, event-driven processing, and a real-time UI component ('mp chat dialog') that likely leverages WebSocket connections for bidirectional communication. The architecture appears to follow a microservices pattern with agent servers acting as specialized message processors, enabling horizontal scaling and load distribution across instances, while the TypeScript foundation provides compile-time safety for message schemas and inter-service communication protocols",
     },
     repo_url: {
       "%share": `https://github.com/${
         data?.developers?.[0]?.github_username || "user"
       }/${data?.repo || "project"}`,
     },
-    owner: { "%share": data?.developers?.[0]?.github_username || "developer" },
+    owner: {
+      "%share":
+        data?.developers?.[0]?.github_username || "gabrielantonyxaviour",
+    },
     collab: { "%share": JSON.stringify(data?.developers || []) },
     owner_address: { "%share": "0x1234567890abcdef" },
     metadata: {
       "%share": JSON.stringify({
-        stars: 42,
+        stars: 0,
         forks: data?.technicalSummary?.includes("fork") ? 1 : 0,
-        issues: 5,
-        prs: 3,
+        issues: 0,
+        prs: 0,
         languages: data?.ipMetadata?.programmingLanguages?.map(
           (lang: any) => lang.S
-        ) || ["TypeScript", "JavaScript"],
+        ) || ["TypeScript", "JavaScript", "CSS"],
         license: data?.ipMetadata?.license?.S || "MIT",
-        lastCommit: data?.updatedAt || "2025-06-14",
+        lastCommit: data?.updatedAt || "2025-06-15",
       }),
     },
   };

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { v4 as uuidv4 } from "uuid";
 
 interface KarmaAgentProps {
   userSide: "light" | "dark" | null;
@@ -21,57 +22,31 @@ export default function KarmaAgent({
   setup,
 }: KarmaAgentProps) {
   const [activeTab, setActiveTab] = useState("grants");
+  const [isSettingUp, setIsSettingUp] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    desc: "",
-    ownerAddresses: [""],
-    userEmail: "",
-    userName: "",
+    name: "Jedi",
+    desc: "Early-stage TypeScript chat application with agent servers and interactive dialogs. Single contributor actively developing core chat functionalities.",
+    ownerAddresses: ["0x0429A2Da7884CA14E53142988D5845952fE4DF6a"],
+    userEmail: "gabrielantony5@gmail.com",
+    userName: "Gabriel Antony",
   });
 
   const agentId = "karma";
 
   // Mock grants data with correct format
   const projectData = {
-    project_id: "proj_123",
-    name: "MasumiAI",
-    desc: "AI-powered development assistant for enhanced coding productivity",
-    links: "https://github.com/user/masumi-ai",
-    image_url: "https://example.com/masumi-logo.png",
-    owner_address: "0x1234567890abcdef1234567890abcdef12345678",
-    members: "alice@example.com,bob@example.com",
-    user_email: "contact@masumi.ai",
-    user_name: "MasumiAI Team",
-    grants: [
-      {
-        id: "gr-001",
-        name: "Ethereum Foundation Grant",
-        desc: "$50K for AI development tools research",
-        applied_at: "2024-05-15",
-      },
-      {
-        id: "gr-002",
-        name: "Gitcoin Grants Round",
-        desc: "$15K community funding for open source AI tools",
-        applied_at: "2024-06-01",
-      },
-    ],
-    milestones: [
-      {
-        id: "ms-001",
-        grant_id: "gr-001",
-        name: "MVP Development",
-        desc: "Complete core AI assistant functionality",
-        created_at: "2024-05-20",
-      },
-      {
-        id: "ms-002",
-        grant_id: "gr-001",
-        name: "Beta Testing",
-        desc: "Launch beta with 100+ developers",
-        created_at: "2024-06-10",
-      },
-    ],
+    project_id: uuidv4(),
+    name: "Jedi",
+    links: "https://github.com/gabrielantonyxaviour/jedi",
+    image_url:
+      "https://pbs.twimg.com/profile_images/1931304627124744192/g6Zgm1BD_400x400.jpg",
+    desc: "Early-stage TypeScript chat application with agent servers and interactive dialogs. Single contributor actively developing core chat functionalities.",
+    owner_address: "0x0429A2Da7884CA14E53142988D5845952fE4DF6a",
+    members: "gabrielantony5@gmail.com,jedionchain@gmail.com",
+    user_email: "gabrielantony56@gmail.com",
+    user_name: "Gabriel",
+    grants: [],
+    milestones: [],
   };
 
   const updateFormData = (field: string, value: string | string[]) => {
@@ -216,7 +191,12 @@ export default function KarmaAgent({
             </div>
 
             <Button
-              onClick={setup}
+              onClick={async () => {
+                setIsSettingUp(true);
+                await new Promise((resolve) => setTimeout(resolve, 5000));
+                setIsSettingUp(false);
+                setup();
+              }}
               className={`w-full ${
                 userSide === "light"
                   ? "bg-blue-600 hover:bg-blue-700"
@@ -227,10 +207,11 @@ export default function KarmaAgent({
                 !formData.desc ||
                 !formData.ownerAddresses[0] ||
                 !formData.userEmail ||
-                !formData.userName
+                !formData.userName ||
+                isSettingUp
               }
             >
-              Confirm Setup
+              {isSettingUp ? "Setting Up" : "Confirm Setup"}
             </Button>
           </div>
         </ScrollArea>

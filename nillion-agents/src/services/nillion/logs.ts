@@ -120,14 +120,15 @@ export async function fetchLogs(): Promise<LogsData[]> {
     createEncryptionService(),
     generateJWTs(),
   ]);
+
   const allRecords = await Promise.all(
     [0, 1, 2].map((index) => fetchFromNode(index, jwts[index], SCHEMA_IDS.LOGS))
   );
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record.id)) {
-      recordMap.set(record.id, {
+    if (!recordMap.has(record._id)) {
+      recordMap.set(record._id, {
         idShares: [],
         ownerAddrShares: [],
         projectIdShares: [],
@@ -136,7 +137,7 @@ export async function fetchLogs(): Promise<LogsData[]> {
         dataShares: [],
       });
     }
-    const entry = recordMap.get(record.id);
+    const entry = recordMap.get(record._id);
     entry.idShares.push(record.id["%share"]);
     entry.ownerAddrShares.push(record.owner_address["%share"]);
     entry.projectIdShares.push(record.project_id["%share"]);
@@ -147,6 +148,7 @@ export async function fetchLogs(): Promise<LogsData[]> {
 
   const decrypted: LogsData[] = [];
   for (const [num_id, shares] of Array.from(recordMap.entries())) {
+    // console.log("🔍 Shares:", shares);
     if (shares.ownerAddrShares.length === 3) {
       try {
         const [id, owner_address, project_id, agent_name, text, data] =
@@ -171,6 +173,8 @@ export async function fetchLogs(): Promise<LogsData[]> {
       }
     }
   }
+
+  console.log("🔍 Decrypted:", decrypted);
   return decrypted;
 }
 

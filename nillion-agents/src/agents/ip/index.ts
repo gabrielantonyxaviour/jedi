@@ -226,7 +226,7 @@ export class IPAgent {
 
   async registerGitHubProject(payload: {
     projectId: string;
-    ownerId: string;
+    ownerAddress: string;
     ownerAddress: string;
     title: string;
     description: string;
@@ -269,7 +269,7 @@ export class IPAgent {
       attributes: [
         { trait_type: "Project Type", value: "GitHub Repository" },
         { trait_type: "License", value: payload.license },
-        { trait_type: "Owner", value: payload.ownerId },
+        { trait_type: "Owner", value: payload.ownerAddress },
         {
           trait_type: "Primary Language",
           value: payload.programmingLanguages[0] || "Unknown",

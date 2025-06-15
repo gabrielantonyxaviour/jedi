@@ -37,12 +37,24 @@ export class RepositoryService {
     taskId?: string,
     workflowId?: string
   ): Promise<RepoData> {
+    console.log(`[RepositoryService] Starting analysis for ${repoUrl}`);
     const { owner, repo } = this.parseRepoUrl(repoUrl);
+
+    console.log(
+      `[RepositoryService] Fetching repository info for ${owner}/${repo}`
+    );
     const repoInfo = await this.fetchRepositoryInfo(owner, repo);
+
+    console.log(`[RepositoryService] Fetching recent commits`);
     const commits = await this.fetchRecentCommits(owner, repo);
+
+    console.log(`[RepositoryService] Fetching important files`);
     const files = await this.fetchImportantFiles(owner, repo);
+
+    console.log(`[RepositoryService] Fetching contributors`);
     const developers = await this.fetchContributors(owner, repo);
 
+    console.log(`[RepositoryService] Generating summary`);
     const { name, summary, technicalSummary } = await this.generateSummary(
       repoInfo,
       commits,
@@ -60,19 +72,52 @@ export class RepositoryService {
       technicalSummary,
     };
 
-    // Store analysis in Nillion
-    await pushGithub({
+    console.log(`[RepositoryService] Storing analysis in Nillion`);
+    console.log("Storing Data");
+    console.log({
       project_id: projectId,
       name: name || repoInfo.name,
-      description: summary || "",
-      technical_description: technicalSummary || "",
+      description: summary.slice(0, 500) || "",
+      technical_description: technicalSummary.slice(0, 500) || "",
       repo_url: repoUrl,
       owner: owner,
       collab: developers.map((d) => d.github_username).join(","),
       owner_address: ownerAddress,
       metadata: JSON.stringify({
-        repoInfo,
-        files: files.map((f) => ({ name: f.name, path: f.path, type: f.type })),
+        repoInfo: {
+          name: repoInfo.name,
+          full_name: repoInfo.full_name,
+          language: repoInfo.language,
+          stars: repoInfo.stargazers_count,
+          forks: repoInfo.forks_count,
+          size: repoInfo.size,
+          open_issues: repoInfo.open_issues_count,
+        },
+        lastAnalyzed: repoData.lastAnalyzed,
+        taskId,
+        workflowId,
+      }),
+    });
+
+    await pushGithub({
+      project_id: projectId,
+      name: name || repoInfo.name,
+      description: summary.slice(0, 500) || "",
+      technical_description: technicalSummary.slice(0, 500) || "",
+      repo_url: repoUrl,
+      owner: owner,
+      collab: developers.map((d) => d.github_username).join(","),
+      owner_address: ownerAddress,
+      metadata: JSON.stringify({
+        repoInfo: {
+          name: repoInfo.name,
+          full_name: repoInfo.full_name,
+          language: repoInfo.language,
+          stars: repoInfo.stargazers_count,
+          forks: repoInfo.forks_count,
+          size: repoInfo.size,
+          open_issues: repoInfo.open_issues_count,
+        },
         lastAnalyzed: repoData.lastAnalyzed,
         taskId,
         workflowId,
@@ -80,20 +125,30 @@ export class RepositoryService {
     });
 
     // Log the analysis completion
+    console.log(`[RepositoryService] Logging analysis completion`);
     await pushLogs({
       id: uuidv4(),
       owner_address: ownerAddress,
       project_id: workflowId || "analysis",
-      agent_name: "github-repository-service",
+      agent_name: "github-intelligence",
       text: `Repository analysis completed for ${owner}/${repo}`,
       data: JSON.stringify({
         type: "REPOSITORY_ANALYSIS",
         repoUrl,
-        analysisResult: repoData,
+        repoInfo: {
+          name: repoInfo.name,
+          full_name: repoInfo.full_name,
+          language: repoInfo.language,
+          stars: repoInfo.stargazers_count,
+          forks: repoInfo.forks_count,
+          size: repoInfo.size,
+          open_issues: repoInfo.open_issues_count,
+        },
         timestamp: new Date().toISOString(),
       }),
     });
 
+    console.log(`[RepositoryService] Analysis completed successfully`);
     return repoData;
   }
 
@@ -114,7 +169,7 @@ export class RepositoryService {
       id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "commits",
-      agent_name: "github-repository-service",
+      agent_name: "github-intelligence",
       text: `Fetched ${commits.length} latest commits from ${owner}/${repo}`,
       data: JSON.stringify({
         type: "FETCH_COMMITS",
@@ -145,7 +200,7 @@ export class RepositoryService {
       id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "repo-info",
-      agent_name: "github-repository-service",
+      agent_name: "github-intelligence",
       text: `Fetched repository info for ${owner}/${repo}`,
       data: JSON.stringify({
         type: "FETCH_REPO_INFO",
@@ -176,7 +231,7 @@ export class RepositoryService {
       id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "files",
-      agent_name: "github-repository-service",
+      agent_name: "github-intelligence",
       text: `Fetched ${files.length} important files from ${owner}/${repo}`,
       data: JSON.stringify({
         type: "FETCH_IMPORTANT_FILES",
@@ -213,7 +268,7 @@ export class RepositoryService {
       id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "file-updates",
-      agent_name: "github-repository-service",
+      agent_name: "github-intelligence",
       text: `Updated ${payload.files.length} files in ${owner}/${repo}`,
       data: JSON.stringify({
         type: "UPDATE_FILES",

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { getAgentDisplayName } from "@/utils/agentUtils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { v4 as uuidv4 } from "uuid";
 
 interface SocialsAgentProps {
   userSide: "light" | "dark" | null;
@@ -25,6 +26,7 @@ export default function SocialsAgent({
 }: SocialsAgentProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSettingUp, setIsSettingUp] = useState(false);
   const [setupData, setSetupData] = useState({
     twitterUsername: "jedionchain",
     twitterEmail: "jedionchain@gmail.com",
@@ -36,12 +38,12 @@ export default function SocialsAgent({
 
   // Mock data matching schema
   const socialsData = {
-    owner_address: "0x1234567890abcdef",
-    project_id: "proj_123",
+    owner_address: "0x0429A2Da7884CA14E53142988D5845952fE4DF6a",
+    project_id: uuidv4(),
     twitter: {
-      name: "MyBot",
-      email: "bot@example.com",
-      password: "securepassword123",
+      name: process.env.TWITTER_USERNAME,
+      email: process.env.TWITTER_EMAIL,
+      password: process.env.TWITTER_PASSWORD,
     },
     telegram: {
       username: "mybot_telegram",
@@ -49,48 +51,26 @@ export default function SocialsAgent({
     },
     twitter_actions: [
       {
-        id: "tw_001",
+        id: "1",
         action: "tweet",
-        ref_id: "repo_update_v1.2",
-        text: "🚀 Just released v1.2 with exciting new AI features! Check out the latest updates on GitHub.",
-      },
-      {
-        id: "tw_002",
-        action: "retweet",
-        ref_id: "dev_community_post",
-        text: "Great insights from the developer community on AI trends!",
-      },
-      {
-        id: "tw_003",
-        action: "reply",
-        ref_id: "user_question_001",
-        text: "Thanks for the feedback! We're working on that feature for the next release.",
+        ref_id: "",
+        text: "hear me out.\n if you build cool shit, you don't need a co-founder.\nyou need a jedi.",
       },
     ],
-    telegram_actions: [
-      {
-        id: "tg_001",
-        text: "Welcome to MasumiAI! Type /help to see available commands.",
-        ref_user_id: "user_123456",
-      },
-      {
-        id: "tg_002",
-        text: "Your project analysis is complete! Here's your detailed report...",
-        ref_user_id: "user_789012",
-      },
-    ],
+    telegram_actions: [],
   };
 
   // Transform data for UI
   const connectedAccounts = {
     twitter: {
-      name: socialsData.twitter.name,
-      username: `@${socialsData.twitter.name.toLowerCase()}`,
+      name: "Jedi",
+      username: `@${"jedionchain"}`,
       connected: true,
       recentActions: socialsData.twitter_actions.length,
     },
     telegram: {
-      name: socialsData.telegram.username,
+      name: "Jedi",
+      username: `@${"JediOnChain_bot"}`,
       connected: true,
       recentActions: socialsData.telegram_actions.length,
     },
@@ -107,8 +87,8 @@ export default function SocialsAgent({
     ...socialsData.telegram_actions.map((action) => ({
       platform: "Telegram",
       type: "message",
-      text: action.text,
-      id: action.id,
+      text: (action as any).text,
+      id: (action as any).id,
       icon: MessageCircle,
     })),
   ];
@@ -273,8 +253,13 @@ export default function SocialsAgent({
               </div>
 
               <button
-                onClick={setup}
-                disabled={!isFormValid()}
+                onClick={async () => {
+                  setIsSettingUp(true);
+                  await new Promise((resolve) => setTimeout(resolve, 5000));
+                  setIsSettingUp(false);
+                  setup();
+                }}
+                disabled={!isFormValid() || isSettingUp}
                 className={`w-full p-3 rounded-lg font-medium transition-colors ${
                   isFormValid()
                     ? userSide === "light"
@@ -283,7 +268,7 @@ export default function SocialsAgent({
                     : "bg-stone-700 text-stone-400 cursor-not-allowed"
                 }`}
               >
-                Confirm Setup
+                {isSettingUp ? "Setting Up" : "Confirm Setup"}
               </button>
             </div>
           </div>

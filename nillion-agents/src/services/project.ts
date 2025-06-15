@@ -20,7 +20,7 @@ export interface ProjectInfo {
   side: string;
   summary?: string;
   technicalSummary?: string;
-  ownerId: string;
+  ownerAddress: string;
   init_state: "GITHUB" | "SETUP" | "SOCIALS" | "KARMA" | "IP";
 
   // Karma integration fields

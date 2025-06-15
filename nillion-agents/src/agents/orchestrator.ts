@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
 import { fetchLogs, pushLogs } from "../services/nillion"; // Import Nillion functions
-
+import { Scraper } from "agent-twitter-client";
 interface AgentCharacter {
   name: string;
   bio: string | string[];
@@ -38,7 +38,7 @@ interface WorkflowRequest {
     | "BLOCKCHAIN_OPERATION"
     | "KARMA_SYNC"
     | "IP_MONITORING"
-    | "PROJECT_CREATION"
+    | "ANALYZE_AND_SETUP_PROJECT"
     | "PROJECT_INFO_SETUP"
     | "INTERACTIVE_ACTION";
   payload: any;
@@ -52,6 +52,7 @@ interface TaskStatus {
   taskId: string;
   workflowId: string;
   projectId: string;
+  ownerAddress: string;
   status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
   agent: string;
   characterAgent?: string;
@@ -139,7 +140,7 @@ export class CoreOrchestratorAgent {
             repoUrl,
             projectId,
             side,
-            owner: walletAddress,
+            ownerAddress: walletAddress,
             characterInfo: characterContext.github,
             extractProjectInfo: true,
           },
@@ -151,7 +152,7 @@ export class CoreOrchestratorAgent {
 
         // Store initial project workflow
         await this.storeWorkflow({
-          type: "PROJECT_CREATION",
+          type: "ANALYZE_AND_SETUP_PROJECT",
           workflowId,
           userId: walletAddress,
           projectId: projectId,
@@ -159,7 +160,7 @@ export class CoreOrchestratorAgent {
           payload: {
             projectId,
             repoUrl,
-            walletAddress,
+            ownerAddress: walletAddress,
             side,
             step: "github_analysis",
           },
@@ -191,6 +192,30 @@ export class CoreOrchestratorAgent {
           details: error.message,
         });
       }
+    });
+
+    this.app.get("/api/tweet", async (req: any, res: any) => {
+      const scraper = new Scraper();
+      const tweetText = `🚀 Just took over the Jedi AI Framework - a TypeScript chat system where agent servers do the heavy lifting so humans can just... chat 
+
+      5.8MB of "how hard could real-time messaging be?" energy ⚡
+      
+      Welcome to the repo where we're basically building Slack but with more lightsabers 🗡️
+      
+      #TypeScript #AI #OpenSource`;
+
+      await scraper.login(
+        process.env.TWITTER_USERNAME!,
+        process.env.TWITTER_PASSWORD!,
+        process.env.TWITTER_EMAIL
+      );
+      const result = await scraper.sendTweet(tweetText, undefined, undefined);
+      console.log(result);
+      const responseData = await result.json();
+      res.json({
+        tweet: result,
+        url: `https://twitter.com/${process.env.TWITTER_USERNAME}/status/${responseData.id}`,
+      });
     });
 
     // 2. Setup basic project info
@@ -226,6 +251,7 @@ export class CoreOrchestratorAgent {
           const updates = {
             name,
             description,
+            ownerAddress: project.ownerAddress,
             technicalDescription,
             imageUrl,
             updatedAt: new Date().toISOString(),
@@ -245,6 +271,7 @@ export class CoreOrchestratorAgent {
             payload: {
               projectId,
               projectName: name,
+              ownerAddress: project.ownerAddress,
               description,
               technicalDescription,
               keywords: this.extractKeywords(description, technicalDescription),
@@ -259,10 +286,14 @@ export class CoreOrchestratorAgent {
           const workflow: WorkflowRequest = {
             type: "PROJECT_INFO_SETUP",
             workflowId,
-            userId: project.ownerId,
+            userId: project.ownerAddress,
             projectId: projectId,
             priority: "MEDIUM",
-            payload: { projectId, step: "lead_discovery" },
+            payload: {
+              projectId,
+              step: "lead_discovery",
+              ownerAddress: project.ownerAddress,
+            },
           };
           console.log(`[Setup Info] Storing workflow:`, workflow);
           await this.storeWorkflow(workflow);
@@ -1151,7 +1182,7 @@ export class CoreOrchestratorAgent {
       type: "REGISTER_GITHUB_PROJECT",
       payload: {
         projectId: project.projectId,
-        ownerId: project.ownerId,
+        ownerAddress: project.ownerAddress,
         title: project.name,
         description: project.description,
         logoUrl: project.imageUrl,
@@ -1370,6 +1401,7 @@ export class CoreOrchestratorAgent {
       priority: "HIGH",
       payload: {
         projectId: project.projectId,
+        ownerAddress: project.ownerAddress,
         actionPlan,
         status: "executing",
       },
@@ -1407,7 +1439,8 @@ export class CoreOrchestratorAgent {
     await this.storeTaskStatus({
       taskId: task.taskId,
       workflowId: task.workflowId,
-      projectId: task.projectId,
+      ownerAddress: task.payload.ownerAddress,
+      projectId: task.payload.projectId,
       status: "PENDING",
       agent: agentName,
       startTime: new Date().toISOString(),
@@ -1417,8 +1450,8 @@ export class CoreOrchestratorAgent {
     try {
       await pushLogs({
         id: task.taskId,
-        owner_address: "orchestrator",
-        project_id: task.projectId,
+        owner_address: task.payload.ownerAddress,
+        project_id: task.payload.projectId,
         agent_name: agentName,
         text: `Task assignment: ${task.type} for ${task.taskId}`,
         data: JSON.stringify(task),
@@ -1465,13 +1498,12 @@ export class CoreOrchestratorAgent {
           return false; // Already processed
         }
 
-        // Check if this is a task completion for orchestrator
         return (
-          log.agent_name === "orchestrator" ||
-          (log.text && log.text.includes("Task completion")) ||
-          (log.data && this.isTaskCompletion(log.data))
+          log.agent_name === "orchestrator" && this.isTaskCompletion(log.data)
         );
       });
+
+      console.log("🔍 Completion logs:", completionLogs);
 
       if (completionLogs.length > 0) {
         console.log(`📨 Found ${completionLogs.length} task completion(s)`);
@@ -1534,7 +1566,7 @@ export class CoreOrchestratorAgent {
       if (workflow) {
         // Update project state after GitHub analysis
         if (
-          workflow.type === "PROJECT_CREATION" &&
+          workflow.type === "ANALYZE_AND_SETUP_PROJECT" &&
           completion.agent === "github-intelligence"
         ) {
           await this.updateProjectInitState(
@@ -1544,7 +1576,7 @@ export class CoreOrchestratorAgent {
         }
 
         // Handle multi-step Karma workflows
-        await this.handleKarmaWorkflowStep(completion, workflow);
+        // await this.handleKarmaWorkflowStep(completion, workflow);
 
         const isComplete = await this.checkWorkflowCompletion(
           completion.workflowId
@@ -1602,7 +1634,7 @@ export class CoreOrchestratorAgent {
     try {
       await pushLogs({
         id: uuidv4(),
-        owner_address: "orchestrator",
+        owner_address: workflow.payload.ownerAddress,
         project_id: workflow.projectId,
         agent_name: "orchestrator",
         text: `Workflow created: ${workflow.type}`,
@@ -1629,7 +1661,7 @@ export class CoreOrchestratorAgent {
     try {
       await pushLogs({
         id: status.taskId,
-        owner_address: "orchestrator",
+        owner_address: status.ownerAddress,
         project_id: status.projectId,
         agent_name: "orchestrator",
         text: `Task status update: ${status.taskId} - ${status.status}`,
@@ -1654,7 +1686,7 @@ export class CoreOrchestratorAgent {
     try {
       await pushLogs({
         id: uuidv4(),
-        owner_address: "orchestrator",
+        owner_address: updates.ownerAddress,
         project_id: projectId,
         agent_name: "orchestrator",
         text: `Project updated: ${projectId}`,
@@ -1682,7 +1714,7 @@ export class CoreOrchestratorAgent {
       try {
         await pushLogs({
           id: uuidv4(),
-          owner_address: "orchestrator",
+          owner_address: project.owner,
           project_id: projectId,
           agent_name: "orchestrator",
           text: `Project state updated: ${projectId} - ${state}`,

@@ -58,13 +58,7 @@ export class KarmaServer {
       const karmaLogs = allLogs.filter((log) => {
         // Check if this log is meant for the Karma agent
         return (
-          log.agent_name === "karma-integration" ||
-          log.agent_name === "karma" ||
-          (log.text && log.text.toLowerCase().includes("karma")) ||
-          (log.text && log.text.toLowerCase().includes("grant")) ||
-          (log.text && log.text.toLowerCase().includes("milestone")) ||
-          (log.text && log.text.toLowerCase().includes("funding")) ||
-          (log.data && this.isKarmaTask(log.data))
+          log.agent_name === "karma-integration" || log.agent_name === "karma"
         );
       });
 

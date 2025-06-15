@@ -41,9 +41,9 @@ export default function ProjectSetupDialog({
   const [formData, setFormData] = useState<ProjectSetupData>({
     name: extractRepoName(githubUrl),
     summary:
-      "An innovative project that leverages cutting-edge technology to solve real-world problems and create meaningful impact.",
+      "Early-stage TypeScript chat application with agent servers and interactive dialogs. Single contributor actively developing core chat functionalities.",
     technicalSummary:
-      "Built with modern frameworks and best practices, featuring scalable architecture, robust testing, and comprehensive documentation.",
+      "The Jedi AI Framework implements a TypeScript-based distributed chat system using an agent server architecture where multiple server instances coordinate to handle chat requests and manage real-time communication flows. The 5841 KB codebase suggests a substantial implementation with strongly-typed message contracts, event-driven processing, and a real-time UI component ('mp chat dialog') that likely leverages WebSocket connections for bidirectional communication. The architecture appears to follow a microservices pattern with agent servers acting as specialized message processors, enabling horizontal scaling and load distribution across instances, while the TypeScript foundation provides compile-time safety for message schemas and inter-service communication protocols.",
     image: null,
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -51,6 +51,16 @@ export default function ProjectSetupDialog({
   const { addLog, projectId } = useAppStore();
   const { currentProject, loading, error } = useProjectData(projectId || "");
   const [formInitialized, setFormInitialized] = useState(false);
+  const [showTechnicalSummary, setShowTechnicalSummary] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      if (imagePreview) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        setShowTechnicalSummary(true);
+      }
+    })();
+  }, [imagePreview]);
 
   // useEffect(() => {
   //   if (!currentProject) return;
@@ -261,63 +271,89 @@ export default function ProjectSetupDialog({
             </div>
           </div>
 
-          {/* Project Name */}
-          <div className="space-y-2">
-            <Label className="text-white">Project Name</Label>
-            <Input
-              value={formData.name}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, name: e.target.value }))
-              }
-              className="bg-stone-800 border-stone-600 text-white"
-              required
-            />
-          </div>
+          {showTechnicalSummary ? (
+            <>
+              {/* Project Name */}
+              <div className="space-y-2">
+                <Label className="text-white">Project Name</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  className="bg-stone-800 border-stone-600 text-white"
+                  required
+                />
+              </div>
 
-          {/* Summary */}
-          <div className="space-y-2">
-            <Label className="text-white">Project Summary</Label>
-            <Textarea
-              value={formData.summary}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, summary: e.target.value }))
-              }
-              className="bg-stone-800 border-stone-600 text-white min-h-[100px]"
-              placeholder="Describe what your project does..."
-              required
-            />
-          </div>
+              {/* Summary */}
+              <div className="space-y-2">
+                <Label className="text-white">Project Summary</Label>
+                <Textarea
+                  value={formData.summary}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      summary: e.target.value,
+                    }))
+                  }
+                  className="bg-stone-800 border-stone-600 text-white min-h-[100px]"
+                  placeholder="Describe what your project does..."
+                  required
+                />
+              </div>
 
-          {/* Technical Summary */}
-          <div className="space-y-2">
-            <Label className="text-white">Technical Summary</Label>
-            <Textarea
-              value={formData.technicalSummary}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  technicalSummary: e.target.value,
-                }))
-              }
-              className="bg-stone-800 border-stone-600 text-white min-h-[100px]"
-              placeholder="Describe the technical aspects..."
-              required
-            />
-          </div>
+              {/* Technical Summary */}
+              <div className="space-y-2">
+                <Label className="text-white">Technical Summary</Label>
+                <Textarea
+                  value={formData.technicalSummary}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      technicalSummary: e.target.value,
+                    }))
+                  }
+                  className="bg-stone-800 border-stone-600 text-white min-h-[100px]"
+                  placeholder="Describe the technical aspects..."
+                  required
+                />
+              </div>
 
-          <div className="flex justify-end pt-4">
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className={`px-8 ${
-                userSide === "light"
-                  ? "bg-blue-600 hover:bg-blue-700"
-                  : "bg-red-600 hover:bg-red-700"
-              } text-white`}
-            >
-              {isSubmitting ? "Creating Project..." : "Create Project"}
-            </Button>
-          </div>
+              <div className="flex justify-end pt-4">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`px-8 ${
+                    userSide === "light"
+                      ? "bg-blue-600 hover:bg-blue-700"
+                      : "bg-red-600 hover:bg-red-700"
+                  } text-white`}
+                >
+                  {isSubmitting ? "Creating Project..." : "Create Project"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <div className="relative w-16 h-16">
+                <Image
+                  src={`/agents/${userSide}/github.png`}
+                  alt="Orchestrator Agent"
+                  fill
+                  className="object-cover animate-pulse"
+                />
+              </div>
+              <p className="text-stone-300 text-center">
+                {userSide === "light"
+                  ? "Analyzing your project, I am..."
+                  : "Your project's potential is being assessed..."}
+              </p>
+              <div className="w-full max-w-md h-2 bg-stone-800 rounded-full overflow-hidden">
+                <div className="h-full bg-stone-600 animate-[loading_2s_ease-in-out_infinite]" />
+              </div>
+            </div>
+          )}
         </form>
       </DialogContent>
     </Dialog>

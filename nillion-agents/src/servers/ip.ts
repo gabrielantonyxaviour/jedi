@@ -60,14 +60,7 @@ class IPServer {
         return (
           log.agent_name === "blockchain-ip" ||
           log.agent_name === "story-protocol-ip" ||
-          log.agent_name === "ip" ||
-          (log.text && log.text.toLowerCase().includes("ip")) ||
-          (log.text &&
-            log.text.toLowerCase().includes("intellectual property")) ||
-          (log.text && log.text.toLowerCase().includes("story protocol")) ||
-          (log.text && log.text.toLowerCase().includes("blockchain")) ||
-          (log.text && log.text.toLowerCase().includes("register")) ||
-          (log.data && this.isIPTask(log.data))
+          log.agent_name === "ip"
         );
       });
 

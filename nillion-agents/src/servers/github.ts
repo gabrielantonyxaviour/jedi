@@ -55,13 +55,11 @@ class GitHubAgentServer {
         // Check if this log is meant for the GitHub agent
         return (
           log.agent_name === "github-intelligence" ||
-          log.agent_name === "github" ||
-          (log.text && log.text.toLowerCase().includes("github")) ||
-          (log.text && log.text.toLowerCase().includes("repository")) ||
-          (log.text && log.text.toLowerCase().includes("repo")) ||
-          (log.data && this.isGithubTask(log.data))
+          log.agent_name === "github"
         );
       });
+
+      console.log("🔍 GitHub logs:", githubLogs);
 
       // Process new logs (ones we haven't seen before)
       const newLogs = githubLogs.filter(

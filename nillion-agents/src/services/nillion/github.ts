@@ -146,8 +146,9 @@ export async function fetchGithub(): Promise<GithubData[]> {
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record.id)) {
-      recordMap.set(record.id, {
+    if (!recordMap.has(record._id)) {
+      recordMap.set(record._id, {
+        idShares: [],
         nameShares: [],
         descShares: [],
         techDescShares: [],
@@ -158,7 +159,8 @@ export async function fetchGithub(): Promise<GithubData[]> {
         metadataShares: [],
       });
     }
-    const entry = recordMap.get(record.id);
+    const entry = recordMap.get(record._id);
+    entry.idShares.push(record.id["%share"]);
     entry.nameShares.push(record.name["%share"]);
     entry.descShares.push(record.description["%share"]);
     entry.techDescShares.push(record.technical_description["%share"]);
@@ -174,6 +176,7 @@ export async function fetchGithub(): Promise<GithubData[]> {
     if (shares.nameShares.length === 3) {
       try {
         const [
+          id,
           name,
           description,
           technical_description,
@@ -183,6 +186,7 @@ export async function fetchGithub(): Promise<GithubData[]> {
           owner_address,
           metadata,
         ] = await Promise.all([
+          encryption.decrypt(shares.idShares),
           encryption.decrypt(shares.nameShares),
           encryption.decrypt(shares.descShares),
           encryption.decrypt(shares.techDescShares),
@@ -194,6 +198,7 @@ export async function fetchGithub(): Promise<GithubData[]> {
         ]);
         decrypted.push({
           name,
+          project_id: id,
           description,
           technical_description,
           repo_url,

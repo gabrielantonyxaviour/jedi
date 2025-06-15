@@ -84,7 +84,9 @@ export default function ProjectPage() {
   const { id } = useParams();
   const { userSide } = useAppStore();
   const [activeContainers, setActiveContainers] = useState<string[]>([]);
-  const [mockIsSetup, setMockIsSetup] = useState(false);
+  const [isSocialSetup, setIsSocialSetup] = useState(false);
+  const [isIpSetup, setIsIpSetup] = useState(false);
+  const [isKarmaSetup, setIsKarmaSetup] = useState(false);
   const [containerPositions, setContainerPositions] = useState<
     Record<string, ContainerPosition>
   >({});
@@ -202,10 +204,23 @@ export default function ProjectPage() {
                 >
                   <AgentComponent
                     userSide={userSide}
-                    isSetup={mockIsSetup}
+                    isSetup={
+                      agentId === "socials"
+                        ? isSocialSetup
+                        : agentId === "ip"
+                        ? isIpSetup
+                        : agentId === "karma"
+                        ? isKarmaSetup
+                        : false
+                    }
                     setup={() => {
-                      setMockIsSetup(true);
-                      // TODO: function to setup the agent
+                      if (agentId === "socials") {
+                        setIsSocialSetup(true);
+                      } else if (agentId == "ip") {
+                        setIsIpSetup(true);
+                      } else if (agentId == "karma") {
+                        setIsKarmaSetup(true);
+                      }
                     }}
                   />
                 </DraggableContainer>
