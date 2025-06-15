@@ -74,19 +74,23 @@ const getBlinkingAgent = (initState: string): string | null => {
       return null;
   }
 };
+interface PageProps {
+  params: {
+    id: string;
+  };
+}
 
 export default function ProjectPage() {
-  const params = useParams();
-  const projectId = params.id as string;
-  const searchParams = useSearchParams();
+  const { id } = useParams();
   const { userSide } = useAppStore();
   const [activeContainers, setActiveContainers] = useState<string[]>([]);
+  const [mockIsSetup, setMockIsSetup] = useState(false);
   const [containerPositions, setContainerPositions] = useState<
     Record<string, ContainerPosition>
   >({});
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [maxContainers] = useState(3);
-  const { data: projectData, loading } = useProjectData(projectId);
+  const { currentProject: projectData, loading } = useProjectData(id as string);
 
   useEffect(() => {
     const handleResize = () => {
@@ -196,7 +200,14 @@ export default function ProjectPage() {
                   userSide={userSide}
                   onClose={() => handleContainerClose(agentId)}
                 >
-                  <AgentComponent userSide={userSide} />
+                  <AgentComponent
+                    userSide={userSide}
+                    isSetup={mockIsSetup}
+                    setup={() => {
+                      setMockIsSetup(true);
+                      // TODO: function to setup the agent
+                    }}
+                  />
                 </DraggableContainer>
               );
             })}
@@ -368,10 +379,10 @@ export default function ProjectPage() {
         </DndProvider>
       </div>
       <div>
-        {loading.compliance
+        {projectData?.compliance
           ? "Loading compliance..."
           : `${projectData?.compliance.length} compliance records`}
-        {loading.socials
+        {projectData?.socials
           ? "Loading socials..."
           : `${projectData?.socials.length} social records`}
         {/* etc */}

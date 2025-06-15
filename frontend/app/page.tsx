@@ -127,7 +127,7 @@ export default function Home() {
     // }
 
     if (parseFloat(formatEther(balance?.value ?? BigInt("0"))) < 0.1) {
-      setError("Please top up your wallet with at least 10 STORY to continue");
+      setError("Please top up your wallet with at least 0.1 STORY to continue");
       return;
     }
 

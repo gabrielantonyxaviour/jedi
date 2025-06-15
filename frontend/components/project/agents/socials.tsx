@@ -1,75 +1,82 @@
 "use client";
 
 import { useState } from "react";
-import { Twitter, MessageCircle, TrendingUp, Send } from "lucide-react";
+import {
+  Twitter,
+  MessageCircle,
+  TrendingUp,
+  Send,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { getAgentDisplayName } from "@/utils/agentUtils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SocialsAgentProps {
   userSide: "light" | "dark" | null;
+  isSetup: boolean;
+  setup: () => void;
 }
 
-const extractValue = (obj: { "%share": string }) => obj["%share"];
-
-export default function SocialsAgent({ userSide }: SocialsAgentProps) {
+export default function SocialsAgent({
+  userSide,
+  isSetup,
+  setup,
+}: SocialsAgentProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const [showPassword, setShowPassword] = useState(false);
+  const [setupData, setSetupData] = useState({
+    twitterUsername: "jedionchain",
+    twitterEmail: "jedionchain@gmail.com",
+    twitterPassword: "69#JediOffChain#420",
+    telegramUsername: "JediOnChain_bot",
+    telegramBotToken: "7895110798:AAHpBHh1cAYd5dHa98c-W-3BEP6e66BWsJ8",
+  });
   const agentId = "socials";
 
   // Mock data matching schema
   const socialsData = {
-    _id: "social-001",
+    owner_address: "0x1234567890abcdef",
+    project_id: "proj_123",
     twitter: {
-      name: { "%share": "MasumiAI" },
-      email: { "%share": "contact@masumi.ai" },
-      password: { "%share": "encrypted_password_hash" },
+      name: "MyBot",
+      email: "bot@example.com",
+      password: "securepassword123",
     },
     telegram: {
-      username: { "%share": "@masumi_ai_bot" },
-      bot_token: { "%share": "encrypted_bot_token" },
+      username: "mybot_telegram",
+      bot_token: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
     },
     twitter_actions: [
       {
-        id: { "%share": "tw_001" },
-        action: { "%share": "tweet" },
-        ref_id: { "%share": "repo_update_v1.2" },
-        text: {
-          "%share":
-            "🚀 Just released v1.2 with exciting new AI features! Check out the latest updates on GitHub.",
-        },
+        id: "tw_001",
+        action: "tweet",
+        ref_id: "repo_update_v1.2",
+        text: "🚀 Just released v1.2 with exciting new AI features! Check out the latest updates on GitHub.",
       },
       {
-        id: { "%share": "tw_002" },
-        action: { "%share": "retweet" },
-        ref_id: { "%share": "dev_community_post" },
-        text: {
-          "%share": "Great insights from the developer community on AI trends!",
-        },
+        id: "tw_002",
+        action: "retweet",
+        ref_id: "dev_community_post",
+        text: "Great insights from the developer community on AI trends!",
       },
       {
-        id: { "%share": "tw_003" },
-        action: { "%share": "reply" },
-        ref_id: { "%share": "user_question_001" },
-        text: {
-          "%share":
-            "Thanks for the feedback! We're working on that feature for the next release.",
-        },
+        id: "tw_003",
+        action: "reply",
+        ref_id: "user_question_001",
+        text: "Thanks for the feedback! We're working on that feature for the next release.",
       },
     ],
     telegram_actions: [
       {
-        id: { "%share": "tg_001" },
-        text: {
-          "%share":
-            "Welcome to MasumiAI! Type /help to see available commands.",
-        },
-        ref_user_id: { "%share": "user_123456" },
+        id: "tg_001",
+        text: "Welcome to MasumiAI! Type /help to see available commands.",
+        ref_user_id: "user_123456",
       },
       {
-        id: { "%share": "tg_002" },
-        text: {
-          "%share":
-            "Your project analysis is complete! Here's your detailed report...",
-        },
-        ref_user_id: { "%share": "user_789012" },
+        id: "tg_002",
+        text: "Your project analysis is complete! Here's your detailed report...",
+        ref_user_id: "user_789012",
       },
     ],
   };
@@ -77,13 +84,13 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
   // Transform data for UI
   const connectedAccounts = {
     twitter: {
-      name: extractValue(socialsData.twitter.name),
-      username: `@${extractValue(socialsData.twitter.name).toLowerCase()}`,
+      name: socialsData.twitter.name,
+      username: `@${socialsData.twitter.name.toLowerCase()}`,
       connected: true,
       recentActions: socialsData.twitter_actions.length,
     },
     telegram: {
-      name: extractValue(socialsData.telegram.username),
+      name: socialsData.telegram.username,
       connected: true,
       recentActions: socialsData.telegram_actions.length,
     },
@@ -92,16 +99,16 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
   const recentActions = [
     ...socialsData.twitter_actions.map((action) => ({
       platform: "Twitter",
-      type: extractValue(action.action),
-      text: extractValue(action.text),
-      id: extractValue(action.id),
+      type: action.action,
+      text: action.text,
+      id: action.id,
       icon: Twitter,
     })),
     ...socialsData.telegram_actions.map((action) => ({
       platform: "Telegram",
       type: "message",
-      text: extractValue(action.text),
-      id: extractValue(action.id),
+      text: action.text,
+      id: action.id,
       icon: MessageCircle,
     })),
   ];
@@ -111,6 +118,179 @@ export default function SocialsAgent({ userSide }: SocialsAgentProps) {
     platforms: 2,
     weeklyActions: recentActions.length, // Mock recent activity
   };
+
+  const handleInputChange = (field: string, value: string) => {
+    setSetupData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const isFormValid = () => {
+    return (
+      setupData.twitterUsername &&
+      setupData.twitterEmail &&
+      setupData.twitterPassword &&
+      setupData.telegramUsername &&
+      setupData.telegramBotToken
+    );
+  };
+
+  if (!isSetup) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-stone-700">
+          <div className="flex items-center space-x-2">
+            <img
+              src={`/agents/${userSide}/${agentId}.png`}
+              alt=""
+              className="w-9 h-9"
+            />
+            <span className="font-medium text-white">
+              {getAgentDisplayName(agentId, userSide)} - Setup
+            </span>
+          </div>
+        </div>
+
+        <ScrollArea className="h-[550px]">
+          <div className="p-4">
+            <div className="max-w-md mx-auto space-y-6">
+              <div className="text-center mb-6">
+                <h2 className="text-white text-lg font-medium mb-2">
+                  Configure Social Accounts
+                </h2>
+                <p className="text-stone-400 text-sm">
+                  Connect your Twitter and Telegram accounts to get started
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-stone-800/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Twitter className="w-5 h-5 text-blue-400" />
+                    <h3 className="text-white font-medium">Twitter Account</h3>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm text-stone-300 mb-1">
+                        Username
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Enter Twitter username"
+                        value={setupData.twitterUsername}
+                        onChange={(e) =>
+                          handleInputChange("twitterUsername", e.target.value)
+                        }
+                        className="w-full p-2 bg-stone-700 border border-stone-600 rounded text-white placeholder-stone-400 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-stone-300 mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="Enter Twitter email"
+                        value={setupData.twitterEmail}
+                        onChange={(e) =>
+                          handleInputChange("twitterEmail", e.target.value)
+                        }
+                        className="w-full p-2 bg-stone-700 border border-stone-600 rounded text-white placeholder-stone-400 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-stone-300 mb-1">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter Twitter password"
+                          value={setupData.twitterPassword}
+                          onChange={(e) =>
+                            handleInputChange("twitterPassword", e.target.value)
+                          }
+                          className="w-full p-2 bg-stone-700 border border-stone-600 rounded text-white placeholder-stone-400 focus:border-blue-500 focus:outline-none pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-stone-400 hover:text-white"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-stone-800/50 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <MessageCircle className="w-5 h-5 text-blue-400" />
+                    <h3 className="text-white font-medium">Telegram Bot</h3>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm text-stone-300 mb-1">
+                        Bot Username
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="@your_bot_username"
+                        value={setupData.telegramUsername}
+                        onChange={(e) =>
+                          handleInputChange("telegramUsername", e.target.value)
+                        }
+                        className="w-full p-2 bg-stone-700 border border-stone-600 rounded text-white placeholder-stone-400 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-stone-300 mb-1">
+                        Bot Token
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Enter bot token from @BotFather"
+                        value={setupData.telegramBotToken}
+                        onChange={(e) =>
+                          handleInputChange("telegramBotToken", e.target.value)
+                        }
+                        className="w-full p-2 bg-stone-700 border border-stone-600 rounded text-white placeholder-stone-400 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={setup}
+                disabled={!isFormValid()}
+                className={`w-full p-3 rounded-lg font-medium transition-colors ${
+                  isFormValid()
+                    ? userSide === "light"
+                      ? "bg-blue-600 hover:bg-blue-700 text-white"
+                      : "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-stone-700 text-stone-400 cursor-not-allowed"
+                }`}
+              >
+                Confirm Setup
+              </button>
+            </div>
+          </div>
+        </ScrollArea>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
