@@ -28,6 +28,7 @@ export interface LeadsData {
 }
 
 export interface LogsData {
+  _id?: string;
   owner_address: string;
   project_id: string;
   agent_name: string;

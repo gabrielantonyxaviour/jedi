@@ -316,7 +316,7 @@ export class GitHubIntelligenceAgent {
     }
   }
 
-  private async reportTaskCompletion(
+  async reportTaskCompletion(
     taskId: string,
     workflowId: string,
     ownerAddress: string,

@@ -479,7 +479,7 @@ Format as JSON with fields: similarities, differences, concerns, recommendation,
     };
   }
 
-  private async reportTaskCompletion(
+  async reportTaskCompletion(
     taskId: string,
     workflowId: string,
     result: any,

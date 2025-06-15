@@ -10,6 +10,15 @@
         "format": "uuid",
         "coerce": true
       },
+      "image": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
       "name": {
         "type": "object",
         "properties": {
@@ -85,6 +94,7 @@
     },
     "required": [
       "_id",
+      "image",
       "name",
       "description",
       "technical_description",
