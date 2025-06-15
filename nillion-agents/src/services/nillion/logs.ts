@@ -17,12 +17,14 @@ export async function pushLogs(data: LogsData): Promise<boolean> {
   const recordId = uuidv4();
 
   const [
+    idShares,
     ownerAddrShares,
     projectIdShares,
     agentNameShares,
     textShares,
     dataShares,
   ] = await Promise.all([
+    encryption.encrypt(data.id),
     encryption.encrypt(data.owner_address),
     encryption.encrypt(data.project_id),
     encryption.encrypt(data.agent_name),
@@ -36,6 +38,7 @@ export async function pushLogs(data: LogsData): Promise<boolean> {
         index,
         {
           _id: recordId,
+          id: { "%share": idShares[index] },
           owner_address: { "%share": ownerAddrShares[index] },
           project_id: { "%share": projectIdShares[index] },
           agent_name: { "%share": agentNameShares[index] },
@@ -75,6 +78,11 @@ export async function updateLogs(
   if (updates.agent_name !== undefined) {
     const agentNameShares = await encryption.encrypt(updates.agent_name);
     encryptedUpdates.agent_name = { "%share": agentNameShares };
+  }
+
+  if (updates.id !== undefined) {
+    const idShares = await encryption.encrypt(updates.id);
+    encryptedUpdates.id = { "%share": idShares };
   }
 
   if (updates.text !== undefined) {
@@ -118,8 +126,9 @@ export async function fetchLogs(): Promise<LogsData[]> {
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record._id)) {
-      recordMap.set(record._id, {
+    if (!recordMap.has(record.id)) {
+      recordMap.set(record.id, {
+        idShares: [],
         ownerAddrShares: [],
         projectIdShares: [],
         agentNameShares: [],
@@ -127,7 +136,8 @@ export async function fetchLogs(): Promise<LogsData[]> {
         dataShares: [],
       });
     }
-    const entry = recordMap.get(record._id);
+    const entry = recordMap.get(record.id);
+    entry.idShares.push(record.id["%share"]);
     entry.ownerAddrShares.push(record.owner_address["%share"]);
     entry.projectIdShares.push(record.project_id["%share"]);
     entry.agentNameShares.push(record.agent_name["%share"]);
@@ -136,20 +146,28 @@ export async function fetchLogs(): Promise<LogsData[]> {
   });
 
   const decrypted: LogsData[] = [];
-  for (const [id, shares] of Array.from(recordMap.entries())) {
+  for (const [num_id, shares] of Array.from(recordMap.entries())) {
     if (shares.ownerAddrShares.length === 3) {
       try {
-        const [owner_address, project_id, agent_name, text, data] =
+        const [id, owner_address, project_id, agent_name, text, data] =
           await Promise.all([
+            encryption.decrypt(shares.idShares),
             encryption.decrypt(shares.ownerAddrShares),
             encryption.decrypt(shares.projectIdShares),
             encryption.decrypt(shares.agentNameShares),
             encryption.decrypt(shares.textShares),
             encryption.decrypt(shares.dataShares),
           ]);
-        decrypted.push({ owner_address, project_id, agent_name, text, data });
+        decrypted.push({
+          id,
+          owner_address,
+          project_id,
+          agent_name,
+          text,
+          data,
+        });
       } catch (error) {
-        console.error(`Failed to decrypt record ${id}:`, error);
+        console.error(`Failed to decrypt record ${num_id}:`, error);
       }
     }
   }

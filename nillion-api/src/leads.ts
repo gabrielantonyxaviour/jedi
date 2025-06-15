@@ -67,8 +67,8 @@ export async function fetchLeads(): Promise<LeadsData[]> {
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record._id)) {
-      recordMap.set(record._id, {
+    if (!recordMap.has(record.id)) {
+      recordMap.set(record.id, {
         nameShares: [],
         sourceShares: [],
         descShares: [],
@@ -77,7 +77,7 @@ export async function fetchLeads(): Promise<LeadsData[]> {
         projectIdShares: [],
       });
     }
-    const entry = recordMap.get(record._id);
+    const entry = recordMap.get(record.id);
     entry.nameShares.push(record.name["%share"]);
     entry.sourceShares.push(record.source["%share"]);
     entry.descShares.push(record.desc["%share"]);

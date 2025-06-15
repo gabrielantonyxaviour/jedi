@@ -7,6 +7,7 @@ export interface ComplianceData {
 }
 
 export interface GithubData {
+  project_id: string;
   name: string;
   description: string;
   technical_description: string;

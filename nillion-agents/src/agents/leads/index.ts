@@ -8,6 +8,7 @@ import {
   pushLogs,
 } from "../../services/nillion";
 import { LeadsData, LogsData } from "../../types/nillion";
+import { v4 as uuidv4 } from "uuid";
 
 interface Lead {
   leadId: string;
@@ -163,6 +164,7 @@ export class LeadsAgent {
 
     // Log the fetch operation
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -197,6 +199,7 @@ export class LeadsAgent {
 
     // Log the fetch operation
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -279,6 +282,7 @@ export class LeadsAgent {
 
     // Log the discovery operation
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -343,6 +347,7 @@ export class LeadsAgent {
 
     try {
       await pushLogs({
+        id: uuidv4(),
         owner_address: ownerAddress,
         project_id: lead.projectId,
         agent_name: this.agentName,
@@ -422,6 +427,7 @@ export class LeadsAgent {
 
     // Log the scoring operation
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -514,6 +520,7 @@ export class LeadsAgent {
 
       // Log the qualification
       await pushLogs({
+        id: uuidv4(),
         owner_address: payload.ownerAddress,
         project_id: lead.projectId,
         agent_name: this.agentName,
@@ -599,6 +606,7 @@ export class LeadsAgent {
 
       // Log the outreach generation
       await pushLogs({
+        id: uuidv4(),
         owner_address: payload.ownerAddress,
         project_id: lead.projectId,
         agent_name: this.agentName,
@@ -766,6 +774,7 @@ export class LeadsAgent {
   ): Promise<void> {
     try {
       await pushLogs({
+        id: uuidv4(),
         owner_address: ownerAddress,
         project_id: workflowId,
         agent_name: this.agentName,

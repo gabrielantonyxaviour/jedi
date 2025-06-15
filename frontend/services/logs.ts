@@ -6,7 +6,7 @@ import {
   uploadToNode,
   fetchFromNode,
 } from "./base";
-import { LogsData } from "./types";
+import { LogsData } from "@/types";
 
 export async function pushLogs(data: LogsData): Promise<boolean> {
   const [encryption, jwts] = await Promise.all([
@@ -61,8 +61,8 @@ export async function fetchLogs(): Promise<LogsData[]> {
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record._id)) {
-      recordMap.set(record._id, {
+    if (!recordMap.has(record.id)) {
+      recordMap.set(record.id, {
         ownerAddrShares: [],
         projectIdShares: [],
         agentNameShares: [],
@@ -70,7 +70,7 @@ export async function fetchLogs(): Promise<LogsData[]> {
         dataShares: [],
       });
     }
-    const entry = recordMap.get(record._id);
+    const entry = recordMap.get(record.id);
     entry.ownerAddrShares.push(record.owner_address["%share"]);
     entry.projectIdShares.push(record.project_id["%share"]);
     entry.agentNameShares.push(record.agent_name["%share"]);

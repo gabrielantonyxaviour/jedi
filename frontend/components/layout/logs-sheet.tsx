@@ -232,7 +232,7 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
               ) : (
                 filteredLogs.map((log) => (
                   <div
-                    key={log._id}
+                    key={log.id}
                     className={`border rounded-lg p-4 ${
                       side === "light"
                         ? "border-blue-900/30 bg-blue-950/20"

@@ -18,6 +18,7 @@ import {
   pushLogs,
 } from "../../services/nillion";
 import { StoriesData, LogsData } from "../../types/nillion";
+import { v4 as uuidv4 } from "uuid";
 
 interface ProjectIPRegistration {
   ipId: Address;
@@ -313,6 +314,7 @@ export class IPAgent {
 
     // Log the registration
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -391,6 +393,7 @@ export class IPAgent {
 
     // Log the fork creation
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -469,6 +472,7 @@ export class IPAgent {
 
     // Log the remix creation
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -544,6 +548,7 @@ export class IPAgent {
 
     // Log the open source creation
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -584,6 +589,7 @@ export class IPAgent {
 
     // Log the dispute
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.targetIpId,
       agent_name: this.agentName,
@@ -631,6 +637,7 @@ export class IPAgent {
 
     // Log the royalty claim
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectIpId,
       agent_name: this.agentName,
@@ -674,6 +681,7 @@ export class IPAgent {
 
     // Log the license payment
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectIpId,
       agent_name: this.agentName,
@@ -700,6 +708,7 @@ export class IPAgent {
 
     // Log the details fetch
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectIpId,
       agent_name: this.agentName,
@@ -730,6 +739,7 @@ export class IPAgent {
   ): Promise<void> {
     try {
       await pushLogs({
+        id: uuidv4(),
         owner_address: ownerAddress,
         project_id: workflowId,
         agent_name: this.agentName,

@@ -160,8 +160,8 @@ export async function fetchStories(): Promise<StoriesData[]> {
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record._id)) {
-      recordMap.set(record._id, {
+    if (!recordMap.has(record.id)) {
+      recordMap.set(record.id, {
         ownerAddrShares: [],
         projectIdShares: [],
         nameShares: [],
@@ -174,7 +174,7 @@ export async function fetchStories(): Promise<StoriesData[]> {
         txHashShares: [],
       });
     }
-    const entry = recordMap.get(record._id);
+    const entry = recordMap.get(record.id);
     entry.ownerAddrShares.push(record.owner_address["%share"]);
     entry.projectIdShares.push(record.project_id["%share"]);
     entry.nameShares.push(record.name["%share"]);

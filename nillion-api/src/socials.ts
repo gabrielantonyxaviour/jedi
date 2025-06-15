@@ -92,8 +92,8 @@ export async function fetchSocials(): Promise<SocialsData[]> {
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record._id)) {
-      recordMap.set(record._id, {
+    if (!recordMap.has(record.id)) {
+      recordMap.set(record.id, {
         ownerAddrShares: [],
         projectIdShares: [],
         twitterNameShares: [],
@@ -105,7 +105,7 @@ export async function fetchSocials(): Promise<SocialsData[]> {
         telegramActionsShares: [],
       });
     }
-    const entry = recordMap.get(record._id);
+    const entry = recordMap.get(record.id);
     entry.ownerAddrShares.push(record.owner_address["%share"]);
     entry.projectIdShares.push(record.project_id["%share"]);
     entry.twitterNameShares.push(record.twitter.name["%share"]);

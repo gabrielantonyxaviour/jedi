@@ -8,6 +8,7 @@ import {
   pushLogs,
 } from "../../services/nillion";
 import { SocialsData } from "../../types/nillion";
+import { v4 as uuidv4 } from "uuid";
 
 interface MessageExample {
   user: string;
@@ -268,6 +269,7 @@ export class SocialsService {
 
       // Log the interaction
       await pushLogs({
+        id: uuidv4(),
         owner_address: ownerAddress,
         project_id: projectId,
         agent_name: "socials-service",
@@ -349,6 +351,7 @@ export class SocialsService {
 
       // Log the post
       await pushLogs({
+        id: uuidv4(),
         owner_address: payload.ownerAddress,
         project_id: payload.projectId,
         agent_name: "socials-service",
@@ -448,6 +451,7 @@ export class SocialsService {
 
     // Log LinkedIn post
     await pushLogs({
+      id: uuidv4(),
       owner_address: ownerAddress,
       project_id: projectId,
       agent_name: "socials-service",
@@ -595,6 +599,7 @@ Respond in character, following your personality and style guidelines. Keep it c
   ): Promise<void> {
     // Update social accounts
     await pushLogs({
+      id: uuidv4(),
       owner_address: ownerAddress,
       project_id: projectId,
       agent_name: "socials-service",

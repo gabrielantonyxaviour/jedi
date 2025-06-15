@@ -10,6 +10,15 @@
         "format": "uuid",
         "coerce": true
       },
+      "id": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
       "owner_address": {
         "type": "object",
         "properties": {

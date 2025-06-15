@@ -17,8 +17,8 @@ export async function fetchSocialsByProjectId(
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record._id)) {
-      recordMap.set(record._id, {
+    if (!recordMap.has(record.id)) {
+      recordMap.set(record.id, {
         ownerAddrShares: [],
         projectIdShares: [],
         twitterShares: [],
@@ -27,7 +27,7 @@ export async function fetchSocialsByProjectId(
         telegramActionsShares: [],
       });
     }
-    const entry = recordMap.get(record._id);
+    const entry = recordMap.get(record.id);
     entry.ownerAddrShares.push(record.owner_address["%share"]);
     entry.projectIdShares.push(record.project_id["%share"]);
     entry.twitterShares.push(record.twitter["%share"]);

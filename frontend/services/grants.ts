@@ -17,8 +17,8 @@ export async function fetchGrantsByProjectId(
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record._id)) {
-      recordMap.set(record._id, {
+    if (!recordMap.has(record.id)) {
+      recordMap.set(record.id, {
         projectIdShares: [],
         nameShares: [],
         descShares: [],
@@ -32,7 +32,7 @@ export async function fetchGrantsByProjectId(
         milestonesShares: [],
       });
     }
-    const entry = recordMap.get(record._id);
+    const entry = recordMap.get(record.id);
     entry.projectIdShares.push(record.project_id["%share"]);
     entry.nameShares.push(record.name["%share"]);
     entry.descShares.push(record.desc["%share"]);

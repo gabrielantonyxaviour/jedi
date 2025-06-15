@@ -14,6 +14,7 @@ import {
   fetchLogs,
 } from "../../services/nillion";
 import { GrantsData, LogsData } from "../../types/nillion";
+import { v4 as uuidv4 } from "uuid";
 
 interface KarmaProjectData {
   karmaUID: string;
@@ -173,6 +174,7 @@ export class KarmaAgent {
 
     // Log the opportunity fetch
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "grant-opportunities",
       agent_name: this.agentName,
@@ -205,6 +207,7 @@ export class KarmaAgent {
 
     // Log the communities fetch
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "communities",
       agent_name: this.agentName,
@@ -227,6 +230,7 @@ export class KarmaAgent {
 
     // Log the projects fetch
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "karma-projects",
       agent_name: this.agentName,
@@ -305,6 +309,7 @@ export class KarmaAgent {
 
     // Log the project creation
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -391,6 +396,7 @@ export class KarmaAgent {
 
     // Log the grant application
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.karmaProjectId,
       agent_name: this.agentName,
@@ -502,6 +508,7 @@ export class KarmaAgent {
 
     // Log the milestone creation
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.karmaProjectId,
       agent_name: this.agentName,
@@ -624,6 +631,7 @@ export class KarmaAgent {
 
     // Log the milestone update
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.karmaProjectId,
       agent_name: this.agentName,
@@ -756,6 +764,7 @@ export class KarmaAgent {
 
     // Log the sync operation
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "karma-sync",
       agent_name: this.agentName,
@@ -839,6 +848,7 @@ export class KarmaAgent {
 
               // Log the opportunity notification
               await pushLogs({
+                id: uuidv4(),
                 owner_address: ownerAddress,
                 project_id: project.project_id,
                 agent_name: this.agentName,
@@ -893,6 +903,7 @@ export class KarmaAgent {
 
   private async sendTaskToAgent(agentType: string, task: any): Promise<void> {
     await pushLogs({
+      id: uuidv4(),
       owner_address: task.payload.ownerAddress || "system",
       project_id: task.workflowId,
       agent_name: this.agentName,
@@ -965,6 +976,7 @@ export class KarmaAgent {
       });
 
       await pushLogs({
+        id: uuidv4(),
         owner_address: ownerAddress,
         project_id: workflowId,
         agent_name: this.agentName,

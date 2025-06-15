@@ -7,10 +7,9 @@ import {
   fetchCompliance,
   fetchComplianceByAddress,
   pushLogs,
-  fetchLogs,
-  fetchLogsByAddress,
 } from "../../services/nillion";
 import { ComplianceData, LogsData } from "../../types/nillion";
+import { v4 as uuidv4 } from "uuid";
 
 export class ComplianceAgent {
   private openai: OpenAI;
@@ -417,6 +416,7 @@ Format as JSON with fields: similarities, differences, concerns, recommendation,
   ): Promise<void> {
     try {
       await pushLogs({
+        id: uuidv4(),
         owner_address: ownerAddress,
         project_id: project.originalProjectId || "unknown",
         agent_name: this.agentName,
@@ -488,6 +488,7 @@ Format as JSON with fields: similarities, differences, concerns, recommendation,
   ) {
     try {
       await pushLogs({
+        id: uuidv4(),
         owner_address: "system",
         project_id: workflowId,
         agent_name: this.agentName,

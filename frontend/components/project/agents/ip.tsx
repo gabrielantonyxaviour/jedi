@@ -280,7 +280,7 @@ export default function IPAgent({
   ];
 
   const assets = ipAssets.map((asset) => ({
-    id: asset._id,
+    id: asset.id,
     name: asset.name,
     description: asset.desc,
     owners: [asset.owner_address], // Simplified for display

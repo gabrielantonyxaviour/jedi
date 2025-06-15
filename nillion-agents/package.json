@@ -33,7 +33,6 @@
     "type": "git",
     "url": "https://github.com/gabrielantonyxaviour/jedi.git"
   },
-  "type": "module",
   "dependencies": {
     "@nillion/nilql": "^0.0.0-alpha.13",
     "@octokit/rest": "^22.0.0",
@@ -44,6 +43,7 @@
     "agent-twitter-client": "^0.0.18",
     "axios": "^1.9.0",
     "cheerio": "^1.0.0-rc.12",
+    "crypto": "^1.0.1",
     "did-jwt": "^8.0.17",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",

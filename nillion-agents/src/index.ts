@@ -1,7 +1,8 @@
 import dotenv from "dotenv";
-import { CoreOrchestratorAgent } from "./agents/orchestrator";
-
 dotenv.config();
+
+import "./utils/crypto-polyfill.js"; // Import polyfill first
+import { CoreOrchestratorAgent } from "./agents/orchestrator.js";
 
 async function main() {
   console.log("🚀 Starting Core Orchestrator Agent...");

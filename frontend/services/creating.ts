@@ -17,10 +17,10 @@ export async function fetchCreatingByAddress(
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record._id)) {
-      recordMap.set(record._id, { addressShares: [], initStepShares: [] });
+    if (!recordMap.has(record.id)) {
+      recordMap.set(record.id, { addressShares: [], initStepShares: [] });
     }
-    const entry = recordMap.get(record._id);
+    const entry = recordMap.get(record.id);
     entry.addressShares.push(record.address["%share"]);
     entry.initStepShares.push(record.init_step["%share"]);
   });

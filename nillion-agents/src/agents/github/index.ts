@@ -10,6 +10,7 @@ import {
   fetchCreatingByAddress,
 } from "../../services/nillion";
 import { LogsData, GithubData } from "../../types/nillion";
+import { v4 as uuidv4 } from "uuid";
 
 type CharacterInfo = {
   name: string;
@@ -63,6 +64,7 @@ export class GitHubIntelligenceAgent {
             task.payload.repoUrl
           );
           result = await this.repositoryService.analyzeRepository(
+            task.payload.projectId,
             task.payload.repoUrl,
             task.payload.ownerAddress,
             task.taskId,
@@ -79,6 +81,7 @@ export class GitHubIntelligenceAgent {
             task.payload.repoUrl
           );
           analysisResult = await this.repositoryService.analyzeRepository(
+            task.payload.projectId,
             task.payload.repoUrl,
             task.payload.ownerAddress,
             task.taskId,
@@ -204,6 +207,7 @@ export class GitHubIntelligenceAgent {
 
     // Store in GitHub collection
     await pushGithub({
+      project_id: data.projectId,
       name: data.name,
       description: data.summary,
       technical_description: data.technicalSummary,
@@ -326,6 +330,7 @@ export class GitHubIntelligenceAgent {
   ): Promise<void> {
     try {
       await pushLogs({
+        id: uuidv4(),
         owner_address: ownerAddress,
         project_id: workflowId,
         agent_name: this.agentName,

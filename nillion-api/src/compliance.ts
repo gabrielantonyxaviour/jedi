@@ -64,8 +64,8 @@ export async function fetchCompliance(): Promise<ComplianceData[]> {
 
   const recordMap = new Map();
   allRecords.flat().forEach((record) => {
-    if (!recordMap.has(record._id)) {
-      recordMap.set(record._id, {
+    if (!recordMap.has(record.id)) {
+      recordMap.set(record.id, {
         nameShares: [],
         projectIdShares: [],
         ownerAddrShares: [],
@@ -73,7 +73,7 @@ export async function fetchCompliance(): Promise<ComplianceData[]> {
         dataShares: [],
       });
     }
-    const entry = recordMap.get(record._id);
+    const entry = recordMap.get(record.id);
     entry.nameShares.push(record.name["%share"]);
     entry.projectIdShares.push(record.project_id["%share"]);
     entry.ownerAddrShares.push(record.owner_address["%share"]);
@@ -128,7 +128,7 @@ async function main() {
   if (records.length > 0) {
     // Update the first record
     const recordToUpdate = records[0];
-    const updateSuccess = await updateCompliance(recordToUpdate._id, {
+    const updateSuccess = await updateCompliance(recordToUpdate.id, {
       name: "Updated KYC Compliance Check",
       data: "{'status': 'updated', 'timestamp': '2024-01-16T11:00:00Z'}",
     });

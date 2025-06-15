@@ -70,7 +70,7 @@ export class KarmaServer {
 
       // Process new logs (ones we haven't seen before)
       const newLogs = karmaLogs.filter(
-        (log) => !this.processedLogs.has(log._id || "")
+        (log) => !this.processedLogs.has(log.id || "")
       );
 
       if (newLogs.length > 0) {
@@ -79,7 +79,7 @@ export class KarmaServer {
         for (const log of newLogs) {
           await this.processLogAsTask(log);
           // Mark this log as processed
-          this.processedLogs.add(log._id || "");
+          this.processedLogs.add(log.id || "");
         }
       }
 
@@ -131,7 +131,7 @@ export class KarmaServer {
 
   private async processLogAsTask(log: any) {
     try {
-      console.log(`🔄 Processing Karma log: ${log._id}`);
+      console.log(`🔄 Processing Karma log: ${log.id}`);
       console.log(`📝 Log text: ${log.text}`);
 
       let task;
@@ -149,7 +149,7 @@ export class KarmaServer {
 
       // Ensure task has required fields
       if (!task.taskId) {
-        task.taskId = log._id; // Use log ID as task ID
+        task.taskId = log.id; // Use log ID as task ID
       }
 
       if (!task.workflowId) {
@@ -169,11 +169,11 @@ export class KarmaServer {
       console.log(`✅ Karma task ${task.taskId} processed successfully`);
       await this.reportTaskCompletion(task.taskId, task.workflowId, result);
     } catch (error) {
-      console.error(`❌ Error processing Karma log ${log._id}:`, error);
+      console.error(`❌ Error processing Karma log ${log.id}:`, error);
 
       // Report the error back
       try {
-        const taskId = log._id;
+        const taskId = log.id;
         const workflowId = log.project_id || "unknown-workflow";
 
         await this.reportTaskCompletion(
@@ -193,7 +193,7 @@ export class KarmaServer {
 
   private createTaskFromLog(log: any): any {
     return {
-      taskId: log._id,
+      taskId: log.id,
       workflowId: log.project_id || "unknown-workflow",
       type: this.inferTaskTypeFromLog(log),
       payload: {

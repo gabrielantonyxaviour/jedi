@@ -2,6 +2,7 @@ import { Octokit } from "@octokit/rest";
 import OpenAI from "openai";
 import { pushGithub, fetchGithub, pushLogs } from "../../../services/nillion";
 import { GithubData } from "../../../types/nillion";
+import { v4 as uuidv4 } from "uuid";
 
 interface Developer {
   name: string;
@@ -30,6 +31,7 @@ export class RepositoryService {
   constructor(private octokit: Octokit, private openai: OpenAI) {}
 
   async analyzeRepository(
+    projectId: string,
     repoUrl: string,
     ownerAddress: string,
     taskId?: string,
@@ -60,6 +62,7 @@ export class RepositoryService {
 
     // Store analysis in Nillion
     await pushGithub({
+      project_id: projectId,
       name: name || repoInfo.name,
       description: summary || "",
       technical_description: technicalSummary || "",
@@ -78,6 +81,7 @@ export class RepositoryService {
 
     // Log the analysis completion
     await pushLogs({
+      id: uuidv4(),
       owner_address: ownerAddress,
       project_id: workflowId || "analysis",
       agent_name: "github-repository-service",
@@ -107,6 +111,7 @@ export class RepositoryService {
 
     // Log the commit fetch
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "commits",
       agent_name: "github-repository-service",
@@ -137,6 +142,7 @@ export class RepositoryService {
 
     // Log the repo info fetch
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "repo-info",
       agent_name: "github-repository-service",
@@ -167,6 +173,7 @@ export class RepositoryService {
 
     // Log the file fetch
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "files",
       agent_name: "github-repository-service",
@@ -203,6 +210,7 @@ export class RepositoryService {
 
     // Log the file updates
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: "file-updates",
       agent_name: "github-repository-service",

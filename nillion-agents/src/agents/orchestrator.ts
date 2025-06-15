@@ -123,7 +123,7 @@ export class CoreOrchestratorAgent {
         }
 
         const workflowId = uuidv4();
-        const projectId = this.generateProjectId(repoUrl);
+        const projectId = uuidv4();
         const characterContext = this.getCharacterContext(side);
 
         console.log(
@@ -1416,6 +1416,7 @@ export class CoreOrchestratorAgent {
     // Send task via Nillion logs instead of SQS
     try {
       await pushLogs({
+        id: task.taskId,
         owner_address: "orchestrator",
         project_id: task.projectId,
         agent_name: agentName,
@@ -1460,7 +1461,7 @@ export class CoreOrchestratorAgent {
 
       // Filter logs for task completions meant for orchestrator
       const completionLogs = allLogs.filter((log) => {
-        if (this.processedLogs.has(log._id || "")) {
+        if (this.processedLogs.has(log.id || "")) {
           return false; // Already processed
         }
 
@@ -1477,7 +1478,7 @@ export class CoreOrchestratorAgent {
 
         for (const log of completionLogs) {
           await this.processCompletionFromLog(log);
-          this.processedLogs.add(log._id || "");
+          this.processedLogs.add(log.id || "");
         }
       }
 
@@ -1504,7 +1505,7 @@ export class CoreOrchestratorAgent {
 
   private async processCompletionFromLog(log: any) {
     try {
-      console.log(`🔍 Processing task completion log: ${log._id}`);
+      console.log(`🔍 Processing task completion log: ${log.id}`);
 
       let completion;
       try {
@@ -1556,21 +1557,21 @@ export class CoreOrchestratorAgent {
           await this.completeWorkflow(completion.workflowId);
         }
 
-        // Notify client
-        await this.notifyClient(completion.workflowId, {
-          type: "TASK_COMPLETED",
-          taskId: completion.taskId,
-          workflowId: completion.workflowId,
-          agent: completion.agent,
-          status: completion.status,
-          result: completion.result,
-          error: completion.error,
-        });
+        // // Notify client
+        // await this.notifyClient(completion.workflowId, {
+        //   type: "TASK_COMPLETED",
+        //   taskId: completion.taskId,
+        //   workflowId: completion.workflowId,
+        //   agent: completion.agent,
+        //   status: completion.status,
+        //   result: completion.result,
+        //   error: completion.error,
+        // });
       }
 
       console.log(`✅ Processed completion for task ${completion.taskId}`);
     } catch (error) {
-      console.error(`❌ Error processing completion log ${log._id}:`, error);
+      console.error(`❌ Error processing completion log ${log.id}:`, error);
     }
   }
 
@@ -1600,6 +1601,7 @@ export class CoreOrchestratorAgent {
 
     try {
       await pushLogs({
+        id: uuidv4(),
         owner_address: "orchestrator",
         project_id: workflow.projectId,
         agent_name: "orchestrator",
@@ -1626,6 +1628,7 @@ export class CoreOrchestratorAgent {
 
     try {
       await pushLogs({
+        id: status.taskId,
         owner_address: "orchestrator",
         project_id: status.projectId,
         agent_name: "orchestrator",
@@ -1650,6 +1653,7 @@ export class CoreOrchestratorAgent {
 
     try {
       await pushLogs({
+        id: uuidv4(),
         owner_address: "orchestrator",
         project_id: projectId,
         agent_name: "orchestrator",
@@ -1677,6 +1681,7 @@ export class CoreOrchestratorAgent {
 
       try {
         await pushLogs({
+          id: uuidv4(),
           owner_address: "orchestrator",
           project_id: projectId,
           agent_name: "orchestrator",
@@ -1712,6 +1717,7 @@ export class CoreOrchestratorAgent {
 
       try {
         await pushLogs({
+          id: uuidv4(),
           owner_address: "orchestrator",
           project_id: updated.workflowId,
           agent_name: "orchestrator",
@@ -1740,6 +1746,7 @@ export class CoreOrchestratorAgent {
 
       try {
         await pushLogs({
+          id: uuidv4(),
           owner_address: "orchestrator",
           project_id: workflowId,
           agent_name: "orchestrator",

@@ -6,6 +6,7 @@ import {
   fetchLogsByAddress,
 } from "../../services/nillion";
 import { LogsData } from "../../types/nillion";
+import { v4 as uuidv4 } from "uuid";
 
 export class SocialsAgent {
   private socialsService: SocialsService;
@@ -55,6 +56,7 @@ export class SocialsAgent {
 
             // Mark task as processed
             await pushLogs({
+              id: uuidv4(),
               owner_address: taskLog.owner_address,
               project_id: taskLog.project_id,
               agent_name: this.agentName,
@@ -301,6 +303,7 @@ A social media task has failed to complete. Generate a brief response (1-2 sente
 
     // Log the character modification
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -332,6 +335,7 @@ A social media task has failed to complete. Generate a brief response (1-2 sente
 
     // Log the frequency change
     await pushLogs({
+      id: uuidv4(),
       owner_address: payload.ownerAddress,
       project_id: payload.projectId,
       agent_name: this.agentName,
@@ -602,6 +606,7 @@ Another step forward in our journey! 🎉
   ): Promise<void> {
     try {
       await pushLogs({
+        id: uuidv4(),
         owner_address: ownerAddress,
         project_id: workflowId,
         agent_name: this.agentName,

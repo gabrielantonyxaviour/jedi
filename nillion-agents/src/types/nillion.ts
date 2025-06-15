@@ -9,6 +9,7 @@ export interface ComplianceData {
 
 export interface GithubData {
   name: string;
+  project_id: string;
   description: string;
   technical_description: string;
   repo_url: string;
@@ -29,6 +30,7 @@ export interface LeadsData {
 
 export interface LogsData {
   _id?: string;
+  id: string;
   owner_address: string;
   project_id: string;
   agent_name: string;

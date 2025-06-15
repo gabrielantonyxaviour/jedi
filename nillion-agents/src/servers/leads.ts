@@ -64,7 +64,7 @@ class LeadsServer {
 
       // Process new logs (ones we haven't seen before)
       const newLogs = leadsLogs.filter(
-        (log) => !this.processedLogs.has(log._id || "")
+        (log) => !this.processedLogs.has(log.id || "")
       );
 
       if (newLogs.length > 0) {
@@ -73,7 +73,7 @@ class LeadsServer {
         for (const log of newLogs) {
           await this.processLogAsTask(log);
           // Mark this log as processed
-          this.processedLogs.add(log._id || "");
+          this.processedLogs.add(log.id || "");
         }
       }
 
@@ -125,7 +125,7 @@ class LeadsServer {
 
   private async processLogAsTask(log: any) {
     try {
-      console.log(`📋 Processing leads log: ${log._id}`);
+      console.log(`📋 Processing leads log: ${log.id}`);
       console.log(`📝 Log text: ${log.text}`);
 
       let task;
@@ -143,7 +143,7 @@ class LeadsServer {
 
       // Ensure task has required fields
       if (!task.taskId) {
-        task.taskId = log._id; // Use log ID as task ID
+        task.taskId = log.id; // Use log ID as task ID
       }
 
       if (!task.workflowId) {
@@ -162,11 +162,11 @@ class LeadsServer {
 
       console.log(`✅ Leads task completed: ${task.taskId}`);
     } catch (error) {
-      console.error(`❌ Error processing leads log ${log._id}:`, error);
+      console.error(`❌ Error processing leads log ${log.id}:`, error);
 
       // Report the error back
       try {
-        const taskId = log._id;
+        const taskId = log.id;
         const workflowId = log.project_id || "unknown-workflow";
 
         await this.agent.reportTaskCompletion(
@@ -187,7 +187,7 @@ class LeadsServer {
 
   private createTaskFromLog(log: any): any {
     return {
-      taskId: log._id,
+      taskId: log.id,
       workflowId: log.project_id || "unknown-workflow",
       type: this.inferTaskTypeFromLog(log),
       payload: {

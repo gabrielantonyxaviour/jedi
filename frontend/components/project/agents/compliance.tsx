@@ -56,7 +56,7 @@ export default function ComplianceAgent({ userSide }: ComplianceAgentProps) {
 
   // Transform data for UI
   const similarProjects = mockData.map((item) => ({
-    id: item._id,
+    id: item.id,
     name: extractValue(item.name),
     source: extractValue(item.source),
     description: extractValue(item.data),

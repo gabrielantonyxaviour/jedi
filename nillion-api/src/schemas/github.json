@@ -10,6 +10,15 @@
         "format": "uuid",
         "coerce": true
       },
+      "project_id": {
+        "type": "object",
+        "properties": {
+          "%share": {
+            "type": "string"
+          }
+        },
+        "required": ["%share"]
+      },
       "image": {
         "type": "object",
         "properties": {

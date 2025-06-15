@@ -1,5 +1,6 @@
 import { Octokit } from "@octokit/rest";
 import { pushLogs } from "../../../services/nillion";
+import { v4 as uuidv4 } from "uuid";
 
 export class WebhookService {
   constructor(private octokit: Octokit) {}
@@ -44,6 +45,7 @@ export class WebhookService {
     ownerAddress: string
   ) {
     await pushLogs({
+      id: uuidv4(),
       owner_address: ownerAddress,
       project_id: `${owner}/${repo}`,
       agent_name: "github-webhook-service",
@@ -71,6 +73,7 @@ export class WebhookService {
     ownerAddress: string
   ) {
     await pushLogs({
+      id: uuidv4(),
       owner_address: ownerAddress,
       project_id: `${owner}/${repo}`,
       agent_name: "github-webhook-service",
@@ -100,6 +103,7 @@ export class WebhookService {
     ownerAddress: string
   ) {
     await pushLogs({
+      id: uuidv4(),
       owner_address: ownerAddress,
       project_id: `${owner}/${repo}`,
       agent_name: "github-webhook-service",
@@ -128,6 +132,7 @@ export class WebhookService {
     workflowId?: string
   ) {
     await pushLogs({
+      id: uuidv4(),
       owner_address: ownerAddress,
       project_id: workflowId || "webhook",
       agent_name: "github-webhook-service",
