@@ -15,7 +15,6 @@ import ProjectSetupDialog, {
 import { useAppStore } from "@/store/app-store";
 import { motion } from "framer-motion";
 // import { isPublicRepo } from "@/lib/github/check-public";
-import { parseCardanoBalance } from "@/lib/cardano";
 import { useProjects } from "@/hooks/use-projects";
 import { useAccount } from "wagmi";
 import { useBalance } from "wagmi";
