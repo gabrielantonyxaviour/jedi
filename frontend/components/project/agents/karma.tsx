@@ -275,7 +275,7 @@ export default function KarmaAgent({
               <h3 className="text-white font-medium">
                 Applied Grants ({projectData.grants.length})
               </h3>
-              {projectData.grants.map((grant) => (
+              {projectData.grants.map((grant: any) => (
                 <div key={grant.id} className="bg-stone-800/50 rounded-lg p-3">
                   <div className="flex justify-between items-start mb-2">
                     <div className="text-white font-medium">{grant.name}</div>
@@ -292,7 +292,7 @@ export default function KarmaAgent({
           {activeTab === "milestones" && (
             <div className="space-y-4">
               <h3 className="text-white font-medium">Project Milestones</h3>
-              {projectData.milestones.map((milestone) => (
+              {projectData.milestones.map((milestone: any) => (
                 <div
                   key={milestone.id}
                   className="bg-stone-800/50 rounded-lg p-3"
@@ -308,11 +308,9 @@ export default function KarmaAgent({
                       </p>
                       <div className="text-xs text-stone-500">
                         Grant:{" "}
-                        {
-                          projectData.grants.find(
-                            (g) => g.id === milestone.grant_id
-                          )?.name
-                        }{" "}
+                        {projectData.grants.find(
+                          (g: any) => g.id === milestone.grant_id
+                        ) || "N/A"}{" "}
                         • {milestone.created_at}
                       </div>
                     </div>

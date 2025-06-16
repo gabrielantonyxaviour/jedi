@@ -16,9 +16,10 @@ import { useAppStore } from "@/store/app-store";
 import { motion } from "framer-motion";
 // import { isPublicRepo } from "@/lib/github/check-public";
 import { useProjects } from "@/hooks/use-projects";
-import { useAccount } from "wagmi";
+import { useAccount, useSendTransaction } from "wagmi";
 import { useBalance } from "wagmi";
-import { formatEther } from "viem";
+import { formatEther, parseEther } from "viem";
+import { toast } from "sonner";
 
 interface CreationStep {
   id: string;
@@ -43,6 +44,7 @@ export default function Home() {
     useAppStore();
   const { isConnected, address } = useAccount();
   const { data: balance } = useBalance({ address });
+  const { data: hash, sendTransactionAsync } = useSendTransaction();
 
   const {
     projects,
@@ -115,20 +117,44 @@ export default function Home() {
     }, 500);
   };
 
+  useEffect(() => {
+    if (hash) {
+      toast.success("Transaction sent", {
+        description: "Payment to orchestrator confirmed!",
+        action: {
+          label: "View on Explorer",
+          onClick: () => {
+            window.open(
+              `https://explorer.mainnet.aurora.dev/tx/${hash}`,
+              "_blank"
+            );
+          },
+        },
+      });
+    }
+  }, [hash]);
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || !isConnected) return;
+
+    await sendTransactionAsync({
+      to: "0xbE9044946343fDBf311C96Fb77b2933E2AdA8B5D",
+      value: parseEther("0.00001"), // 0.00001 ETH
+    });
 
     // if (!(await isPublicRepo(prompt))) {
     //   setError("Please make sure the repository is public");
     //   return;
     // }
 
-    if (parseFloat(formatEther(balance?.value ?? BigInt("0"))) < 0.1) {
-      setError("Please top up your wallet with at least 0.1 STORY to continue");
-      return;
-    }
+    // if (parseFloat(formatEther(balance?.value ?? BigInt("0"))) < 0.1) {
+    //   setError(
+    //     "Please top up your wallet with at least 0.1 ETH in Aurora to continue"
+    //   );
+    //   return;
+    // }
 
     setError("");
 

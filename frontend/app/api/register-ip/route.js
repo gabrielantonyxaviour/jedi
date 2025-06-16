@@ -4,15 +4,15 @@ import { registerIp } from "../../../utils/story/register";
 export async function POST(req) {
   try {
     const body = await req.json();
-    // const {
-    //   title,
-    //   description,
-    //   imageURL,
-    //   remixFee,
-    //   commercialRevShare,
-    //   creators,
-    //   attributes,
-    // } = body;
+    const {
+      title,
+      description,
+      imageURL,
+      remixFee,
+      commercialRevShare,
+      creators,
+      attributes,
+    } = body;
 
     // const title = "Test";
     // const description = "Test";
@@ -37,12 +37,7 @@ export async function POST(req) {
     //     contributionPercent: 100,
     //   },
     // ];
-    const attributes = [
-      {
-        key: "Test Attribute",
-        value: "Test Value",
-      },
-    ];
+
     const response = await registerIp({
       title,
       description,

@@ -3,6 +3,7 @@ import "./globals.css";
 import "@tomo-inc/tomo-evm-kit/styles.css";
 import Layout from "@/components/layout";
 import { TomoProvider } from "@/components/tomo-provider";
+import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
   title: "Jedi | Build your AI co-founder",
@@ -19,6 +20,7 @@ export default function RootLayout({
       <body>
         <TomoProvider>
           <Layout>{children}</Layout>
+          <Toaster />
         </TomoProvider>
       </body>
     </html>

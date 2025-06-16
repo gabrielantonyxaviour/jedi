@@ -26,10 +26,10 @@ export default function WalletButton() {
     <div className="flex items-center gap-4">
       {isConnected && (
         <div className="flex items-center gap-2 text-sm">
-          <Image src="/story.png" alt="ADA" width={16} height={16} />
+          <Image src="/aurora.jpg" alt="eth" width={16} height={16} />
           <span className="text-stone-300">
-            {parseFloat(formatEther(balance?.value ?? BigInt("0"))).toFixed(2)}{" "}
-            STORY
+            {parseFloat(formatEther(balance?.value ?? BigInt("0"))).toFixed(4)}{" "}
+            ETH
           </span>
         </div>
       )}

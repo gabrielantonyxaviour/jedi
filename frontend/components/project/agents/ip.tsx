@@ -26,6 +26,7 @@ export default function IPAgent({
   const [isSettingUp, setIsSettingUp] = useState(false);
   const agentId = "ip";
   const { data: walletClient } = useWalletClient();
+  const { address } = useAccount();
 
   // Setup form state
   const [formData, setFormData] = useState({
@@ -33,9 +34,11 @@ export default function IPAgent({
     desc: "Early-stage TypeScript chat application with agent servers and interactive dialogs. Single contributor actively developing core chat functionalities",
     image_url:
       "https://pbs.twimg.com/profile_images/1931304627124744192/g6Zgm1BD_400x400.jpg",
-    owners: [userAddress],
+    owners: ["0x5A6B842891032d702517a4E52ec38eE561063539"],
     remix_license_terms: "commercial",
   });
+  const [txHash, setTxHash] = useState("");
+  const [ipa, setIpa] = useState("");
   const [newOwner, setNewOwner] = useState("");
 
   const handleInputChange = (field: string, value: string) => {
@@ -72,9 +75,33 @@ export default function IPAgent({
       formData.remix_license_terms
     ) {
       setIsSettingUp(true);
-      const accoount = walletClient?.account;
-      // await registerIp(accoount);
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      const response = await fetch("/api/register-ip", {
+        method: "POST",
+        body: JSON.stringify({
+          title: formData.name,
+          description: formData.desc,
+          imageURL: formData.image_url || "",
+          owners: [
+            {
+              name: "Gabriel",
+              address,
+              contributionPercent: 100,
+            },
+          ],
+          attributes: [
+            {
+              key: "Test Attribute",
+              value: "Test Value",
+            },
+          ],
+          commercialRevShare: 0,
+          remixFee: 0,
+        }),
+      });
+      const data = await response.json();
+      console.log(data);
+      setTxHash(data.txHash);
+      setIpa(data.ipId);
       setIsSettingUp(false);
       setup(formData);
     }
@@ -445,9 +472,39 @@ export default function IPAgent({
                 <h3 className="text-white font-medium mb-3">{asset.name}</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
+                    <span className="text-stone-400">Register Tx Hash:</span>
+                    <span
+                      className="text-stone-300 font-mono"
+                      onClick={() => {
+                        if (txHash) {
+                          window.open(
+                            `https://aeneid.storyscan.io/tx/${txHash}`,
+                            "_blank"
+                          );
+                        } else {
+                          console.log("No transaction hash found");
+                        }
+                      }}
+                    >
+                      {txHash}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-stone-400">Current IPA:</span>
-                    <span className="text-stone-300 font-mono">
-                      {asset.ipa}
+                    <span
+                      className="text-stone-300 font-mono"
+                      onClick={() => {
+                        if (ipa) {
+                          window.open(
+                            `https://aeneid.explorer.story.foundation/ipa/${ipa}`,
+                            "_blank"
+                          );
+                        } else {
+                          console.log("No ipa found");
+                        }
+                      }}
+                    >
+                      {ipa}
                     </span>
                   </div>
                   <div className="flex justify-between">

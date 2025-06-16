@@ -119,10 +119,7 @@ export async function registerIp({
   }
 
   if (!verified) {
-    res.status(400).json({
-      verified,
-      error: "Failed to get signature verification from MPC nodes",
-    });
+    console.log("Failed to get signature verification from MPC nodes");
     return;
   }
 
