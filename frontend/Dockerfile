@@ -8,11 +8,11 @@ RUN corepack enable
 WORKDIR /app
 
 # Copy package files first for optimal caching
-COPY package.json pnpm-lock.yaml ./
+COPY package.json yarn.lock .yarnrc.yml ./
 
 # Install production dependencies (Yarn 4+)
-# COPY .pnpm ./.pnpm
-RUN pnpm install
+COPY .yarn ./.yarn
+RUN yarn install
 
 # Copy application files
 COPY . .
@@ -27,4 +27,4 @@ EXPOSE 3000
 ENV NODE_ENV=development
 
 # Start command
-CMD ["pnpm", "start"]
+CMD ["yarn", "start"]
