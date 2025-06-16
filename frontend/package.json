@@ -66,6 +66,7 @@
     "path-browserify": "^1.0.1",
     "react": "^19",
     "react-day-picker": "8.10.1",
+    "@tomo-inc/tomo-evm-kit": "^0.0.47",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^19",

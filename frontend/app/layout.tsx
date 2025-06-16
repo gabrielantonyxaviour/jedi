@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "@tomo-inc/tomo-evm-kit/styles.css";
 
 import Layout from "@/components/layout";
 import { TomoProvider } from "@/components/tomo-provider";

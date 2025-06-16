@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { LogOut, Wallet } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,9 +15,10 @@ import { parseCardanoBalance } from "@/lib/cardano";
 import { formatEther } from "viem";
 import { useAccount, useBalance, useConnect, useDisconnect } from "wagmi";
 import { aurora } from "viem/chains";
+import { useConnectModal } from "@tomo-inc/tomo-evm-kit";
 
 export default function WalletButton() {
-  const { connectAsync, connectors } = useConnect();
+  const { openConnectModal } = useConnectModal();
   const { userSide } = useAppStore();
   const { isConnected, address } = useAccount();
   const { data: balance } = useBalance({ address });
@@ -48,12 +50,7 @@ export default function WalletButton() {
                 : ""
             }`}
             onClick={() => {
-              if (!!isConnected) {
-                connectAsync({
-                  chainId: aurora.id,
-                  connector: connectors[0],
-                });
-              }
+              if (!isConnected) openConnectModal?.();
             }}
           >
             <Wallet className="w-4 h-4 mr-2" />
