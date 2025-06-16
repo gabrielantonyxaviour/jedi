@@ -1,125 +1,108 @@
-# Jedi
-
-- **Track(s):**: Privacy-First AI
-- **Team/Contributors:** Gabriel Antony Xaviour - built everything.
-- **Repository:** https://github.com/gabrielantonyxaviour/jedi
-- **Demo:** https://www.canva.com/design/DAGqGAWze0o/xZWhTl_Gl6DY06A5rKK4yA/view?utm_content=DAGqGAWze0o&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hcd6c13a3c5
-- **Live App:** http://jedi-on-chain.vercel.app
+# AI Co-Founder with Chain Abstraction
 
 ## Description (TL;DR)
+Building an AI co founder that takes care of your business/marketing/legal needs with seamless chain abstraction at its core. Seven specialized AI agents work together using Shade Agents running on Phala TEE to handle all business intelligence, while NEAR provides unified chain abstraction so you can operate across any blockchain without managing multiple wallets or networks. Developers get a full business co-founder that works natively across the entire multi-chain ecosystem.
 
-Building an AI co-founder platform with privacy-preserving computation at its core. Seven specialized AI agents work together using Nillion SecretLLM to process all business intelligence in an encrypted state, ensuring that sensitive startup data never exists in plaintext during computation. Developers get a full business co-founder without compromising on data privacy or competitive intelligence.
+## Screenshots
+<img width="1440" alt="Screenshot 2025-06-16 at 11 28 10 AM" src="https://github.com/user-attachments/assets/2322faec-57e3-465e-b44b-c6d50328cb7a" />
+<img width="1437" alt="Screenshot 2025-06-16 at 11 27 54 AM" src="https://github.com/user-attachments/assets/3c2e9d2e-3d9b-4da8-9a74-6ef3102e6ea0" />
+<img width="1432" alt="Screenshot 2025-06-16 at 11 27 45 AM" src="https://github.com/user-attachments/assets/4dd0ce8b-f50b-4fdb-8555-395c7a8893ec" />
+<img width="1440" alt="Screenshot 2025-06-16 at 11 27 38 AM" src="https://github.com/user-attachments/assets/5e2d2bf6-dc94-49a3-ac59-c97ca2671c2b" />
+<img width="1440" alt="Screenshot 2025-06-16 at 11 26 42 AM" src="https://github.com/user-attachments/assets/e81171d9-9ccd-4027-bde1-5ffc61c4d830" />
+
 
 ## Problem
 
 ### Key Challenges
 
-1. **The Technical Co-founder Gap**
+#### The Technical Co-founder Gap
+- Developers excel at product building
+- Critical gaps in business development, marketing, legal, and fundraising
+- Need for comprehensive business expertise
 
-   - Developers excel at product building
-   - Critical gaps in business development, marketing, legal, and fundraising
-   - Need for comprehensive business expertise
+#### Multi-Chain Complexity
+- Managing operations across multiple blockchains
+- Different wallets, gas tokens, and protocols per chain
+- Fragmented ecosystem limiting business opportunities
 
-2. **AI Privacy Concerns**
+#### AI Compute Reliability
+- Centralized AI services with downtime risks
+- Lack of verifiable AI computation
+- No guarantees of execution integrity
 
-   - Traditional AI requires exposing sensitive business data
-   - Customer lists, strategies, and IP details at risk
-   - Third-party model access to confidential information
-
-3. **Competitive Intelligence Risks**
-
-   - Business strategies exposed in standard cloud AI
-   - Lead data and IP information vulnerable
-   - Competitor access to sensitive information
-
-4. **Multi-Agent Coordination Issues**
-
-   - Centralized, unencrypted data stores required
-   - Complex agent communication challenges
-   - Security vulnerabilities in data sharing
-
-5. **Regulatory Compliance Barriers**
-   - GDPR and SOC2 requirements
-   - Enterprise privacy standards
-   - Limited AI tool usability for sensitive operations
+#### Cross-Chain Business Operations
+- Grant opportunities scattered across different chains
+- IP registration on multiple protocols
+- Lead generation across diverse ecosystems
 
 ## Solution
+An AI co founder that operates seamlessly across all chains
 
-# Privacy-Preserving AI Co-founder Platform
+### Core Innovation
+Our platform leverages NEAR's chain abstraction to provide unified multi-chain operations while Shade Agents on Phala TEE ensure verifiable AI computation:
 
-## Core Innovation
+- Single interface for all blockchain interactions
+- Verifiable AI computation via TEE
+- Seamless cross-chain business operations
+- Unified account abstraction across ecosystems
 
-Our platform leverages Nillion's SecretLLM to maintain end-to-end encryption of all business intelligence:
+### Specialized Agent Network
+Our system comprises 7 specialized AI agents, each operating across the multi-chain ecosystem:
 
-1. Data encrypted at rest
-2. Decrypted only during processing
-3. Computed via privacy-preserving SecretLLM
-4. Re-encrypted immediately after updates
+| Agent | Role | Chain Abstraction Focus |
+|-------|------|------------------------|
+| Orchestrator | System coordination | Cross-chain workflow management |
+| GitHub | Code analysis & repo management | Multi-chain deployment strategies |
+| Socials | X/Twitter & Telegram management | Cross-ecosystem audience building |
+| Leads | Opportunity discovery | Multi-chain partnership scouting |
+| IP | Story Protocol integration | Cross-chain IP protection |
+| Grants | Karma.xyz integration | Multi-ecosystem funding discovery |
+| Compliance | Competitor monitoring | Cross-chain regulatory tracking |
 
-## Specialized Agent Network
+#### Technical Architecture
+All agents run on Shade Agents with Phala TEE for verifiable computation, coordinated through NEAR's chain abstraction layer.
 
-Our system comprises 7 specialized AI agents, each operating with encrypted context:
+### Technology Stack
 
-| Agent        | Role                            | Privacy Focus                   |
-| ------------ | ------------------------------- | ------------------------------- |
-| Orchestrator | System coordination             | Encrypted context management    |
-| GitHub       | Code analysis & repo management | Private development insights    |
-| Socials      | X/Twitter & Telegram management | Encrypted audience intelligence |
-| Leads        | Opportunity discovery           | Confidential prospect data      |
-| IP           | Story Protocol integration      | Encrypted patent strategies     |
-| Grants       | Karma.xyz integration           | Confidential funding strategies |
-| Compliance   | Competitor monitoring           | Private surveillance methods    |
+| Component | Description |
+|-----------|-------------|
+| AI Compute | Shade Agents on Phala TEE for verifiable AI execution |
+| Chain Abstraction | NEAR protocol for unified multi-chain operations |
+| Orchestration | Node.js/Express.js with cross-chain agent coordination |
+| Account Abstraction | Single account managing operations across all chains |
+| Blockchain Integration | Story Protocol (IP), Karma.xyz (grants) via NEAR abstraction |
+| TEE Architecture | Trusted execution environment ensuring computation integrity |
 
-## Technical Breakthrough
+## Chain Abstraction Benefits
 
-All inter-agent communication and shared context is processed through SecretLLM, ensuring business intelligence remains encrypted throughout the entire computation lifecycle.
+### Unified Multi-Chain Operations
+- **Single Interface:** Manage business operations across all chains from one dashboard
+- **Universal Account:** One account works everywhere - Ethereum, Solana, Cosmos, Polygon, etc.
+- **Cross-Chain Workflows:** Execute complex business strategies spanning multiple ecosystems
+- **Gas Abstraction:** Pay transaction fees in any token across any chain
+- **Protocol Agnostic:** Access best-in-class services regardless of underlying blockchain
+- **Ecosystem Arbitrage:** Identify and capitalize on opportunities across all chains simultaneously
 
-## Technology Stack
-
-| Component                   | Description                                                         |
-| --------------------------- | ------------------------------------------------------------------- |
-| Privacy-Preserving AI       | Nillion SecretLLM for encrypted computation during processing       |
-| Encrypted Memory            | All multi-agent context and history stored encrypted via Nillion    |
-| Orchestration               | Node.js/Express.js with privacy-preserving agent coordination       |
-| Secure State Management     | Encrypted → decrypt → SecretLLM process → encrypt cycle             |
-| Blockchain Integration      | Story Protocol (IP), Karma.xyz (grants) with encrypted interactions |
-| Zero-Knowledge Architecture | No plaintext business data persists anywhere in the system          |
-
-## Privacy Impact
-
-### Privacy-Preserving AI
-
-- **Encrypted-at-Rest AND During-Computation**: Business data never exists in plaintext, even during AI processing
-- **Confidential Multi-Agent Coordination**: Agents share context through encrypted channels
-- **Zero Data Leakage**: Competitive intelligence, customer data, and IP strategies completely private
-- **Regulatory Compliance**: Meets enterprise privacy requirements (GDPR, HIPAA, SOC2)
-- **Secure Cross-Agent Learning**: Agents improve collectively without exposing individual business data
-- **Private Competitive Analysis**: Monitor competitors and market trends without revealing your surveillance methods
-
-## Real-World Use Cases
-
-- **Enterprise Developers**: Use AI co-founder for internal projects without exposing corporate secrets
-- **Stealth Startups**: Build and plan in complete privacy before public launch
-- **Government Contractors**: AI assistance that meets security clearance requirements
-- **Healthcare/FinTech**: AI co-founder for highly regulated industries
-- **Competitive Markets**: Business development without revealing strategies to competitors
-- **International Operations**: Comply with strict data residency and privacy laws globally
+### Real-World Use Cases
+- **Multi-Chain Startups:** Launch on optimal chains without technical complexity
+- **Cross-Chain Protocols:** Manage business development across entire ecosystem
+- **DeFi Projects:** Access liquidity and partnerships on every major chain
+- **Gaming/NFT Projects:** Deploy where users are, regardless of chain preferences
+- **Enterprise Web3:** Operate across clients' preferred blockchain environments
+- **Grant Maximization:** Apply for funding opportunities across all ecosystems simultaneously
 
 ## Business Logic
-
-- **Enterprise Premium**: Privacy-preserving AI co-founder for companies with strict security requirements
-- **Compliance-as-a-Service**: Meet regulatory requirements other AI tools can't satisfy
-- **Private Intelligence**: Competitive analysis and market research with guaranteed confidentiality
-- **Secure Partnerships**: Enable collaborations without exposing sensitive business data
-- **Privacy Certification**: First AI co-founder platform that can be audited for true privacy compliance
-- **Zero-Knowledge Business Development**: Prove business strategies work without revealing them
+- **Chain-Agnostic Premium:** Full business co-founder that works across any blockchain
+- **Ecosystem Optimization:** Automatically identify the best chains for specific business needs
+- **Cross-Chain Intelligence:** Market analysis spanning the entire multi-chain landscape
+- **Universal Partnerships:** Connect with opportunities regardless of blockchain preference
+- **Multi-Chain Compliance:** Navigate regulatory requirements across different jurisdictions
+- **Ecosystem Arbitrage:** Profit from differences between chain ecosystems
 
 ## What's Next
-
-- **Federated Learning**: Multiple AI co-founders learn collectively while keeping individual data private
-- **Private Multi-Party Computation**: Enable secure collaborations between multiple startups' AI co-founders
-- **Homomorphic Analytics**: Generate industry insights from encrypted data across all users
-- **Secure Agent Marketplace**: Third-party agents that can process encrypted context
-- **Privacy-Preserving Benchmarking**: Compare performance against industry standards without data exposure
-- **Regulatory Expansion**: Meet emerging AI privacy regulations before they're mandatory
-- **Private API Integrations**: Connect with external services while maintaining encrypted context
+- **Interoperability Expansion:** Direct integration with more bridge protocols and cross-chain infrastructure
+- **Chain-Specific Optimization:** AI agents specialized for individual blockchain ecosystems
+- **Universal Analytics:** Cross-chain performance metrics and business intelligence
+- **Multi-Chain Automation:** Complex workflows spanning multiple blockchains
+- **Ecosystem Partnerships:** Direct integration with major chains' developer programs
+- **Cross-Chain Governance:** Participate in DAO governance across all ecosystems simultaneously
