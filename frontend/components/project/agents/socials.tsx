@@ -12,6 +12,7 @@ import {
 import { getAgentDisplayName } from "@/utils/agentUtils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { v4 as uuidv4 } from "uuid";
+import { useAppStore } from "@/store/app-store";
 
 interface SocialsAgentProps {
   userSide: "light" | "dark" | null;
@@ -27,6 +28,7 @@ export default function SocialsAgent({
   const [activeTab, setActiveTab] = useState("overview");
   const [showPassword, setShowPassword] = useState(false);
   const [isSettingUp, setIsSettingUp] = useState(false);
+  const { addLog } = useAppStore();
   const [setupData, setSetupData] = useState({
     twitterUsername: "jedionchain",
     twitterEmail: "jedionchain@gmail.com",
@@ -255,9 +257,21 @@ export default function SocialsAgent({
               <button
                 onClick={async () => {
                   setIsSettingUp(true);
+                  addLog(
+                    "Setting up the socials agent, I am. Patience, you must have.",
+                    "socials",
+                    "info"
+                  );
                   await new Promise((resolve) => setTimeout(resolve, 5000));
+
                   setIsSettingUp(false);
                   setup();
+                  await new Promise((resolve) => setTimeout(resolve, 10000));
+                  addLog(
+                    "Socials agent setup complete. Let's achieve greatness.",
+                    "socials",
+                    "info"
+                  );
                 }}
                 disabled={!isFormValid() || isSettingUp}
                 className={`w-full p-3 rounded-lg font-medium transition-colors ${

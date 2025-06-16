@@ -6,6 +6,7 @@ import { getAgentDisplayName } from "@/utils/agentUtils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { v4 as uuidv4 } from "uuid";
 import { useAccount, useWalletClient } from "wagmi";
+import { useAppStore } from "@/store/app-store";
 
 interface IPAgentProps {
   userSide: "light" | "dark" | null;
@@ -24,6 +25,7 @@ export default function IPAgent({
 }: IPAgentProps) {
   const [activeTab, setActiveTab] = useState("assets");
   const [isSettingUp, setIsSettingUp] = useState(false);
+  const { addLog } = useAppStore();
   const agentId = "ip";
   const { data: walletClient } = useWalletClient();
   const { address } = useAccount();
@@ -75,6 +77,11 @@ export default function IPAgent({
       formData.remix_license_terms
     ) {
       setIsSettingUp(true);
+      addLog(
+        "Setting up the IP agent, I am. Patience, you must have.",
+        "ip",
+        "info"
+      );
       const response = await fetch("/api/register-ip", {
         method: "POST",
         body: JSON.stringify({
@@ -104,6 +111,7 @@ export default function IPAgent({
       setIpa(data.ipId);
       setIsSettingUp(false);
       setup(formData);
+      addLog("IP agent setup complete. Let's achieve greatness.", "ip", "info");
     }
   };
 

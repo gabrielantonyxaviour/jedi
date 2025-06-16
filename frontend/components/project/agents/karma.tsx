@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { v4 as uuidv4 } from "uuid";
+import { useAppStore } from "@/store/app-store";
 
 interface KarmaAgentProps {
   userSide: "light" | "dark" | null;
@@ -31,7 +32,7 @@ export default function KarmaAgent({
     userName: "Gabriel Antony",
   });
   const [txHash, setTxHash] = useState("");
-
+  const { addLog } = useAppStore();
   const agentId = "karma";
 
   // Mock grants data with correct format
@@ -194,6 +195,11 @@ export default function KarmaAgent({
             <Button
               onClick={async () => {
                 setIsSettingUp(true);
+                addLog(
+                  "Setting up the karma agent, I am. Patience, you must have.",
+                  "karma",
+                  "info"
+                );
                 const response = await fetch("/api/register-karma", {
                   method: "POST",
                   body: JSON.stringify({
@@ -216,6 +222,11 @@ export default function KarmaAgent({
                 // await new Promise((resolve) => setTimeout(resolve, 5000));
                 setIsSettingUp(false);
                 setup();
+                addLog(
+                  "Karma agent setup complete. Let's achieve greatness.",
+                  "karma",
+                  "info"
+                );
               }}
               className={`w-full ${
                 userSide === "light"
@@ -298,7 +309,10 @@ export default function KarmaAgent({
                   className="text-stone-300 font-mono cursor-pointer"
                   onClick={() => {
                     if (txHash) {
-                      window.open(`https://optimism-sepolia.blockscout.com/tx/${txHash}`, "_blank");
+                      window.open(
+                        `https://optimism-sepolia.blockscout.com/tx/${txHash}`,
+                        "_blank"
+                      );
                     }
                   }}
                 >
