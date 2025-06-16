@@ -11,12 +11,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
 import { parseCardanoBalance } from "@/lib/cardano";
-import { useConnectModal } from "@tomo-inc/tomo-evm-kit";
 import { formatEther } from "viem";
-import { useAccount, useBalance, useDisconnect } from "wagmi";
+import { useAccount, useBalance, useConnect, useDisconnect } from "wagmi";
+import { aurora } from "viem/chains";
 
 export default function WalletButton() {
-  const { openConnectModal } = useConnectModal();
+  const { connectAsync, connectors } = useConnect();
   const { userSide } = useAppStore();
   const { isConnected, address } = useAccount();
   const { data: balance } = useBalance({ address });
@@ -47,7 +47,14 @@ export default function WalletButton() {
                   : ""
                 : ""
             }`}
-            onClick={!isConnected ? openConnectModal : undefined}
+            onClick={() => {
+              if (!!isConnected) {
+                connectAsync({
+                  chainId: aurora.id,
+                  connector: connectors[0],
+                });
+              }
+            }}
           >
             <Wallet className="w-4 h-4 mr-2" />
             {!isConnected
