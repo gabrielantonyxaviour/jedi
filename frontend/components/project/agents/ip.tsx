@@ -395,9 +395,35 @@ export default function IPAgent({
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
+                    <span className="text-stone-400">Register Tx Hash:</span>
+                    <span
+                      className="text-stone-300 font-mono cursor-pointer"
+                      onClick={() => {
+                        if (txHash) {
+                          window.open(
+                            `https://aeneid.storyscan.io/tx/${txHash}`,
+                            "_blank"
+                          );
+                        }
+                      }}
+                    >
+                      {txHash}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-stone-400">IPA ID:</span>
-                    <span className="text-stone-300 font-mono">
-                      {asset.ipa}
+                    <span
+                      className="text-stone-300 font-mono cursor-pointer"
+                      onClick={() => {
+                        if (ipa) {
+                          window.open(
+                            `https://aeneid.explorer.story.foundation/ipa/${ipa}`,
+                            "_blank"
+                          );
+                        }
+                      }}
+                    >
+                      {ipa}
                     </span>
                   </div>
                   <div className="flex justify-between">

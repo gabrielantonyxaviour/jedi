@@ -139,10 +139,10 @@ export default function Home() {
     e.preventDefault();
     if (!prompt.trim() || !isConnected) return;
 
-    await sendTransactionAsync({
-      to: "0xbE9044946343fDBf311C96Fb77b2933E2AdA8B5D",
-      value: parseEther("0.00001"), // 0.00001 ETH
-    });
+    // await sendTransactionAsync({
+    //   to: "0xbE9044946343fDBf311C96Fb77b2933E2AdA8B5D",
+    //   value: parseEther("0.000005"), // 0.00001 ETH
+    // });
 
     // if (!(await isPublicRepo(prompt))) {
     //   setError("Please make sure the repository is public");

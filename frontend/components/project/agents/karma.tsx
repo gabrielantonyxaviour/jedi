@@ -30,6 +30,7 @@ export default function KarmaAgent({
     userEmail: "gabrielantony5@gmail.com",
     userName: "Gabriel Antony",
   });
+  const [txHash, setTxHash] = useState("");
 
   const agentId = "karma";
 
@@ -193,7 +194,26 @@ export default function KarmaAgent({
             <Button
               onClick={async () => {
                 setIsSettingUp(true);
-                await new Promise((resolve) => setTimeout(resolve, 5000));
+                const response = await fetch("/api/register-karma", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    title: formData.name,
+                    description: formData.desc,
+                    imageURL: projectData.image_url,
+                    creators: [
+                      {
+                        address: projectData.owner_address,
+                      },
+                    ],
+                    links: projectData.links,
+                    tags: [],
+                  }),
+                });
+                const data = await response.json();
+                console.log(data);
+                setTxHash(data.txHash);
+
+                // await new Promise((resolve) => setTimeout(resolve, 5000));
                 setIsSettingUp(false);
                 setup();
               }}
@@ -272,9 +292,24 @@ export default function KarmaAgent({
                 <p className="text-sm text-stone-300">{projectData.desc}</p>
               </div>
 
+              <div className="flex justify-between">
+                <span className="text-stone-400">Create Project Tx Hash:</span>
+                <span
+                  className="text-stone-300 font-mono cursor-pointer"
+                  onClick={() => {
+                    if (txHash) {
+                      window.open(`https://optimism-sepolia.blockscout.com/tx/${txHash}`, "_blank");
+                    }
+                  }}
+                >
+                  {txHash}
+                </span>
+              </div>
+
               <h3 className="text-white font-medium">
                 Applied Grants ({projectData.grants.length})
               </h3>
+
               {projectData.grants.map((grant: any) => (
                 <div key={grant.id} className="bg-stone-800/50 rounded-lg p-3">
                   <div className="flex justify-between items-start mb-2">
