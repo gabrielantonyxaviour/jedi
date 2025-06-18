@@ -15,40 +15,16 @@ import {
   KarmaProjectData,
   KarmaGrantData,
   KarmaMilestoneData,
+  KarmaData,
 } from "./service";
 import { Hex } from "viem";
-
-interface KarmaProject {
-  karmaProjectId: string;
-  projectId: string;
-  karmaUID: string;
-  title: string;
-  description: string;
-  status: "draft" | "active" | "completed";
-  ownerAddress: string;
-  members: string[];
-  grants: Array<{
-    uid: string;
-    title: string;
-    status: string;
-    milestones: Array<{
-      uid: string;
-      title: string;
-      status: string;
-      dueDate: string;
-    }>;
-  }>;
-  createdAt: string;
-  updatedAt: string;
-  syncedAt: string;
-}
 
 export class KarmaAgent {
   private dynamodb: DynamoDBClient;
   private s3: S3Client;
   private sqs: SQSClient;
   private karmaSDK: KarmaSDKService;
-  private karmaProjectsTableName: string;
+  private projectsTableName: string;
   private orchestratorQueue: string;
   private emailQueue: string;
   private socialQueue: string;
@@ -59,7 +35,7 @@ export class KarmaAgent {
     this.sqs = new SQSClient({ region: process.env.AWS_REGION });
     this.karmaSDK = new KarmaSDKService();
 
-    this.karmaProjectsTableName = process.env.KARMA_PROJECTS_TABLE!;
+    this.projectsTableName = process.env.PROJECTS_TABLE_NAME!;
     this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
     this.emailQueue = process.env.EMAIL_QUEUE_URL!;
     this.socialQueue = process.env.SOCIALS_QUEUE_URL!;
@@ -191,7 +167,7 @@ export class KarmaAgent {
     return await this.karmaSDK.fetchProjects();
   }
 
-  // EXISTING METHODS (unchanged)
+  // EXISTING METHODS (updated to use main projects table)
   async createKarmaProject(payload: {
     projectId: string;
     title: string;
@@ -203,7 +179,7 @@ export class KarmaAgent {
     members?: Hex[];
     userEmail?: string;
     userName?: string;
-  }): Promise<KarmaProject> {
+  }): Promise<any> {
     console.log(`🚀 Creating Karma project: ${payload.title}`);
 
     const karmaProjectData: KarmaProjectData = {
@@ -220,22 +196,16 @@ export class KarmaAgent {
       karmaProjectData
     );
 
-    const karmaProject: KarmaProject = {
-      karmaProjectId: randomUUID(),
-      projectId: payload.projectId,
+    // Store karma data in main projects table
+    const karmaData: KarmaData = {
       karmaUID: uid,
-      title: payload.title,
-      description: payload.description,
       status: "active",
-      ownerAddress: payload.ownerAddress,
-      members: payload.members || [],
       grants: [],
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
       syncedAt: new Date().toISOString(),
     };
 
-    await this.storeKarmaProject(karmaProject);
+    await this.updateProjectKarmaData(payload.projectId, karmaData);
 
     // Send confirmation email
     if (payload.userEmail && payload.userName) {
@@ -251,11 +221,11 @@ export class KarmaAgent {
       });
     }
 
-    return karmaProject;
+    return { karmaUID: uid, status: "created" };
   }
 
   async applyForGrant(payload: {
-    karmaProjectId: Hex;
+    projectId: string;
     grantTitle: string;
     grantDescription: string;
     proposalURL?: string;
@@ -267,8 +237,8 @@ export class KarmaAgent {
   }): Promise<any> {
     console.log(`📝 Applying for grant: ${payload.grantTitle}`);
 
-    const karmaProject = await this.getKarmaProject(payload.karmaProjectId);
-    if (!karmaProject) {
+    const project = await this.getProject(payload.projectId);
+    if (!project?.karma?.karmaUID) {
       throw new Error("Karma project not found");
     }
 
@@ -283,18 +253,25 @@ export class KarmaAgent {
 
     const { uids, grant, tx } = await this.karmaSDK.applyForGrant(
       grantData,
-      karmaProject.karmaUID as `0x${string}`
+      project.karma.karmaUID as `0x${string}`
     );
 
-    // Update local project
-    karmaProject.grants.push({
-      uid: uids[0],
-      title: payload.grantTitle,
-      status: "pending",
-      milestones: [],
+    // Update local project karma data
+    const updatedGrants = [
+      ...(project.karma.grants || []),
+      {
+        uid: uids[0],
+        title: payload.grantTitle,
+        status: "pending",
+        milestones: [],
+      },
+    ];
+
+    await this.updateProjectKarmaData(payload.projectId, {
+      ...project.karma,
+      grants: updatedGrants,
+      syncedAt: new Date().toISOString(),
     });
-    karmaProject.updatedAt = new Date().toISOString();
-    await this.storeKarmaProject(karmaProject);
 
     // Trigger social media post
     await this.sendTaskToAgent(this.socialQueue, {
@@ -302,7 +279,7 @@ export class KarmaAgent {
       workflowId: randomUUID(),
       type: "POST_GRANT_APPLICATION",
       payload: {
-        projectTitle: karmaProject.title,
+        projectTitle: project.name,
         grantTitle: payload.grantTitle,
         communityUID: payload.communityUID,
         karmaUID: uids[0],
@@ -318,21 +295,21 @@ export class KarmaAgent {
         payload: {
           to: [payload.userEmail],
           subject: `🎯 Grant Application Submitted: ${payload.grantTitle}`,
-          body: `Hi ${payload.userName},\n\nYour grant application for "${payload.grantTitle}" has been successfully submitted!\n\nProject: ${karmaProject.title}\nGrant UID: ${uids[0]}\n\nYou'll be notified of any updates.\n\nBest regards,\nKarma Integration Team`,
+          body: `Hi ${payload.userName},\n\nYour grant application for "${payload.grantTitle}" has been successfully submitted!\n\nProject: ${project.name}\nGrant UID: ${uids[0]}\n\nYou'll be notified of any updates.\n\nBest regards,\nKarma Integration Team`,
         },
       });
     }
 
     return {
       grantUID: uids[0],
-      projectUID: karmaProject.karmaUID,
+      projectUID: project.karma.karmaUID,
       status: "submitted",
       submittedAt: new Date().toISOString(),
     };
   }
 
   async createMilestone(payload: {
-    karmaProjectId: Hex;
+    projectId: string;
     grantUID: Hex;
     title: string;
     description: string;
@@ -342,8 +319,8 @@ export class KarmaAgent {
   }): Promise<any> {
     console.log(`📋 Creating milestone: ${payload.title}`);
 
-    const karmaProject = await this.getKarmaProject(payload.karmaProjectId);
-    if (!karmaProject) {
+    const project = await this.getProject(payload.projectId);
+    if (!project?.karma?.karmaUID) {
       throw new Error("Karma project not found");
     }
 
@@ -352,25 +329,37 @@ export class KarmaAgent {
       description: payload.description,
       endsAt: payload.endsAt,
       grantUID: payload.grantUID,
-      projectUID: payload.karmaProjectId,
+      projectUID: project.karma.karmaUID as `0x${string}`,
     };
 
     const { uids, milestone, tx } = await this.karmaSDK.createMilestone(
       milestoneData
     );
 
-    // Update local project
-    const grant = karmaProject.grants.find((g) => g.uid === payload.grantUID);
-    if (grant) {
-      grant.milestones.push({
-        uid: uids[0],
-        title: payload.title,
-        status: "active",
-        dueDate: new Date(payload.endsAt).toISOString(),
-      });
-    }
-    karmaProject.updatedAt = new Date().toISOString();
-    await this.storeKarmaProject(karmaProject);
+    // Update local project karma data
+    const updatedGrants = project.karma.grants.map((grant: any) => {
+      if (grant.uid === payload.grantUID) {
+        return {
+          ...grant,
+          milestones: [
+            ...grant.milestones,
+            {
+              uid: uids[0],
+              title: payload.title,
+              status: "active",
+              dueDate: new Date(payload.endsAt).toISOString(),
+            },
+          ],
+        };
+      }
+      return grant;
+    });
+
+    await this.updateProjectKarmaData(payload.projectId, {
+      ...project.karma,
+      grants: updatedGrants,
+      syncedAt: new Date().toISOString(),
+    });
 
     // Trigger social media post
     await this.sendTaskToAgent(this.socialQueue, {
@@ -378,7 +367,7 @@ export class KarmaAgent {
       workflowId: randomUUID(),
       type: "POST_MILESTONE_CREATED",
       payload: {
-        projectTitle: karmaProject.title,
+        projectTitle: project.name,
         milestoneTitle: payload.title,
         dueDate: new Date(payload.endsAt).toLocaleDateString(),
         karmaUID: uids[0],
@@ -397,7 +386,7 @@ export class KarmaAgent {
           body: `Hi ${payload.userName},\n\nYour milestone "${
             payload.title
           }" has been created!\n\nProject: ${
-            karmaProject.title
+            project.name
           }\nDue Date: ${new Date(
             payload.endsAt
           ).toLocaleDateString()}\nMilestone UID: ${
@@ -410,14 +399,14 @@ export class KarmaAgent {
     return {
       milestoneUID: uids[0],
       grantUID: payload.grantUID,
-      projectUID: karmaProject.karmaUID,
+      projectUID: project.karma.karmaUID,
       status: "created",
       createdAt: new Date().toISOString(),
     };
   }
 
   async updateMilestone(payload: {
-    karmaProjectId: Hex;
+    projectId: string;
     grantUID: Hex;
     milestoneUID: Hex;
     title: string;
@@ -428,13 +417,13 @@ export class KarmaAgent {
   }): Promise<any> {
     console.log(`✅ Completing milestone: ${payload.milestoneUID}`);
 
-    const karmaProject = await this.getKarmaProject(payload.karmaProjectId);
-    if (!karmaProject) {
+    const project = await this.getProject(payload.projectId);
+    if (!project?.karma?.karmaUID) {
       throw new Error("Karma project not found");
     }
 
     const { uids, update } = await this.karmaSDK.updateMilestone(
-      karmaProject.karmaUID as `0x${string}`,
+      project.karma.karmaUID as `0x${string}`,
       payload.grantUID as `0x${string}`,
       payload.milestoneUID as `0x${string}`,
       {
@@ -444,18 +433,30 @@ export class KarmaAgent {
       }
     );
 
-    // Update local project
-    for (const grant of karmaProject.grants) {
-      const milestone = grant.milestones.find(
-        (m) => m.uid === payload.milestoneUID
-      );
-      if (milestone) {
-        milestone.status = "completed";
-        break;
+    // Update local project karma data
+    const updatedGrants = project.karma.grants.map((grant: any) => {
+      if (grant.uid === payload.grantUID) {
+        return {
+          ...grant,
+          milestones: grant.milestones.map((milestone: any) => {
+            if (milestone.uid === payload.milestoneUID) {
+              return {
+                ...milestone,
+                status: "completed",
+              };
+            }
+            return milestone;
+          }),
+        };
       }
-    }
-    karmaProject.updatedAt = new Date().toISOString();
-    await this.storeKarmaProject(karmaProject);
+      return grant;
+    });
+
+    await this.updateProjectKarmaData(payload.projectId, {
+      ...project.karma,
+      grants: updatedGrants,
+      syncedAt: new Date().toISOString(),
+    });
 
     // Trigger social media post
     await this.sendTaskToAgent(this.socialQueue, {
@@ -463,7 +464,7 @@ export class KarmaAgent {
       workflowId: randomUUID(),
       type: "POST_MILESTONE_COMPLETED",
       payload: {
-        projectTitle: karmaProject.title,
+        projectTitle: project.name,
         milestoneTitle: payload.title,
         karmaUID: uids[0],
         grantUID: payload.grantUID,
@@ -480,7 +481,7 @@ export class KarmaAgent {
         payload: {
           to: [payload.userEmail],
           subject: `🎉 Milestone Completed: ${payload.title}`,
-          body: `Hi ${payload.userName},\n\nCongratulations! Your milestone "${payload.title}" has been marked as completed!\n\nProject: ${karmaProject.title}\nUpdate UID: ${uids[0]}\n\nKeep up the great work!\n\nBest regards,\nKarma Integration Team`,
+          body: `Hi ${payload.userName},\n\nCongratulations! Your milestone "${payload.title}" has been marked as completed!\n\nProject: ${project.name}\nUpdate UID: ${uids[0]}\n\nKeep up the great work!\n\nBest regards,\nKarma Integration Team`,
         },
       });
     }
@@ -496,27 +497,26 @@ export class KarmaAgent {
   async syncKarmaData(payload: { projectId?: string }): Promise<any> {
     console.log(`🔄 Syncing Karma data`);
 
-    let karmaProjects: KarmaProject[];
+    let projects: any[];
 
     if (payload.projectId) {
-      const project = await this.getKarmaProjectByProjectId(payload.projectId);
-      karmaProjects = project ? [project] : [];
+      const project = await this.getProject(payload.projectId);
+      projects = project?.karma ? [project] : [];
     } else {
-      karmaProjects = await this.getAllKarmaProjects();
+      projects = await this.getAllKarmaProjects();
     }
 
     const syncResults = [];
 
-    for (const karmaProject of karmaProjects) {
+    for (const project of projects) {
       try {
-        const project = await this.karmaSDK.fetchProjectBySlug(
-          karmaProject.karmaUID
+        const karmaProject = await this.karmaSDK.fetchProjectBySlug(
+          project.karma.karmaUID
         );
 
         // Update local data with Karma data
-        if (project) {
-          // Sync grants and milestones
-          karmaProject.grants = project.grants.map((grant) => ({
+        if (karmaProject) {
+          const updatedGrants = karmaProject.grants.map((grant) => ({
             uid: grant.uid,
             title: grant.details?.title || "Untitled Grant",
             status: this.mapGrantStatus(grant),
@@ -528,22 +528,22 @@ export class KarmaAgent {
             })),
           }));
 
-          karmaProject.syncedAt = new Date().toISOString();
-          await this.storeKarmaProject(karmaProject);
+          await this.updateProjectKarmaData(project.projectId, {
+            ...project.karma,
+            grants: updatedGrants,
+            syncedAt: new Date().toISOString(),
+          });
         }
 
         syncResults.push({
-          karmaProjectId: karmaProject.karmaProjectId,
+          projectId: project.projectId,
           status: "synced",
-          syncedAt: karmaProject.syncedAt,
+          syncedAt: new Date().toISOString(),
         });
       } catch (error: any) {
-        console.error(
-          `Failed to sync project ${karmaProject.karmaProjectId}:`,
-          error
-        );
+        console.error(`Failed to sync project ${project.projectId}:`, error);
         syncResults.push({
-          karmaProjectId: karmaProject.karmaProjectId,
+          projectId: project.projectId,
           status: "failed",
           error: error.message,
         });
@@ -554,6 +554,10 @@ export class KarmaAgent {
       projectsSynced: syncResults.length,
       results: syncResults,
     };
+  }
+
+  async getKarmaProject(projectId: string): Promise<any> {
+    return await this.getProject(projectId);
   }
 
   private async startOpportunityPolling(): Promise<void> {
@@ -580,7 +584,7 @@ export class KarmaAgent {
       for (const opportunity of opportunities) {
         // For each active project, check if this is a relevant opportunity
         for (const project of allProjects.filter(
-          (p) => p.status === "active"
+          (p) => p.karma?.status === "active"
         )) {
           const isRelevant = await this.isOpportunityRelevant(
             project,
@@ -600,7 +604,7 @@ export class KarmaAgent {
               payload: {
                 userEmail,
                 userName,
-                projectName: project.title,
+                projectName: project.name,
                 grant: {
                   title: opportunity.grantTitle,
                   organization: opportunity.communityName,
@@ -622,7 +626,7 @@ export class KarmaAgent {
   }
 
   private async isOpportunityRelevant(
-    project: KarmaProject,
+    project: any,
     opportunity: any
   ): Promise<boolean> {
     // Simple relevance check - in production, use AI/ML for better matching
@@ -672,58 +676,45 @@ export class KarmaAgent {
     );
   }
 
-  private async getKarmaProject(
-    karmaProjectId: Hex
-  ): Promise<KarmaProject | null> {
+  // Updated methods to work with main projects table
+  private async getProject(projectId: string): Promise<any> {
     const response = await this.dynamodb.send(
       new QueryCommand({
-        TableName: this.karmaProjectsTableName,
-        KeyConditionExpression: "karmaProjectId = :karmaProjectId",
+        TableName: this.projectsTableName,
+        KeyConditionExpression: "projectId = :projectId",
         ExpressionAttributeValues: marshall({
-          ":karmaProjectId": karmaProjectId,
+          ":projectId": projectId,
         }),
       })
     );
 
-    return response.Items
-      ? (unmarshall(response.Items[0]) as KarmaProject)
-      : null;
+    return response.Items ? unmarshall(response.Items[0]) : null;
   }
 
-  private async getKarmaProjectByProjectId(
-    projectId: string
-  ): Promise<KarmaProject | null> {
-    const response = await this.dynamodb.send(
-      new QueryCommand({
-        TableName: this.karmaProjectsTableName,
-        IndexName: "projectId-index",
-        KeyConditionExpression: "projectId = :projectId",
-        ExpressionAttributeValues: marshall({ ":projectId": projectId }),
-      })
-    );
-
-    return response.Items
-      ? (unmarshall(response.Items[0]) as KarmaProject)
-      : null;
-  }
-
-  private async getAllKarmaProjects(): Promise<KarmaProject[]> {
+  private async getAllKarmaProjects(): Promise<any[]> {
+    // Get all projects that have karma data
     const response = await this.dynamodb.send(
       new ScanCommand({
-        TableName: this.karmaProjectsTableName,
+        TableName: this.projectsTableName,
+        FilterExpression: "attribute_exists(karma)",
       })
     );
 
-    return (response.Items || []).map(
-      (item) => unmarshall(item) as KarmaProject
-    );
+    return (response.Items || []).map((item) => unmarshall(item));
   }
 
-  private async storeKarmaProject(karmaProject: KarmaProject): Promise<void> {
+  private async updateProjectKarmaData(
+    projectId: string,
+    karmaData: KarmaData
+  ): Promise<void> {
     await this.dynamodb.send(
-      new PutItemCommand({
-        TableName: this.karmaProjectsTableName,
-        Item: marshall(karmaProject),
+      new UpdateItemCommand({
+        TableName: this.projectsTableName,
+        Key: marshall({ projectId }),
+        UpdateExpression: "SET karma = :karma",
+        ExpressionAttributeValues: marshall({
+          ":karma": karmaData,
+        }),
       })
     );
   }

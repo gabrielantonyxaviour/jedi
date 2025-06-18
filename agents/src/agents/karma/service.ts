@@ -38,6 +38,24 @@ export interface KarmaMilestoneData {
   projectUID: Hex;
 }
 
+export interface KarmaData {
+  karmaUID: string;
+  status: "draft" | "active" | "completed";
+  grants: Array<{
+    uid: string;
+    title: string;
+    status: string;
+    milestones: Array<{
+      uid: string;
+      title: string;
+      status: string;
+      dueDate: string;
+    }>;
+  }>;
+  createdAt: string;
+  syncedAt: string;
+}
+
 export class KarmaSDKService {
   private gap: GAP;
   private wallet: ethers.Wallet;
