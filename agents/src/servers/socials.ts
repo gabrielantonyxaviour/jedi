@@ -17,7 +17,7 @@ class SocialsServer {
   constructor() {
     this.agent = new SocialsAgent();
     this.sqsClient = new SQSClient({ region: process.env.AWS_REGION });
-    this.queueUrl = process.env.SOCIAL_MEDIA_QUEUE_URL!;
+    this.queueUrl = process.env.SOCIALS_QUEUE_URL!;
   }
 
   async start() {

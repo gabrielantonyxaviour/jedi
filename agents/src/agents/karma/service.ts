@@ -51,7 +51,7 @@ export class KarmaSDKService {
     });
 
     // Initialize wallet from environment
-    this.provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+    this.provider = new ethers.JsonRpcProvider(process.env.TESTNET_RPC_URL);
     this.wallet = new ethers.Wallet(
       process.env.AGENT_PRIVATE_KEY!,
       this.provider
@@ -242,15 +242,10 @@ export class KarmaSDKService {
   }
 
   private getChainId(): number {
-    const network = process.env.KARMA_NETWORK || "optimism";
+    const network = process.env.KARMA_NETWORK || "base-sepolia";
     const chainIds = {
-      optimism: 10,
-      "optimism-sepolia": 11155420,
-      ethereum: 1,
-      sepolia: 11155111,
-      celo: 42220,
-      "celo-alfajores": 44787,
+      "base-sepolia": 84532,
     };
-    return chainIds[network as keyof typeof chainIds] || 10;
+    return chainIds[network as keyof typeof chainIds] || 84532;
   }
 }

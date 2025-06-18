@@ -19,7 +19,7 @@ const client = new SQSClient({
 const QUEUE_URLS = {
   orchestrator: process.env.NEXT_PUBLIC_ORCHESTRATOR_QUEUE_URL!,
   github: process.env.NEXT_PUBLIC_GITHUB_INTELLIGENCE_QUEUE_URL!,
-  socials: process.env.NEXT_PUBLIC_SOCIAL_MEDIA_QUEUE_URL!,
+  socials: process.env.NEXT_PUBLIC_SOCIALS_QUEUE_URL!,
   leads: process.env.NEXT_PUBLIC_LEAD_GENERATION_QUEUE_URL!,
   emails: process.env.NEXT_PUBLIC_EMAIL_COMMUNICATION_QUEUE_URL!,
   ip: process.env.NEXT_PUBLIC_BLOCKCHAIN_IP_QUEUE_URL!,

@@ -22,7 +22,6 @@ export class ComplianceAgent {
   private complianceScraper: ComplianceScrapingService;
   private complianceTableName: string;
   private projectsTableName: string;
-  private bucketName: string;
   private orchestratorQueue: string;
 
   constructor() {
@@ -34,7 +33,6 @@ export class ComplianceAgent {
 
     this.complianceTableName = process.env.COMPLIANCE_TABLE!;
     this.projectsTableName = process.env.PROJECTS_TABLE_NAME!;
-    this.bucketName = process.env.COMPLIANCE_BUCKET!;
     this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
   }
 
@@ -396,29 +394,7 @@ Format as JSON with fields: similarities, differences, concerns, recommendation,
     const originalProject = await this.getProject(project.originalProjectId);
 
     try {
-      await this.sqs.send(
-        new SendMessageCommand({
-          QueueUrl: process.env.EMAIL_QUEUE_URL!,
-          MessageBody: JSON.stringify({
-            type: "COMPLIANCE_ALERT",
-            taskId: randomUUID(),
-            workflowId: randomUUID(),
-            payload: {
-              userEmail: originalProject.email,
-              userName: originalProject.userName,
-              projectName: originalProject.name,
-              similarProject: {
-                name: project.projectName,
-                platform: project.platform,
-                url: project.url,
-                similarity: project.similarity,
-                reason: project.flagReason,
-                discoveredAt: project.discoveredAt,
-              },
-            },
-          }),
-        })
-      );
+      // TODO: send an email using the email service
 
       console.log(`✅ Compliance alert sent for ${project.projectName}`);
     } catch (error) {

@@ -11,7 +11,7 @@
     "dev:blockchain": "tsx src/servers/ip.ts",
     "dev:karma": "tsx src/servers/karma.ts",
     "dev:monitoring": "tsx src/servers/compliance.ts",
-    "dev:all": "concurrently \"npm run dev:orchestrator\" \"npm run dev:github\" \"npm run dev:email\" \"npm run dev:social\" \"npm run dev:leads\" \"npm run dev:blockchain\" \"npm run dev:karma\" \"npm run dev:monitoring\"",
+    "dev:all": "concurrently \"npm run dev:orchestrator\" \"npm run dev:github\" \"npm run dev:social\" \"npm run dev:leads\" \"npm run dev:blockchain\" \"npm run dev:karma\" \"npm run dev:monitoring\"",
     "dev:webhook": "tsx src/webhook-listener.ts",
     "dev:local": "tsx src/local/server.ts",
     "dev:scraper": "tsx src/scraper/index.ts",

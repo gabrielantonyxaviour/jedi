@@ -62,7 +62,7 @@ export class KarmaAgent {
     this.karmaProjectsTableName = process.env.KARMA_PROJECTS_TABLE!;
     this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
     this.emailQueue = process.env.EMAIL_QUEUE_URL!;
-    this.socialQueue = process.env.SOCIAL_QUEUE_URL!;
+    this.socialQueue = process.env.SOCIALS_QUEUE_URL!;
 
     // Start the opportunity polling
     this.startOpportunityPolling();

@@ -69,11 +69,12 @@ export const network = getNetwork();
 export const networkInfo = {
   ...networkConfigs[network],
   rpcProviderUrl:
-    process.env.RPC_PROVIDER_URL || networkConfigs[network].rpcProviderUrl,
+    process.env.STORY_RPC_PROVIDER_URL ||
+    networkConfigs[network].rpcProviderUrl,
 };
 
 export const account: Account = privateKeyToAccount(
-  `0x${process.env.WALLET_PRIVATE_KEY}` as Address
+  `0x${process.env.STORY_WALLET_PRIVATE_KEY}` as Address
 );
 
 const config: StoryConfig = {
