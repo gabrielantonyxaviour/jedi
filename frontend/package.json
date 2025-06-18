@@ -9,7 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.830.0",
     "@aws-sdk/client-sqs": "^3.831.0",
+    "@aws-sdk/util-dynamodb": "^3.830.0",
     "@emotion/is-prop-valid": "latest",
     "@hookform/resolvers": "^3.9.1",
     "@neardefi/shade-agent-js": "^0.2.1",

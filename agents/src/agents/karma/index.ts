@@ -25,6 +25,7 @@ export class KarmaAgent {
   private sqs: SQSClient;
   private karmaSDK: KarmaSDKService;
   private projectsTableName: string;
+  private projectPollers: Map<string, NodeJS.Timeout> = new Map();
   private orchestratorQueue: string;
   private emailQueue: string;
   private socialQueue: string;
@@ -40,8 +41,7 @@ export class KarmaAgent {
     this.emailQueue = process.env.EMAIL_QUEUE_URL!;
     this.socialQueue = process.env.SOCIALS_QUEUE_URL!;
 
-    // Start the opportunity polling
-    this.startOpportunityPolling();
+    this.restoreProjectPollers();
   }
 
   async processTask(task: any): Promise<void> {
@@ -167,7 +167,6 @@ export class KarmaAgent {
     return await this.karmaSDK.fetchProjects();
   }
 
-  // EXISTING METHODS (updated to use main projects table)
   async createKarmaProject(payload: {
     projectId: string;
     title: string;
@@ -203,9 +202,13 @@ export class KarmaAgent {
       grants: [],
       createdAt: new Date().toISOString(),
       syncedAt: new Date().toISOString(),
+      opportunityNotifications: [], // Track notified opportunities
     };
 
     await this.updateProjectKarmaData(payload.projectId, karmaData);
+
+    // START PROJECT-SPECIFIC POLLING
+    this.startProjectOpportunityPolling(payload.projectId);
 
     // Send confirmation email
     if (payload.userEmail && payload.userName) {
@@ -216,12 +219,122 @@ export class KarmaAgent {
         payload: {
           to: [payload.userEmail],
           subject: `✅ Karma Project Created: ${payload.title}`,
-          body: `Hi ${payload.userName},\n\nYour project "${payload.title}" has been successfully created on Karma GAP!\n\nKarma UID: ${uid}\n\nYou can now apply for grants and create milestones.\n\nBest regards,\nKarma Integration Team`,
+          body: `Hi ${payload.userName},\n\nYour project "${payload.title}" has been successfully created on Karma GAP!\n\nKarma UID: ${uid}\n\nYou can now apply for grants and create milestones.\n\nWe'll notify you of relevant grant opportunities every 24 hours.\n\nBest regards,\nKarma Integration Team`,
         },
       });
     }
 
     return { karmaUID: uid, status: "created" };
+  }
+
+  // Add method to deactivate project
+  async deactivateKarmaProject(projectId: string): Promise<void> {
+    const project = await this.getProject(projectId);
+    if (project?.karma) {
+      // Update status
+      await this.updateProjectKarmaData(projectId, {
+        ...project.karma,
+        status: "completed",
+        syncedAt: new Date().toISOString(),
+      });
+
+      // Stop polling
+      this.stopProjectOpportunityPolling(projectId);
+    }
+  }
+
+  // Add method to reactivate project
+  async reactivateKarmaProject(projectId: string): Promise<void> {
+    const project = await this.getProject(projectId);
+    if (project?.karma) {
+      // Update status
+      await this.updateProjectKarmaData(projectId, {
+        ...project.karma,
+        status: "active",
+        syncedAt: new Date().toISOString(),
+      });
+
+      // Start polling
+      this.startProjectOpportunityPolling(projectId);
+    }
+  }
+
+  // Restore project pollers when server starts
+  private async restoreProjectPollers(): Promise<void> {
+    console.log("🔄 Restoring project opportunity pollers...");
+
+    try {
+      const activeProjects = await this.getAllKarmaProjects();
+
+      for (const project of activeProjects) {
+        if (project.karma?.status === "active") {
+          this.startProjectOpportunityPolling(project.projectId);
+        }
+      }
+
+      console.log(
+        `✅ Restored polling for ${this.projectPollers.size} active projects`
+      );
+    } catch (error) {
+      console.error("Error restoring project pollers:", error);
+    }
+  }
+
+  // Prevent duplicate notifications
+  private async hasNotifiedAboutOpportunity(
+    projectId: string,
+    grantUID: string
+  ): Promise<boolean> {
+    const project = await this.getProject(projectId);
+    return (
+      project?.karma?.opportunityNotifications?.includes(grantUID) || false
+    );
+  }
+
+  private async markOpportunityAsNotified(
+    projectId: string,
+    grantUID: string
+  ): Promise<void> {
+    const project = await this.getProject(projectId);
+    if (project?.karma) {
+      const notifications = project.karma.opportunityNotifications || [];
+
+      await this.updateProjectKarmaData(projectId, {
+        ...project.karma,
+        opportunityNotifications: [...notifications, grantUID],
+        syncedAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  private async sendOpportunityNotification(
+    project: any,
+    opportunity: any
+  ): Promise<void> {
+    // TODO: Get real user email from project owner
+    const userEmail = "user@example.com";
+    const userName = "Project Owner";
+
+    await this.sendTaskToAgent(this.emailQueue, {
+      taskId: randomUUID(),
+      workflowId: randomUUID(),
+      type: "GRANT_OPPORTUNITY",
+      payload: {
+        userEmail,
+        userName,
+        projectName: project.name,
+        grant: {
+          title: opportunity.grantTitle,
+          organization: opportunity.communityName,
+          amount: opportunity.amount || "Amount not specified",
+          deadline: opportunity.deadline || "No deadline specified",
+          description: opportunity.grantDescription,
+          eligibility: opportunity.requirements || [],
+          applicationUrl: `https://gap.karma.global/grants/${opportunity.grantUID}`,
+          matchScore: Math.floor(Math.random() * 20) + 80,
+        },
+      },
+    });
   }
 
   async applyForGrant(payload: {
@@ -560,68 +673,86 @@ export class KarmaAgent {
     return await this.getProject(projectId);
   }
 
-  private async startOpportunityPolling(): Promise<void> {
-    // Poll for new grant opportunities every 24 hours
-    setInterval(async () => {
+  private mapGrantStatus(grant: any): string {
+    // Map Karma grant status to local status
+    return grant.status || "active";
+  }
+
+  // Start polling for a specific project
+  private startProjectOpportunityPolling(projectId: string): void {
+    console.log(`🔍 Starting opportunity polling for project: ${projectId}`);
+
+    // Clear any existing poller for this project
+    this.stopProjectOpportunityPolling(projectId);
+
+    // Create new poller
+    const poller = setInterval(async () => {
       try {
-        await this.checkForNewOpportunities();
+        await this.checkOpportunitiesForProject(projectId);
       } catch (error) {
-        console.error("Error checking for new opportunities:", error);
+        console.error(
+          `Error checking opportunities for project ${projectId}:`,
+          error
+        );
       }
     }, 24 * 60 * 60 * 1000); // 24 hours
 
-    // Initial check
-    setTimeout(() => this.checkForNewOpportunities(), 5000);
+    this.projectPollers.set(projectId, poller);
+
+    // Do initial check after 5 seconds
+    setTimeout(() => this.checkOpportunitiesForProject(projectId), 5000);
   }
 
-  private async checkForNewOpportunities(): Promise<void> {
-    console.log("🔍 Checking for new grant opportunities...");
+  // Stop polling for a specific project
+  private stopProjectOpportunityPolling(projectId: string): void {
+    const poller = this.projectPollers.get(projectId);
+    if (poller) {
+      clearInterval(poller);
+      this.projectPollers.delete(projectId);
+      console.log(`⏹️ Stopped opportunity polling for project: ${projectId}`);
+    }
+  }
+
+  // Check opportunities for a single project
+  private async checkOpportunitiesForProject(projectId: string): Promise<void> {
+    console.log(`🔍 Checking opportunities for project: ${projectId}`);
 
     try {
+      const project = await this.getProject(projectId);
+      if (!project?.karma || project.karma.status !== "active") {
+        console.log(`Project ${projectId} is not active, stopping polling`);
+        this.stopProjectOpportunityPolling(projectId);
+        return;
+      }
+
       const opportunities = await this.karmaSDK.fetchGrantOpportunities();
-      const allProjects = await this.getAllKarmaProjects();
 
       for (const opportunity of opportunities) {
-        // For each active project, check if this is a relevant opportunity
-        for (const project of allProjects.filter(
-          (p) => p.karma?.status === "active"
-        )) {
-          const isRelevant = await this.isOpportunityRelevant(
-            project,
-            opportunity
+        const isRelevant = await this.isOpportunityRelevant(
+          project,
+          opportunity
+        );
+
+        if (isRelevant) {
+          // Check if we've already notified about this opportunity
+          const hasNotified = await this.hasNotifiedAboutOpportunity(
+            projectId,
+            opportunity.grantUID
           );
+          if (hasNotified) continue;
 
-          if (isRelevant) {
-            // For now, use a placeholder email - you'll need to implement proper user email mapping
-            const userEmail = "user@example.com"; // TODO: Map ownerAddress to actual email
-            const userName = "Project Owner"; // TODO: Map to actual user name
+          // Mark as notified
+          await this.markOpportunityAsNotified(projectId, opportunity.grantUID);
 
-            // Send grant opportunity email
-            await this.sendTaskToAgent(this.emailQueue, {
-              taskId: randomUUID(),
-              workflowId: randomUUID(),
-              type: "GRANT_OPPORTUNITY",
-              payload: {
-                userEmail,
-                userName,
-                projectName: project.name,
-                grant: {
-                  title: opportunity.grantTitle,
-                  organization: opportunity.communityName,
-                  amount: opportunity.amount || "Amount not specified",
-                  deadline: opportunity.deadline || "No deadline specified",
-                  description: opportunity.grantDescription,
-                  eligibility: opportunity.requirements || [],
-                  applicationUrl: `https://gap.karma.global/grants/${opportunity.grantUID}`,
-                  matchScore: Math.floor(Math.random() * 20) + 80,
-                },
-              },
-            });
-          }
+          // Send notification
+          await this.sendOpportunityNotification(project, opportunity);
         }
       }
     } catch (error) {
-      console.error("Error in opportunity checking:", error);
+      console.error(
+        `Error checking opportunities for project ${projectId}:`,
+        error
+      );
     }
   }
 
@@ -655,11 +786,6 @@ export class KarmaAgent {
     }
 
     return false;
-  }
-
-  private mapGrantStatus(grant: any): string {
-    // Map Karma grant status to local status
-    return grant.status || "active";
   }
 
   private mapMilestoneStatus(milestone: any): string {
@@ -747,5 +873,18 @@ export class KarmaAgent {
     } catch (err) {
       console.error("Failed to report task completion:", err);
     }
+  }
+
+  public async shutdown(): Promise<void> {
+    console.log("🛑 Shutting down Karma agent...");
+
+    // Stop all project pollers
+    for (const [projectId, poller] of this.projectPollers) {
+      clearInterval(poller);
+      console.log(`⏹️ Stopped polling for project: ${projectId}`);
+    }
+
+    this.projectPollers.clear();
+    console.log("✅ Karma agent shutdown complete");
   }
 }

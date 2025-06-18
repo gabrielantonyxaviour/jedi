@@ -38,6 +38,7 @@ export interface KarmaMilestoneData {
   projectUID: Hex;
 }
 
+// In service.ts
 export interface KarmaData {
   karmaUID: string;
   status: "draft" | "active" | "completed";
@@ -54,8 +55,8 @@ export interface KarmaData {
   }>;
   createdAt: string;
   syncedAt: string;
+  opportunityNotifications?: string[]; // Track notified grant UIDs
 }
-
 export class KarmaSDKService {
   private gap: GAP;
   private wallet: ethers.Wallet;

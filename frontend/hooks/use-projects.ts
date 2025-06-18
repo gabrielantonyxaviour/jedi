@@ -1,15 +1,9 @@
-// hooks/use-projects.ts - Updated to use API calls
+// hooks/use-projects.ts
 import { useState, useEffect, useCallback } from "react";
-
-export interface Project {
-  id: string;
-  owner: string;
-  side: "light" | "dark";
-  [key: string]: any;
-}
+import { ProjectInfo } from "@/lib/types";
 
 export const useProjects = (ownerAddress?: string) => {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -22,20 +16,24 @@ export const useProjects = (ownerAddress?: string) => {
 
     try {
       const response = await fetch(
-        `/api/projects?owner=${encodeURIComponent(address)}`
+        `/api/projects?owner=${encodeURIComponent(address.toLowerCase())}`
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
-      const fetchedProjects = data.projects || [];
+      const fetchedProjects: ProjectInfo[] = data.projects || [];
       setProjects(fetchedProjects);
       return fetchedProjects;
     } catch (err) {
       console.error("Error fetching projects:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch projects");
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to fetch projects";
+      setError(errorMessage);
+      setProjects([]);
       return [];
     } finally {
       setLoading(false);
@@ -46,8 +44,17 @@ export const useProjects = (ownerAddress?: string) => {
   useEffect(() => {
     if (ownerAddress && !initialized) {
       fetchProjects(ownerAddress);
+    } else if (ownerAddress && initialized) {
+      fetchProjects(ownerAddress);
     }
-  }, [ownerAddress, initialized, fetchProjects]);
+  }, [ownerAddress, fetchProjects]);
+
+  const refetch = useCallback(() => {
+    if (ownerAddress) {
+      return fetchProjects(ownerAddress);
+    }
+    return Promise.resolve([]);
+  }, [ownerAddress, fetchProjects]);
 
   return {
     projects,
@@ -55,6 +62,6 @@ export const useProjects = (ownerAddress?: string) => {
     error,
     initialized,
     fetchProjects,
-    refetch: () => ownerAddress && fetchProjects(ownerAddress),
+    refetch,
   };
 };
