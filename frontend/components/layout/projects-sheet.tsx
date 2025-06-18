@@ -14,11 +14,12 @@ import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Project, useProjects } from "@/hooks/use-projects";
+import { useProjects } from "@/hooks/use-projects";
+import { ProjectInfo } from "@/lib/types";
 
 interface ProjectsSheetProps {
   side: "light" | "dark" | null;
-  projects: Array<Project>;
+  projects: Array<ProjectInfo>;
 }
 
 const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
@@ -69,16 +70,16 @@ const ProjectsSheet: React.FC<ProjectsSheetProps> = ({ side, projects }) => {
             ) : (
               projects.map((project) => (
                 <div
-                  key={project.id}
+                  key={project.projectId}
                   onClick={() => {
-                    console.log("clicked");
-                    // TODO: Close the sheet
+                    setIsOpen(false);
+                    router.push(`/projects/${project.projectId}`);
                   }}
                   className="flex items-center space-x-4 p-3 rounded-lg hover:bg-stone-800/50 transition-colors  cursor-pointer"
                 >
                   <div className="relative w-12 h-12 rounded-full overflow-hidden">
                     <Image
-                      src={project.imageUrl}
+                      src={project.imageUrl || ""}
                       alt={project.name}
                       fill
                       className="object-cover"

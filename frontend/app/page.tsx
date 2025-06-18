@@ -26,6 +26,14 @@ interface CreationStep {
   title: string;
   description: string;
   status: "pending" | "processing" | "completed" | "error";
+  agentName:
+    | "github"
+    | "socials"
+    | "leads"
+    | "compliance"
+    | "ip"
+    | "karma"
+    | "orchestrator";
 }
 
 export default function Home() {
@@ -40,16 +48,23 @@ export default function Home() {
   const [error, setError] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
   const [showTransferDialog, setShowTransferDialog] = useState(false);
-  const { userSide, addLog, setUserSide, setProjectId, setJobResponse } =
-    useAppStore();
+
+  const {
+    userSide,
+    addAgentInteraction,
+    setUserSide,
+    setProjectId,
+    setJobResponse,
+  } = useAppStore();
+
   const { isConnected, address } = useAccount();
   const { data: balance } = useBalance({ address });
   const { data: hash, sendTransactionAsync } = useSendTransaction();
 
   const {
     projects,
-    loading: projectsLoading,
-    initialized,
+    isLoading: projectsLoading,
+    isFetching: initialized,
   } = useProjects(address || "");
 
   const initializeSteps = (): CreationStep[] => [
@@ -58,24 +73,28 @@ export default function Home() {
       title: "Cloning repository",
       description: "Fetching your GitHub repository",
       status: "pending",
+      agentName: "github",
     },
     {
       id: "analyze",
       title: "Analyzing codebase",
       description: "Understanding your project structure",
       status: "pending",
+      agentName: "ip",
     },
     {
       id: "agents",
       title: "Initializing agents",
       description: "Setting up specialized AI agents",
       status: "pending",
+      agentName: "orchestrator",
     },
     {
       id: "workspace",
       title: "Creating workspace",
       description: "Preparing your project dashboard",
       status: "pending",
+      agentName: "orchestrator",
     },
   ];
 
@@ -84,12 +103,21 @@ export default function Home() {
     if (initialized && projects.length > 0 && !userSide) {
       const firstProjectSide = projects[0].side;
       setUserSide(firstProjectSide);
-      addLog(
-        `User side set to ${firstProjectSide} from existing projects`,
-        "orchestrator"
-      );
+
+      addAgentInteraction({
+        sourceAgent: "orchestrator",
+        type: "notification",
+        action: "User Side Detected",
+        message: `User side set to ${firstProjectSide} from existing projects`,
+        data: {
+          side: firstProjectSide,
+          source: "existing_projects",
+          projectCount: projects.length,
+        },
+        status: "completed",
+      });
     }
-  }, [initialized, projects, userSide, setUserSide, addLog]);
+  }, [initialized, projects, userSide, setUserSide, addAgentInteraction]);
 
   useEffect(() => {
     console.log("Balance updated in Home component:", balance);
@@ -99,12 +127,36 @@ export default function Home() {
   const handleSideSelection = (side: "light" | "dark") => {
     setUserSide(side);
     setShowSideSelection(false);
-    addLog(`You have chosen the ${side} side`, "orchestrator");
+
+    addAgentInteraction({
+      sourceAgent: "orchestrator",
+      type: "notification",
+      action: "Side Selection",
+      message: `You have chosen the ${side} side`,
+      data: {
+        selectedSide: side,
+        timestamp: new Date().toISOString(),
+        isFirstTime: true,
+      },
+      status: "completed",
+    });
   };
 
   // Handle project setup completion
   const handleProjectSetup = async (projectData: ProjectSetupData) => {
-    addLog("Project setup completed", "orchestrator");
+    addAgentInteraction({
+      sourceAgent: "orchestrator",
+      type: "task_completed",
+      action: "Project Setup Completed",
+      message: "Project configuration and setup process completed successfully",
+      data: {
+        projectName: projectData.name,
+        description: projectData.summary || "",
+        technicalSummary: projectData.technicalSummary || "",
+        setupDuration: Date.now(), // You might want to track actual duration
+      },
+      status: "completed",
+    });
 
     // Here you would typically save the project to your backend
     console.log("Project data:", projectData);
@@ -131,18 +183,43 @@ export default function Home() {
           },
         },
       });
+
+      addAgentInteraction({
+        sourceAgent: "orchestrator",
+        type: "notification",
+        action: "Payment Confirmed",
+        message: "Transaction successfully sent to orchestrator",
+        data: {
+          transactionHash: hash,
+          amount: "0.000005 ETH",
+          network: "Aurora",
+        },
+        status: "completed",
+      });
     }
-  }, [hash]);
+  }, [hash, addAgentInteraction]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || !isConnected) return;
 
-    await sendTransactionAsync({
-      to: "0xbE9044946343fDBf311C96Fb77b2933E2AdA8B5D",
-      value: parseEther("0.000005"), // 0.00001 ETH
-    });
+    try {
+      await sendTransactionAsync({
+        to: "0xbE9044946343fDBf311C96Fb77b2933E2AdA8B5D",
+        value: parseEther("0.000005"), // 0.00001 ETH
+      });
+    } catch (error) {
+      addAgentInteraction({
+        sourceAgent: "orchestrator",
+        type: "error",
+        action: "Payment Failed",
+        message: "Failed to send payment transaction",
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+        status: "failed",
+      });
+      return;
+    }
 
     // if (!(await isPublicRepo(prompt))) {
     //   setError("Please make sure the repository is public");
@@ -157,7 +234,6 @@ export default function Home() {
     // }
 
     setError("");
-
     setGithubUrl(prompt);
     setIsSubmitting(true);
     setIsCreating(true);
@@ -166,27 +242,76 @@ export default function Home() {
     setCreationSteps(steps);
     setCurrentStepIndex(-1);
 
-    addLog(`Processing GitHub URL: ${prompt}`, "github");
+    addAgentInteraction({
+      sourceAgent: "github",
+      type: "task_created",
+      action: "Repository Processing Started",
+      message: `Processing GitHub URL: ${prompt}`,
+      data: {
+        repositoryUrl: prompt,
+        startTime: new Date().toISOString(),
+      },
+      status: "processing",
+    });
 
     // Process steps one by one
     for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
       setCurrentStepIndex(i);
 
       setCreationSteps((prev) =>
-        prev.map((step, index) =>
-          index === i ? { ...step, status: "processing" } : step
+        prev.map((s, index) =>
+          index === i ? { ...s, status: "processing" } : s
         )
       );
+
+      // Log step start
+      addAgentInteraction({
+        sourceAgent: step.agentName,
+        type: "task_created",
+        action: step.title,
+        message: `Started: ${step.description}`,
+        data: { stepIndex: i, stepId: step.id },
+        status: "processing",
+      });
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
+
       setCreationSteps((prev) =>
-        prev.map((step, index) =>
-          index === i ? { ...step, status: "completed" } : step
+        prev.map((s, index) =>
+          index === i ? { ...s, status: "completed" } : s
         )
       );
 
-      addLog(steps[i].title + " completed", "orchestrator");
+      // Log step completion
+      addAgentInteraction({
+        sourceAgent: step.agentName,
+        type: "task_completed",
+        action: step.title,
+        message: `Completed: ${step.description}`,
+        data: {
+          stepIndex: i,
+          stepId: step.id,
+          duration: 2000, // Since we're using a fixed delay
+        },
+        status: "completed",
+        duration: 2000,
+      });
     }
+
+    // Log overall completion
+    addAgentInteraction({
+      sourceAgent: "orchestrator",
+      type: "workflow_trigger",
+      action: "Project Creation Completed",
+      message: "All initialization steps completed successfully",
+      data: {
+        repositoryUrl: prompt,
+        stepsCompleted: steps.length,
+        totalDuration: steps.length * 2000,
+      },
+      status: "completed",
+    });
 
     // Show project setup dialog instead of navigating directly
     setIsCreating(false);
@@ -202,7 +327,7 @@ export default function Home() {
   };
 
   // Show loading while fetching projects after wallet connection
-  const shouldShowLoading = (isConnected && !initialized) || showProjectSetup; // Keep loading while project setup is open
+  const shouldShowLoading = (isConnected && !initialized) || showProjectSetup;
 
   // Show side selection only for new users (no existing projects)
   const shouldShowSideSelection =
@@ -221,26 +346,7 @@ export default function Home() {
     !showProjectSetup;
 
   useEffect(() => {
-    const shouldShowLoading = (isConnected && !initialized) || showProjectSetup; // Keep loading while project setup is open
-
-    // Show side selection only for new users (no existing projects)
-    const shouldShowSideSelection =
-      isConnected &&
-      initialized &&
-      projects.length === 0 &&
-      userSide === null &&
-      !showProjectSetup;
-
-    // Show main UI when everything is ready
-    const shouldShowMainUI =
-      isConnected &&
-      initialized &&
-      !projectsLoading &&
-      (projects.length > 0 || userSide !== null) &&
-      !showProjectSetup;
-
-    console.log("state logs");
-    console.log({
+    console.log("state logs", {
       shouldShowLoading,
       shouldShowSideSelection,
       shouldShowMainUI,
@@ -251,7 +357,16 @@ export default function Home() {
       userSide,
       showProjectSetup,
     });
-  }, [projectsLoading, initialized, projects, userSide, showProjectSetup]);
+  }, [
+    shouldShowLoading,
+    shouldShowSideSelection,
+    shouldShowMainUI,
+    projectsLoading,
+    initialized,
+    projects,
+    userSide,
+    showProjectSetup,
+  ]);
 
   return (
     <>

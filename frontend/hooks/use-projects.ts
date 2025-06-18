@@ -1,4 +1,3 @@
-// hooks/use-projects.ts
 import { useQuery } from "@tanstack/react-query";
 import { ProjectInfo } from "@/lib/types";
 

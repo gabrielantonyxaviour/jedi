@@ -49,7 +49,7 @@ export default function ProjectSetupDialog({
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { addLog, projectId } = useAppStore();
+  const { addAgentInteraction, projectId } = useAppStore();
   const { address } = useAccount();
   const { projects, isLoading, error, fetchProjectById } = useProjects(address);
   const [formInitialized, setFormInitialized] = useState(false);
@@ -107,13 +107,17 @@ export default function ProjectSetupDialog({
     e.preventDefault();
     setIsSubmitting(true);
 
-    addLog(
-      userSide === "light"
-        ? '"Begin your project, you must. Strong with the Force, your vision is. Guide you to success, I will."'
-        : '"Good... let your creative ambitions flow through you. Your project shall become more powerful than you can possibly imagine."',
-      "orchestrator",
-      "info"
-    );
+    addAgentInteraction({
+      sourceAgent: "orchestrator",
+      type: "notification",
+      action: "Project Setup Started",
+      message:
+        userSide === "light"
+          ? '"Begin your project, you must. Strong with the Force, your vision is. Guide you to success, I will."'
+          : '"Good... let your creative ambitions flow through you. Your project shall become more powerful than you can possibly imagine."',
+      data: { userSide, githubUrl },
+      status: "completed",
+    });
 
     let imageUri = "test";
     if (formData.image) {
@@ -134,7 +138,15 @@ export default function ProjectSetupDialog({
         imageUri = ipfsUri;
       } catch (error) {
         console.error("Error uploading image:", error);
-        addLog("Failed to upload project image", "orchestrator");
+        addAgentInteraction({
+          sourceAgent: "orchestrator",
+          type: "error",
+          action: "Image Upload Failed",
+          message: "Failed to upload project image to IPFS",
+          errorMessage:
+            error instanceof Error ? error.message : "Unknown error",
+          status: "failed",
+        });
         setIsSubmitting(false);
         return;
       }
@@ -160,10 +172,24 @@ export default function ProjectSetupDialog({
     //   }
 
     //   const data = await response.json();
-    //   addLog("Project setup successful", "orchestrator");
+    //   addAgentInteraction({
+    //     sourceAgent: 'orchestrator',
+    //     type: 'notification',
+    //     action: 'Project Setup Completed',
+    //     message: 'Project configuration and setup process completed successfully',
+    //     data: { projectName: formData.name, description: formData.summary, technicalSummary: formData.technicalSummary },
+    //     status: 'completed'
+    //   });
     // } catch (error) {
     //   console.error("Error setting up project:", error);
-    //   addLog("Failed to setup project", "orchestrator");
+    //   addAgentInteraction({
+    //     sourceAgent: 'orchestrator',
+    //     type: 'error',
+    //     action: 'Project Setup Failed',
+    //     message: 'Failed to setup project',
+    //     errorMessage: error instanceof Error ? error.message : 'Unknown error',
+    //     status: 'failed'
+    //   });
     //   setIsSubmitting(false);
     //   return;
     // }
