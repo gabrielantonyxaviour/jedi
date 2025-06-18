@@ -15,7 +15,7 @@ import {
   KarmaProjectData,
   KarmaGrantData,
   KarmaMilestoneData,
-} from "./services/karma";
+} from "./service";
 import { Hex } from "viem";
 
 interface KarmaProject {

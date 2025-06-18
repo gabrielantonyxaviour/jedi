@@ -1,4 +1,3 @@
-// src/agents/compliance-agent.ts
 import {
   DynamoDBClient,
   PutItemCommand,

@@ -1,9 +1,9 @@
 import puppeteer from "puppeteer";
 import axios from "axios";
 import * as cheerio from "cheerio";
-import { Lead } from "../../../types/lead";
-import { KeywordExtractor } from "../../../utils/keyword-extractor";
-import { sleep } from "../../../utils/helper";
+import { Lead } from "../../types/lead";
+import { KeywordExtractor } from "../../utils/keyword-extractor";
+import { sleep } from "../../utils/helper";
 
 export class LeadScrapingService {
   private keywordExtractor: KeywordExtractor;
