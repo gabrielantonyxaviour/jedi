@@ -16,7 +16,8 @@ import { Upload, X } from "lucide-react";
 import Image from "next/image";
 import { Badge } from "../ui/badge";
 import { useAppStore } from "@/store/app-store";
-import { useProjectData } from "@/hooks/use-project-data";
+import { useProjects } from "@/hooks/use-projects";
+import { useAccount } from "wagmi";
 
 interface ProjectSetupDialogProps {
   open: boolean;
@@ -49,7 +50,8 @@ export default function ProjectSetupDialog({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { addLog, projectId } = useAppStore();
-  const { currentProject, loading, error } = useProjectData(projectId || "");
+  const { address } = useAccount();
+  const { projects, isLoading, error, fetchProjectById } = useProjects(address);
   const [formInitialized, setFormInitialized] = useState(false);
   const [showTechnicalSummary, setShowTechnicalSummary] = useState(false);
 
