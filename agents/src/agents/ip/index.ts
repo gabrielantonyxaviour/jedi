@@ -1,17 +1,9 @@
-import {
-  DynamoDBClient,
-  PutItemCommand,
-  QueryCommand,
-} from "@aws-sdk/client-dynamodb";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
-import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
 import { Address, parseEther } from "viem";
 import { DisputeTargetTag } from "@story-protocol/core-sdk";
-import { client, networkInfo } from "../../utils/config";
-import { mintNFT } from "../../utils/mint-nft";
-import { uploadJSONToIPFS, uploadTextToIPFS } from "../../utils/pinata";
+import { ProjectService } from "../../services/project";
 import {
   StoryProtocolService,
   ProjectIPMetadata,
@@ -22,7 +14,6 @@ import {
 
 interface ProjectIPRegistration {
   registrationId: string;
-  projectId: string;
   ipId: Address;
   txHash: string;
   title: string;
@@ -41,7 +32,6 @@ interface ProjectIPRegistration {
 
 interface ProjectLicense {
   licenseId: string;
-  projectId: string;
   parentIpId?: Address;
   derivativeIpId: Address;
   licenseType: "commercial_fork" | "custom_remix" | "open_source";
@@ -52,7 +42,6 @@ interface ProjectLicense {
 
 interface RoyaltyTransaction {
   transactionId: string;
-  projectIpId: Address;
   amount: string;
   token: Address;
   txHash: string;
@@ -63,43 +52,39 @@ interface RoyaltyTransaction {
 
 export class IPAgent {
   private dynamodb: DynamoDBClient;
-  private s3: S3Client;
   private sqs: SQSClient;
   private storyService: StoryProtocolService;
-  private projectsTableName: string;
-  private licensesTableName: string;
-  private royaltiesTableName: string;
-  private bucketName: string;
+  private projectService: ProjectService;
   private orchestratorQueue: string;
 
-  constructor() {
-    const spgNftContract = networkInfo.defaultSPGNFTContractAddress as Address;
-    const nftContract = networkInfo.defaultNFTContractAddress as Address;
-
+  constructor(
+    storyClient: any,
+    spgNftContract: Address,
+    nftContract: Address,
+    uploadJSONToIPFS: (data: any) => Promise<string>,
+    uploadTextToIPFS: (text: string) => Promise<string>,
+    mintNFT?: (address: Address, uri: string) => Promise<number | undefined>
+  ) {
     this.dynamodb = new DynamoDBClient({ region: process.env.AWS_REGION });
-    this.s3 = new S3Client({ region: process.env.AWS_REGION });
     this.sqs = new SQSClient({ region: process.env.AWS_REGION });
+    this.projectService = new ProjectService(this.dynamodb);
+    this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
 
+    // Initialize StoryProtocolService with all required parameters
     this.storyService = new StoryProtocolService(
-      client,
+      storyClient,
       spgNftContract,
       nftContract,
       uploadJSONToIPFS,
       uploadTextToIPFS,
       mintNFT
     );
-
-    this.projectsTableName = process.env.IP_PROJECTS_TABLE!;
-    this.licensesTableName = process.env.PROJECT_LICENSES_TABLE!;
-    this.royaltiesTableName = process.env.ROYALTY_TRANSACTIONS_TABLE!;
-    this.bucketName = process.env.PROJECT_IP_BUCKET!;
-    this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
   }
 
   async processTask(task: any): Promise<void> {
     console.log(`🔗 Processing Story Protocol IP task: ${task.type}`);
 
-    const characterInfo = task.characterInfo;
+    const characterInfo = task.payload.characterInfo || task.characterInfo;
     let characterResponse = "";
 
     try {
@@ -131,7 +116,6 @@ export class IPAgent {
           result = { dispute };
           break;
 
-        // NEW TASK TYPES
         case "CREATE_DISPUTE":
           const newDispute = await this.createDispute(task.payload);
           result = { dispute: newDispute };
@@ -160,6 +144,18 @@ export class IPAgent {
         case "GET_PROJECT_IP_DETAILS":
           const details = await this.getProjectIPDetails(task.payload);
           result = { details };
+          break;
+
+        case "GET_PROJECT_LICENSE_TERMS":
+          const terms = await this.getProjectLicenseTerms(task.payload);
+          result = { terms };
+          break;
+
+        case "CLAIM_PARENT_PROJECT_ROYALTIES":
+          const parentRoyalties = await this.claimParentProjectRoyalties(
+            task.payload
+          );
+          result = { royalties: parentRoyalties };
           break;
 
         default:
@@ -201,46 +197,6 @@ export class IPAgent {
     }
   }
 
-  // NEW METHODS
-  async createDispute(payload: {
-    projectIpId: string;
-    evidence: string;
-    reason: string;
-  }): Promise<any> {
-    console.log(`⚖️ Creating dispute for project IP: ${payload.projectIpId}`);
-
-    return await this.disputeProjectIP({
-      targetIpId: payload.projectIpId as Address,
-      evidence: payload.evidence,
-      targetTag: "PLAGIARISM" as DisputeTargetTag, // Map from reason
-      bondAmount: "1", // 1 ETH
-      livenessMonths: 1, // 1 month
-    });
-  }
-
-  async payRoyalty(payload: {
-    projectIpId: string;
-    amount: string;
-  }): Promise<any> {
-    console.log(`💸 Paying royalty for project: ${payload.projectIpId}`);
-
-    return await this.payProjectLicenseFee({
-      projectIpId: payload.projectIpId as Address,
-      amount: payload.amount,
-    });
-  }
-
-  async claimAllRoyalties(payload: { projectIpId: string }): Promise<any> {
-    console.log(
-      `💰 Claiming all royalties for project: ${payload.projectIpId}`
-    );
-
-    return await this.claimDeveloperRoyalties({
-      projectIpId: payload.projectIpId as Address,
-    });
-  }
-
-  // EXISTING METHODS (unchanged)
   async registerGitHubProject(payload: {
     projectId: string;
     title: string;
@@ -259,6 +215,7 @@ export class IPAgent {
     programmingLanguages: string[];
     framework?: string;
     licenseTermsData: any[];
+    characterName?: string;
   }): Promise<ProjectIPRegistration> {
     console.log(`📦 Registering GitHub project: ${payload.title}`);
 
@@ -293,6 +250,10 @@ export class IPAgent {
           trait_type: "Contributors",
           value: payload.developers.length.toString(),
         },
+        {
+          trait_type: "Character Agent",
+          value: payload.characterName || "Unknown",
+        },
       ],
     };
 
@@ -305,7 +266,6 @@ export class IPAgent {
 
     const registration: ProjectIPRegistration = {
       registrationId: randomUUID(),
-      projectId: payload.projectId,
       ipId: storyResponse.ipId as Address,
       txHash: storyResponse.txHash,
       title: payload.title,
@@ -317,15 +277,31 @@ export class IPAgent {
       updatedAt: new Date().toISOString(),
     };
 
-    // Store registration in DynamoDB
-    await this.storeProjectRegistration(registration);
+    // Update project with IP registration data
+    const project = await this.projectService.getProject(payload.projectId);
+    if (project) {
+      const updatedIpData = {
+        ...project.ip,
+        isSetup: true,
+        registrationId: registration.registrationId,
+        ipId: registration.ipId,
+        txHash: registration.txHash,
+        licenseTermsIds: registration.licenseTermsIds,
+        ipMetadataHash: storyResponse.ipMetadataHash,
+        nftMetadataHash: storyResponse.nftMetadataHash,
+        repositoryUrl: storyResponse.repositoryUrl,
+        setupAt: new Date().toISOString(),
+        licenses: project.ip?.licenses || [],
+        disputes: project.ip?.disputes || [],
+        royalties: project.ip?.royalties || [],
+      };
 
-    // Store metadata in S3
-    await this.storeProjectMetadata(registration.registrationId, {
-      projectMetadata,
-      nftMetadata,
-      storyResponse,
-    });
+      await this.projectService.updateProjectData(
+        payload.projectId,
+        "ip",
+        updatedIpData
+      );
+    }
 
     console.log(`✅ Project registered with IP ID: ${registration.ipId}`);
     return registration;
@@ -346,6 +322,7 @@ export class IPAgent {
     logoUrl?: string;
     programmingLanguages: string[];
     framework?: string;
+    characterName?: string;
   }): Promise<ProjectLicense> {
     console.log(`🍴 Creating project fork: ${payload.title}`);
 
@@ -373,6 +350,10 @@ export class IPAgent {
           value: payload.programmingLanguages[0] || "Unknown",
         },
         { trait_type: "Framework", value: payload.framework || "None" },
+        {
+          trait_type: "Character Agent",
+          value: payload.characterName || "Unknown",
+        },
       ],
     };
 
@@ -384,7 +365,6 @@ export class IPAgent {
 
     const license: ProjectLicense = {
       licenseId: randomUUID(),
-      projectId: payload.projectId,
       parentIpId: payload.parentProjectData.parentIpIds[0],
       derivativeIpId: forkResponse.ipId as Address,
       licenseType: "commercial_fork",
@@ -392,7 +372,19 @@ export class IPAgent {
       createdAt: new Date().toISOString(),
     };
 
-    await this.storeProjectLicense(license);
+    // Add license to project
+    const project = await this.projectService.getProject(payload.projectId);
+    if (project?.ip) {
+      const updatedIpData = {
+        ...project.ip,
+        licenses: [...(project.ip.licenses || []), license],
+      };
+      await this.projectService.updateProjectData(
+        payload.projectId,
+        "ip",
+        updatedIpData
+      );
+    }
 
     console.log(
       `✅ Project fork created with IP ID: ${license.derivativeIpId}`
@@ -415,6 +407,8 @@ export class IPAgent {
     developerAddress: Address;
     logoUrl?: string;
     programmingLanguages: string[];
+    framework?: string;
+    characterName?: string;
   }): Promise<ProjectLicense> {
     console.log(`🎨 Creating project remix: ${payload.title}`);
 
@@ -427,6 +421,7 @@ export class IPAgent {
       logoUrl: payload.logoUrl,
       license: "Custom Remix",
       programmingLanguages: payload.programmingLanguages,
+      framework: payload.framework,
     };
 
     const nftMetadata: ProjectNFTMetadata = {
@@ -440,6 +435,11 @@ export class IPAgent {
           trait_type: "Primary Language",
           value: payload.programmingLanguages[0] || "Unknown",
         },
+        { trait_type: "Framework", value: payload.framework || "None" },
+        {
+          trait_type: "Character Agent",
+          value: payload.characterName || "Unknown",
+        },
       ],
     };
 
@@ -452,7 +452,6 @@ export class IPAgent {
 
     const license: ProjectLicense = {
       licenseId: randomUUID(),
-      projectId: payload.projectId,
       parentIpId: payload.parentProjectData.parentIpIds[0],
       derivativeIpId: remixResponse.ipId as Address,
       licenseType: "custom_remix",
@@ -460,7 +459,19 @@ export class IPAgent {
       createdAt: new Date().toISOString(),
     };
 
-    await this.storeProjectLicense(license);
+    // Add license to project
+    const project = await this.projectService.getProject(payload.projectId);
+    if (project?.ip) {
+      const updatedIpData = {
+        ...project.ip,
+        licenses: [...(project.ip.licenses || []), license],
+      };
+      await this.projectService.updateProjectData(
+        payload.projectId,
+        "ip",
+        updatedIpData
+      );
+    }
 
     console.log(
       `✅ Project remix created with IP ID: ${license.derivativeIpId}`
@@ -483,8 +494,10 @@ export class IPAgent {
     nonCommercialTermsId: string;
     logoUrl?: string;
     programmingLanguages: string[];
+    framework?: string;
+    characterName?: string;
   }): Promise<ProjectLicense> {
-    console.log(`🆓 Creating open-source project: ${payload.title}`);
+    console.log(`🆓 Creating open source project: ${payload.title}`);
 
     const projectMetadata: ProjectIPMetadata = {
       title: payload.title,
@@ -495,6 +508,7 @@ export class IPAgent {
       logoUrl: payload.logoUrl,
       license: "Open Source",
       programmingLanguages: payload.programmingLanguages,
+      framework: payload.framework,
     };
 
     const nftMetadata: ProjectNFTMetadata = {
@@ -504,7 +518,16 @@ export class IPAgent {
       external_url: payload.repositoryUrl,
       attributes: [
         { trait_type: "Project Type", value: "Open Source" },
-        { trait_type: "License", value: "Non-Commercial" },
+        { trait_type: "License", value: "Non-commercial" },
+        {
+          trait_type: "Primary Language",
+          value: payload.programmingLanguages[0] || "Unknown",
+        },
+        { trait_type: "Framework", value: payload.framework || "None" },
+        {
+          trait_type: "Character Agent",
+          value: payload.characterName || "Unknown",
+        },
       ],
     };
 
@@ -517,7 +540,6 @@ export class IPAgent {
 
     const license: ProjectLicense = {
       licenseId: randomUUID(),
-      projectId: payload.projectId,
       parentIpId: payload.parentProjectId,
       derivativeIpId: openSourceResponse.ipId as Address,
       licenseType: "open_source",
@@ -525,7 +547,19 @@ export class IPAgent {
       createdAt: new Date().toISOString(),
     };
 
-    await this.storeProjectLicense(license);
+    // Add license to project
+    const project = await this.projectService.getProject(payload.projectId);
+    if (project?.ip) {
+      const updatedIpData = {
+        ...project.ip,
+        licenses: [...(project.ip.licenses || []), license],
+      };
+      await this.projectService.updateProjectData(
+        payload.projectId,
+        "ip",
+        updatedIpData
+      );
+    }
 
     console.log(
       `✅ Open source project created with IP ID: ${license.derivativeIpId}`
@@ -534,6 +568,7 @@ export class IPAgent {
   }
 
   async disputeProjectIP(payload: {
+    projectId: string;
     targetIpId: Address;
     evidence: string;
     targetTag: DisputeTargetTag;
@@ -547,31 +582,92 @@ export class IPAgent {
       evidence: payload.evidence,
       targetTag: payload.targetTag,
       bond: parseEther(payload.bondAmount),
-      liveness: payload.livenessMonths * 30 * 24 * 60 * 60, // Convert months to seconds
+      liveness: payload.livenessMonths * 30 * 24 * 60 * 60,
     };
 
     const dispute = await this.storyService.disputeProjectIP(disputeData);
 
-    // Store dispute record
-    await this.s3.send(
-      new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: `disputes/${dispute.disputeId}.json`,
-        Body: JSON.stringify({
-          disputeId: dispute.disputeId,
-          targetIpId: payload.targetIpId,
-          txHash: dispute.txHash,
-          evidence: payload.evidence,
-          createdAt: new Date().toISOString(),
-        }),
-        ContentType: "application/json",
-      })
-    );
+    // Store dispute in project
+    const disputeRecord = {
+      disputeId: dispute.disputeId,
+      targetIpId: payload.targetIpId,
+      evidence: payload.evidence,
+      targetTag: payload.targetTag,
+      bondAmount: payload.bondAmount,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+
+    const project = await this.projectService.getProject(payload.projectId);
+    if (project?.ip) {
+      const updatedIpData = {
+        ...project.ip,
+        disputes: [...(project.ip.disputes || []), disputeRecord],
+      };
+      await this.projectService.updateProjectData(
+        payload.projectId,
+        "ip",
+        updatedIpData
+      );
+    }
 
     return dispute;
   }
 
+  async createDispute(payload: {
+    projectId: string;
+    targetIpId: string;
+    evidence: string;
+    reason: string;
+  }): Promise<any> {
+    console.log(`⚖️ Creating dispute for project IP: ${payload.targetIpId}`);
+
+    const result = await this.disputeProjectIP({
+      projectId: payload.projectId,
+      targetIpId: payload.targetIpId as Address,
+      evidence: payload.evidence,
+      targetTag: "PLAGIARISM" as DisputeTargetTag,
+      bondAmount: "1",
+      livenessMonths: 1,
+    });
+
+    return result;
+  }
+
+  async payRoyalty(payload: {
+    projectId: string;
+    amount: string;
+  }): Promise<any> {
+    console.log(`💸 Paying royalty for project: ${payload.projectId}`);
+
+    const project = await this.projectService.getProject(payload.projectId);
+    if (!project?.ip?.ipId) {
+      throw new Error("Project IP not found");
+    }
+
+    return await this.payProjectLicenseFee({
+      projectId: payload.projectId,
+      projectIpId: project.ip.ipId as Address,
+      amount: payload.amount,
+    });
+  }
+
+  async claimAllRoyalties(payload: { projectId: string }): Promise<any> {
+    console.log(`💰 Claiming all royalties for project: ${payload.projectId}`);
+
+    const project = await this.projectService.getProject(payload.projectId);
+    if (!project?.ip?.ipId) {
+      throw new Error("Project IP not found");
+    }
+
+    return await this.claimDeveloperRoyalties({
+      projectId: payload.projectId,
+      projectIpId: project.ip.ipId as Address,
+    });
+  }
+
   async claimDeveloperRoyalties(payload: {
+    projectId: string;
     projectIpId: Address;
     royaltyPolicies?: Address[];
     currencyTokens?: Address[];
@@ -586,7 +682,6 @@ export class IPAgent {
 
     const transaction: RoyaltyTransaction = {
       transactionId: randomUUID(),
-      projectIpId: payload.projectIpId,
       amount: royaltyResponse.claimedTokens?.toString() || "0",
       token: payload.currencyTokens?.[0] || ("0x0" as Address),
       txHash: royaltyResponse.txHash || "",
@@ -595,11 +690,25 @@ export class IPAgent {
       timestamp: Date.now(),
     };
 
-    await this.storeRoyaltyTransaction(transaction);
+    // Store royalty transaction in project
+    const project = await this.projectService.getProject(payload.projectId);
+    if (project?.ip) {
+      const updatedIpData = {
+        ...project.ip,
+        royalties: [...(project.ip.royalties || []), transaction],
+      };
+      await this.projectService.updateProjectData(
+        payload.projectId,
+        "ip",
+        updatedIpData
+      );
+    }
+
     return transaction;
   }
 
   async payProjectLicenseFee(payload: {
+    projectId: string;
     projectIpId: Address;
     amount: string;
     payerAddress?: Address;
@@ -616,7 +725,6 @@ export class IPAgent {
 
     const transaction: RoyaltyTransaction = {
       transactionId: randomUUID(),
-      projectIpId: payload.projectIpId,
       amount: payload.amount,
       token: payload.token || ("0x0" as Address),
       txHash: paymentResponse.txHash,
@@ -625,97 +733,109 @@ export class IPAgent {
       timestamp: Date.now(),
     };
 
-    await this.storeRoyaltyTransaction(transaction);
+    // Store payment in project
+    const project = await this.projectService.getProject(payload.projectId);
+    if (project?.ip) {
+      const updatedIpData = {
+        ...project.ip,
+        royalties: [...(project.ip.royalties || []), transaction],
+      };
+      await this.projectService.updateProjectData(
+        payload.projectId,
+        "ip",
+        updatedIpData
+      );
+    }
+
     return transaction;
   }
 
-  async getProjectIPDetails(payload: { projectIpId: Address }): Promise<any> {
-    console.log(`🔍 Fetching project IP details: ${payload.projectIpId}`);
-
-    const details = await this.storyService.getProjectIPDetails(
-      payload.projectIpId
+  async claimParentProjectRoyalties(payload: {
+    projectId: string;
+    parentProjectId: Address;
+    forkProjectIds: Address[];
+    royaltyPolicies: Address[];
+    currencyTokens?: Address[];
+  }): Promise<RoyaltyTransaction> {
+    console.log(
+      `💰 Claiming parent project royalties for: ${payload.parentProjectId}`
     );
 
-    // Also fetch stored registration data
-    const storedData = await this.getStoredProjectRegistration(
-      payload.projectIpId
+    const royaltyResponse = await this.storyService.claimParentProjectRoyalties(
+      payload.parentProjectId,
+      payload.forkProjectIds,
+      payload.royaltyPolicies,
+      payload.currencyTokens
+    );
+
+    const transaction: RoyaltyTransaction = {
+      transactionId: randomUUID(),
+      amount: royaltyResponse.claimedTokens?.toString() || "0",
+      token: payload.currencyTokens?.[0] || ("0x0" as Address),
+      txHash: royaltyResponse.txHash || "",
+      type: "claim",
+      status: "confirmed",
+      timestamp: Date.now(),
+    };
+
+    // Store royalty transaction in project
+    const project = await this.projectService.getProject(payload.projectId);
+    if (project?.ip) {
+      const updatedIpData = {
+        ...project.ip,
+        royalties: [...(project.ip.royalties || []), transaction],
+      };
+      await this.projectService.updateProjectData(
+        payload.projectId,
+        "ip",
+        updatedIpData
+      );
+    }
+
+    return transaction;
+  }
+
+  async getProjectIPDetails(payload: { projectId: string }): Promise<any> {
+    console.log(`🔍 Fetching project IP details: ${payload.projectId}`);
+
+    const project = await this.projectService.getProject(payload.projectId);
+    if (!project?.ip?.ipId) {
+      throw new Error("Project IP not found");
+    }
+
+    const details = await this.storyService.getProjectIPDetails(
+      project.ip.ipId as Address
     );
 
     return {
       onChainDetails: details,
-      registrationData: storedData,
+      projectData: project.ip,
       timestamp: new Date().toISOString(),
     };
   }
 
-  private async storeProjectRegistration(
-    registration: ProjectIPRegistration
-  ): Promise<void> {
-    await this.dynamodb.send(
-      new PutItemCommand({
-        TableName: this.projectsTableName,
-        Item: marshall(registration),
-      })
-    );
-  }
+  async getProjectLicenseTerms(payload: {
+    projectId: string;
+    licenseTermsId?: string;
+  }): Promise<any> {
+    console.log(`📄 Fetching project license terms: ${payload.projectId}`);
 
-  private async storeProjectLicense(license: ProjectLicense): Promise<void> {
-    await this.dynamodb.send(
-      new PutItemCommand({
-        TableName: this.licensesTableName,
-        Item: marshall(license),
-      })
-    );
-  }
-
-  private async storeRoyaltyTransaction(
-    transaction: RoyaltyTransaction
-  ): Promise<void> {
-    await this.dynamodb.send(
-      new PutItemCommand({
-        TableName: this.royaltiesTableName,
-        Item: marshall(transaction),
-      })
-    );
-  }
-
-  private async storeProjectMetadata(
-    registrationId: string,
-    metadata: any
-  ): Promise<void> {
-    await this.s3.send(
-      new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: `projects/${registrationId}/metadata.json`,
-        Body: JSON.stringify(metadata),
-        ContentType: "application/json",
-      })
-    );
-  }
-
-  private async getStoredProjectRegistration(
-    ipId: Address
-  ): Promise<ProjectIPRegistration | null> {
-    try {
-      const response = await this.dynamodb.send(
-        new QueryCommand({
-          TableName: this.projectsTableName,
-          IndexName: "ipId-index",
-          KeyConditionExpression: "ipId = :ipId",
-          ExpressionAttributeValues: marshall({
-            ":ipId": ipId,
-          }),
-        })
-      );
-
-      if (response.Items && response.Items.length > 0) {
-        return unmarshall(response.Items[0]) as ProjectIPRegistration;
-      }
-      return null;
-    } catch (error) {
-      console.error("Failed to fetch stored registration:", error);
-      return null;
+    const project = await this.projectService.getProject(payload.projectId);
+    if (!project?.ip?.licenseTermsIds?.length) {
+      throw new Error("Project license terms not found");
     }
+
+    const licenseTermsId =
+      payload.licenseTermsId || project.ip.licenseTermsIds[0];
+    const terms = await this.storyService.getProjectLicenseTerms(
+      licenseTermsId
+    );
+
+    return {
+      licenseTerms: terms,
+      projectData: project.ip,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   private async reportTaskCompletion(

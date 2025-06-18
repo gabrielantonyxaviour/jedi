@@ -1,4 +1,3 @@
-// src/orchestrator/core-orchestrator.ts
 import express from "express";
 import {
   SQSClient,
@@ -24,6 +23,7 @@ import { v4 as uuidv4 } from "uuid";
 import { BillingService } from "../services/billing";
 import crypto from "crypto";
 import { createCommercialRemixTerms } from "@/utils/utils";
+import { ProjectInfo, ProjectService } from "@/services/project";
 
 interface AgentCharacter {
   name: string;
@@ -87,6 +87,7 @@ export class CoreOrchestratorAgent {
   private app: express.Application;
   private billingService: BillingService;
   private clientWebhooks: string[] = [];
+  private projectService: ProjectService;
 
   constructor() {
     this.sqsClient = new SQSClient({ region: process.env.AWS_REGION });
@@ -96,6 +97,7 @@ export class CoreOrchestratorAgent {
     });
     this.bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
     this.billingService = new BillingService();
+    this.projectService = new ProjectService(this.dynamoClient);
     this.app = express();
     this.setupMiddleware();
     this.setupRoutes();
@@ -146,6 +148,17 @@ export class CoreOrchestratorAgent {
           `🎯 Creating new ${side} side project from ${repoUrl} for ${walletAddress}`
         );
 
+        // Create initial project in database
+        await this.projectService.createProject({
+          projectId,
+          name: this.extractRepoName(repoUrl),
+          githubUrl: repoUrl,
+          repo: this.extractRepoName(repoUrl),
+          developers: [],
+          ownerId: walletAddress,
+          side,
+        });
+
         // Step 1: Analyze GitHub repo and extract project info
         await this.sendTaskToAgent("github-intelligence", {
           taskId: uuidv4(),
@@ -190,8 +203,8 @@ export class CoreOrchestratorAgent {
           characterTeam: this.getCharacterTeamNames(side),
           message: "Project creation initiated",
           characterResponse: orchestratorResponse,
-          status: "ANALYZING_REPOSITORY",
-          nextStep: "setup_basic_info",
+          setup_state: "GITHUB",
+          nextStep: "INFO",
         });
       } catch (error: any) {
         console.error("🚨 Project creation failed:", error);
@@ -212,21 +225,29 @@ export class CoreOrchestratorAgent {
             req.body;
 
           const workflowId = uuidv4();
-          const project = await this.getProject(projectId);
+          const project = await this.projectService.getProject(projectId);
 
           if (!project) {
             return res.status(404).json({ error: "Project not found" });
           }
 
+          if (project.setup_state !== "GITHUB") {
+            return res.status(400).json({
+              error: "Invalid setup state",
+              currentState: project.setup_state,
+              expectedState: "GITHUB",
+            });
+          }
+
           console.log(`📝 Setting up basic info for project ${projectId}`);
 
-          // Update project info
-          await this.updateProject(projectId, {
+          // Update project info and advance setup state
+          await this.projectService.updateProjectSetupStep(projectId, "INFO", {
             name,
             description,
             technicalDescription,
             imageUrl,
-            updatedAt: new Date().toISOString(),
+            keywords: this.extractKeywords(description, technicalDescription),
           });
 
           // Trigger lead discovery with updated project info
@@ -246,27 +267,42 @@ export class CoreOrchestratorAgent {
             priority: "MEDIUM",
           });
 
+          // Also trigger compliance check
+          await this.sendTaskToAgent("monitoring-compliance", {
+            taskId: uuidv4(),
+            workflowId,
+            type: "PROJECT_CREATED_COMPLIANCE_CHECK",
+            payload: {
+              projectId,
+              projectName: name,
+              description,
+              sources: ["all"],
+              maxResults: 100,
+            },
+            priority: "MEDIUM",
+          });
+
           await this.storeWorkflow({
             type: "PROJECT_INFO_SETUP",
             workflowId,
-            userId: project.userId,
+            userId: project.ownerId,
             priority: "MEDIUM",
-            payload: { projectId, step: "lead_discovery" },
+            payload: { projectId, step: "lead_discovery_and_compliance" },
           });
 
           const orchestratorResponse =
             project.side === "light"
-              ? "Wise choices you have made. Discover potential allies, Chewbacca will. Patience you must have."
-              : "Your project grows stronger. Count Dooku will hunt for business opportunities. The Empire demands results.";
+              ? "Wise choices you have made. Discover potential allies, Chewbacca will. Monitor for threats, Princess Leia shall."
+              : "Your project grows stronger. Count Dooku will hunt for business opportunities. Darth Maul watches for enemies.";
 
           res.json({
             success: true,
             projectId,
             workflowId,
-            message: "Project info updated and lead discovery initiated",
+            setup_state: "INFO",
+            nextStep: "SOCIALS",
+            message: "Project info updated and discovery initiated",
             characterResponse: orchestratorResponse,
-            status: "DISCOVERING_LEADS",
-            nextStep: "setup_agents",
           });
         } catch (error: any) {
           console.error("🚨 Project info setup failed:", error);
@@ -284,35 +320,61 @@ export class CoreOrchestratorAgent {
       async (req: any, res: any) => {
         try {
           const { projectId } = req.params;
-          const {
-            twitter,
-            linkedin,
-            telegram,
-            autoPost,
-            character,
-            postsPerDay,
-          } = req.body;
+          const { platforms, autoPost, character, postsPerDay } = req.body;
 
           const workflowId = uuidv4();
-          const project = await this.getProject(projectId);
+          const project = await this.projectService.getProject(projectId);
 
           if (!project) {
             return res.status(404).json({ error: "Project not found" });
           }
 
+          if (project.setup_state !== "INFO") {
+            return res.status(400).json({
+              error: "Invalid setup state",
+              currentState: project.setup_state,
+              expectedState: "INFO",
+            });
+          }
+
           console.log(`🔧 Setting up socials for project ${projectId}`);
 
-          let setupResult;
-          let characterResponse = "";
-          setupResult = await this.setupSocialsAgent(
-            project,
-            { twitter, linkedin, telegram },
-            autoPost,
-            character,
-            postsPerDay,
-            workflowId
+          // Setup socials configuration
+          const socialsConfig = {
+            isSetup: true,
+            platforms: platforms || {},
+            character: character || {},
+            autoPost: autoPost || false,
+            postsPerDay: postsPerDay || "1",
+            setupAt: new Date().toISOString(),
+          };
+
+          // Send setup task to socials agent
+          await this.sendTaskToAgent("social-media", {
+            taskId: uuidv4(),
+            workflowId,
+            type: "SETUP_SOCIAL",
+            payload: {
+              projectId: project.projectId,
+              projectName: project.name,
+              description: project.description,
+              socials: platforms,
+              autoPost: autoPost,
+              character: character,
+              postsPerDay: postsPerDay,
+              characterName: this.getCharacterContext(project.side).social.name,
+            },
+            priority: "HIGH",
+          });
+
+          // Update project with socials config
+          await this.projectService.updateProjectSetupStep(
+            projectId,
+            "SOCIALS",
+            socialsConfig
           );
-          characterResponse =
+
+          const characterResponse =
             project.side === "light"
               ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
               : "Savage Opress will dominate the social channels. Fear and respect, our tools they are.";
@@ -320,159 +382,337 @@ export class CoreOrchestratorAgent {
           res.json({
             success: true,
             projectId,
-            agentType: "socials",
             workflowId,
+            setup_state: "SOCIALS",
+            nextStep: "KARMA",
             characterResponse,
-            message: `Socials agent setup initiated`,
-            status: "SETTING_UP_SOCIALS",
-            setupResult,
+            message: "Socials agent setup initiated",
           });
         } catch (error: any) {
-          console.error(
-            `🚨 ${req.params.agentType} agent setup failed:`,
-            error
-          );
+          console.error("🚨 Socials agent setup failed:", error);
           res.status(500).json({
-            error: `Failed to setup ${req.params.agentType} agent`,
+            error: "Failed to setup socials agent",
             details: error.message,
           });
         }
       }
     );
 
-    // 3. Setup karma agent
+    // 4. Setup karma agent
     this.app.post(
       "/api/projects/:projectId/setup-karma",
       async (req: any, res: any) => {
         try {
           const { projectId } = req.params;
-          const {
-            title,
-            description,
-            imageURL,
-            ownerAddress,
-            ownerPkey,
-            members,
-            membersPKey,
-            userEmail,
-            userName,
-          } = req.body;
+          const { ownerAddress, members, userEmail, userName } = req.body;
 
           const workflowId = uuidv4();
-          const project = await this.getProject(projectId);
+          const project = await this.projectService.getProject(projectId);
 
           if (!project) {
             return res.status(404).json({ error: "Project not found" });
           }
-          project.name = title;
-          project.description = description;
-          project.imageUrl = imageURL;
 
-          console.log(`🔧 Setting up socials for project ${projectId}`);
+          if (project.setup_state !== "SOCIALS") {
+            return res.status(400).json({
+              error: "Invalid setup state",
+              currentState: project.setup_state,
+              expectedState: "SOCIALS",
+            });
+          }
 
-          let setupResult;
-          let characterResponse = "";
-          setupResult = await this.setupKarmaAgent(
-            project,
-            {
+          console.log(`🔧 Setting up karma for project ${projectId}`);
+
+          // Setup karma configuration
+          const karmaConfig = {
+            isSetup: true,
+            ownerAddress,
+            members: members || [],
+            grants: [],
+            opportunities: [],
+            setupAt: new Date().toISOString(),
+          };
+
+          // Send setup task to karma agent
+          await this.sendTaskToAgent("karma-integration", {
+            taskId: uuidv4(),
+            workflowId,
+            type: "CREATE_KARMA_PROJECT",
+            payload: {
+              projectId: project.projectId,
+              title: project.name,
+              description: project.description,
+              imageURL: project.imageUrl,
               ownerAddress,
-              ownerPkey,
-              members,
-              membersPKey,
+              members: members || [],
               userEmail,
               userName,
+              side: project.side,
+              characterName: this.getCharacterContext(project.side).karma.name,
             },
-            workflowId
+            priority: "HIGH",
+          });
+
+          // Update project with karma config
+          await this.projectService.updateProjectSetupStep(
+            projectId,
+            "KARMA",
+            karmaConfig
           );
-          characterResponse =
+
+          const characterResponse =
             project.side === "light"
-              ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
-              : "Savage Opress will dominate the social channels. Fear and respect, our tools they are.";
+              ? "Strong with the Force, your grant opportunities are. Guide you to funding, Luke Skywalker will."
+              : "Your funding will serve the Empire well. Vader will secure the resources you need.";
 
           res.json({
             success: true,
             projectId,
-            agentType: "karma",
             workflowId,
+            setup_state: "KARMA",
+            nextStep: "IP",
             characterResponse,
-            message: `Karma agent setup initiated`,
-            status: "SETTING_UP_KARMA",
-            setupResult,
+            message: "Karma agent setup initiated",
           });
         } catch (error: any) {
-          console.error(
-            `🚨 ${req.params.agentType} agent setup failed:`,
-            error
-          );
+          console.error("🚨 Karma agent setup failed:", error);
           res.status(500).json({
-            error: `Failed to setup ${req.params.agentType} agent`,
+            error: "Failed to setup karma agent",
             details: error.message,
           });
         }
       }
     );
 
-    // 3. Setup IP agent
+    // 5. Setup IP agent
     this.app.post(
       "/api/projects/:projectId/setup-ip",
       async (req: any, res: any) => {
         try {
           const { projectId } = req.params;
-          const { title, description, imageURL, remixFee, commercialRevShare } =
-            req.body;
+          const { remixFee, commercialRevShare } = req.body;
 
           const workflowId = uuidv4();
-          const project = await this.getProject(projectId);
+          const project = await this.projectService.getProject(projectId);
 
           if (!project) {
             return res.status(404).json({ error: "Project not found" });
           }
-          project.name = title;
-          project.description = description;
-          project.imageUrl = imageURL;
 
-          console.log(`🔧 Setting up socials for project ${projectId}`);
+          if (project.setup_state !== "KARMA") {
+            return res.status(400).json({
+              error: "Invalid setup state",
+              currentState: project.setup_state,
+              expectedState: "KARMA",
+            });
+          }
 
-          let setupResult;
-          let characterResponse = "";
-          setupResult = await this.setupIPAgent(
-            project,
-            {
-              title,
-              description,
-              imageURL,
+          console.log(`🔧 Setting up IP protection for project ${projectId}`);
+
+          // Setup IP configuration
+          const ipConfig = {
+            isSetup: true,
+            royaltyPercentage: commercialRevShare || 10,
+            remixFee: remixFee || "0.1",
+            commercialRevShare: commercialRevShare || 10,
+            licenses: [],
+            disputes: [],
+            royalties: [],
+            setupAt: new Date().toISOString(),
+          };
+
+          const developers = project.developers.map((developer: any) => ({
+            name: developer.name,
+            githubUsername: developer.github_username,
+            walletAddress: developer.walletAddress || project.ownerId,
+            contributionPercent: 100 / project.developers.length,
+          }));
+
+          // Send setup task to IP agent
+          await this.sendTaskToAgent("story-protocol-ip", {
+            taskId: uuidv4(),
+            workflowId,
+            type: "REGISTER_GITHUB_PROJECT",
+            payload: {
+              projectId: project.projectId,
+              title: project.name,
+              description: project.description,
+              repositoryUrl: project.githubUrl,
+              developers,
               license: "MIT",
+              programmingLanguages: project.languages || ["JavaScript"],
               licenseTermsData: [
-                createCommercialRemixTerms({
+                this.createCommercialRemixTerms({
                   commercialRevShare,
                   defaultMintingFee: remixFee,
                 }),
               ],
+              characterName: this.getCharacterContext(project.side).ip.name,
             },
-            workflowId
+            priority: "HIGH",
+          });
+
+          // Update project with IP config and mark as fully setup
+          await this.projectService.updateProjectSetupStep(
+            projectId,
+            "IP",
+            ipConfig
           );
-          characterResponse =
+
+          const characterResponse =
             project.side === "light"
-              ? "Ready for social engagement, Ahsoka Tano is. Spread your message across the galaxy, she will."
-              : "Savage Opress will dominate the social channels. Fear and respect, our tools they are.";
+              ? "Protected by the Force, your intellectual property now is. Wise protection, Obi-Wan provides."
+              : "Your intellectual dominance is secured. Kylo Ren ensures none shall steal your power.";
 
           res.json({
             success: true,
             projectId,
-            agentType: "ip",
             workflowId,
+            setup_state: "IP",
+            nextStep: "COMPLETE",
             characterResponse,
-            message: `IP agent setup initiated`,
-            status: "SETTING_UP_IP",
-            setupResult,
+            message: "IP agent setup initiated - Project setup complete!",
+            projectCompleted: true,
           });
         } catch (error: any) {
-          console.error(
-            `🚨 ${req.params.agentType} agent setup failed:`,
-            error
+          console.error("🚨 IP agent setup failed:", error);
+          res.status(500).json({
+            error: "Failed to setup IP agent",
+            details: error.message,
+          });
+        }
+      }
+    );
+
+    // Get project status endpoint
+    this.app.get("/api/projects/:projectId", async (req: any, res: any) => {
+      try {
+        const { projectId } = req.params;
+        const project = await this.projectService.getProject(projectId);
+
+        if (!project) {
+          return res.status(404).json({ error: "Project not found" });
+        }
+
+        const characterContext = this.getCharacterContext(project.side);
+        let setupProgress = "";
+
+        switch (project.setup_state) {
+          case "GITHUB":
+            setupProgress = "Repository analyzed, ready for info setup";
+            break;
+          case "INFO":
+            setupProgress = "Basic info configured, ready for social setup";
+            break;
+          case "SOCIALS":
+            setupProgress = "Social media configured, ready for grant setup";
+            break;
+          case "KARMA":
+            setupProgress = "Grant system configured, ready for IP protection";
+            break;
+          case "IP":
+            setupProgress = "Fully configured - all agents active";
+            break;
+        }
+
+        res.json({
+          success: true,
+          project: {
+            ...project,
+            setupProgress,
+            isComplete: project.setup_state === "IP",
+          },
+          characterTeam: this.getCharacterTeamNames(project.side),
+          orchestratorResponse:
+            project.side === "light"
+              ? `${setupProgress}. Strong with your project, the Force is.`
+              : `${setupProgress}. Your empire grows stronger.`,
+        });
+      } catch (error: any) {
+        console.error("🚨 Failed to get project:", error);
+        res.status(500).json({
+          error: "Failed to get project",
+          details: error.message,
+        });
+      }
+    });
+
+    // Rest of routes remain the same...
+    // 4. Interactive agent communication with character responses
+    this.app.post(
+      "/api/projects/:projectId/interact",
+      async (req: any, res: any) => {
+        let project: any = null;
+        try {
+          const { projectId } = req.params;
+          const { prompt } = req.body;
+
+          if (!prompt) {
+            return res.status(400).json({ error: "prompt is required" });
+          }
+
+          const workflowId = uuidv4();
+          project = await this.projectService.getProject(projectId);
+
+          if (!project) {
+            return res.status(404).json({ error: "Project not found" });
+          }
+
+          console.log(
+            `💬 Processing ${project.side} side interaction for project ${projectId}: "${prompt}"`
+          );
+
+          // Analyze the prompt and determine required actions
+          const actionPlan = await this.analyzePromptAndCreateActionPlan(
+            prompt,
+            project
+          );
+
+          if (actionPlan.type === "SIMPLE_RESPONSE") {
+            // Direct response without triggering agents
+            res.json({
+              success: true,
+              type: "response",
+              response: actionPlan.response,
+              characterResponse: actionPlan.characterResponse || false,
+              side: project.side,
+              workflowId,
+            });
+          } else {
+            // Complex action requiring agent coordination
+            const executionResult = await this.executeActionPlan(
+              actionPlan,
+              workflowId,
+              project
+            );
+
+            res.json({
+              success: true,
+              type: "action",
+              workflowId,
+              side: project.side,
+              characterResponse: actionPlan.characterResponse,
+              actionPlan: {
+                description: actionPlan.description,
+                estimatedSteps: actionPlan.steps.length,
+                estimatedTime: actionPlan.estimatedTime,
+                tasks: actionPlan.steps.map((step: any) => ({
+                  agent: step.characterAgent || step.agent,
+                  action: step.description,
+                })),
+              },
+              message: "Action plan initiated",
+              status: "EXECUTING",
+            });
+          }
+        } catch (error: any) {
+          console.error("🚨 Interaction processing failed:", error);
+          const characterContext = this.getCharacterContext(
+            project ? project.side : "light"
           );
           res.status(500).json({
-            error: `Failed to setup ${req.params.agentType} agent`,
+            error: "Failed to process interaction",
+            characterResponse: `${characterContext.orchestrator.confused} Process your request, I could not.`,
             details: error.message,
           });
         }
@@ -831,6 +1071,17 @@ export class CoreOrchestratorAgent {
     });
   }
 
+  private extractRepoName(repoUrl: string): string {
+    return repoUrl.split("/").pop()?.replace(".git", "") || "project";
+  }
+
+  private createCommercialRemixTerms(options: any) {
+    // This should be implemented based on your Story Protocol integration
+    return {
+      commercialRevShare: options.commercialRevShare,
+      defaultMintingFee: options.defaultMintingFee,
+    };
+  }
   // =============================================================================
   // CHARACTER SYSTEM
   // =============================================================================
