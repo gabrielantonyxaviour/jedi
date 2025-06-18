@@ -64,7 +64,7 @@ export default function Home() {
   const {
     projects,
     isLoading: projectsLoading,
-    isFetching: initialized,
+    isFetching: isFetching,
   } = useProjects(address || "");
 
   const initializeSteps = (): CreationStep[] => [
@@ -100,7 +100,7 @@ export default function Home() {
 
   // Handle projects loaded - set side from first project
   useEffect(() => {
-    if (initialized && projects.length > 0 && !userSide) {
+    if (isFetching && projects.length > 0 && !userSide) {
       const firstProjectSide = projects[0].side;
       setUserSide(firstProjectSide);
 
@@ -117,7 +117,7 @@ export default function Home() {
         status: "completed",
       });
     }
-  }, [initialized, projects, userSide, setUserSide, addAgentInteraction]);
+  }, [isFetching, projects, userSide, setUserSide, addAgentInteraction]);
 
   useEffect(() => {
     console.log("Balance updated in Home component:", balance);
@@ -204,11 +204,21 @@ export default function Home() {
     e.preventDefault();
     if (!prompt.trim() || !isConnected) return;
 
+    // if (!(await isPublicRepo(prompt))) {
+    //   setError("Please make sure the repository is public");
+    //   return;
+    // }
+
+    if (parseFloat(formatEther(balance?.value ?? BigInt("0"))) < 0.000005) {
+      setError(
+        "Please top up your wallet with at least 0.000005 ETH in Aurora to continue"
+      );
+      return;
+    }
+
     try {
-      await sendTransactionAsync({
-        to: "0xbE9044946343fDBf311C96Fb77b2933E2AdA8B5D",
-        value: parseEther("0.000005"), // 0.00001 ETH
-      });
+      // TODO: Send Transaction to x04 service
+      // TODO: Send api call to agent to create project
     } catch (error) {
       addAgentInteraction({
         sourceAgent: "orchestrator",
@@ -220,18 +230,6 @@ export default function Home() {
       });
       return;
     }
-
-    // if (!(await isPublicRepo(prompt))) {
-    //   setError("Please make sure the repository is public");
-    //   return;
-    // }
-
-    // if (parseFloat(formatEther(balance?.value ?? BigInt("0"))) < 0.1) {
-    //   setError(
-    //     "Please top up your wallet with at least 0.1 ETH in Aurora to continue"
-    //   );
-    //   return;
-    // }
 
     setError("");
     setGithubUrl(prompt);
@@ -327,12 +325,12 @@ export default function Home() {
   };
 
   // Show loading while fetching projects after wallet connection
-  const shouldShowLoading = (isConnected && !initialized) || showProjectSetup;
+  const shouldShowLoading = (isConnected && isFetching) || showProjectSetup;
 
   // Show side selection only for new users (no existing projects)
   const shouldShowSideSelection =
     isConnected &&
-    initialized &&
+    !isFetching &&
     projects.length === 0 &&
     userSide === null &&
     !showProjectSetup;
@@ -340,7 +338,7 @@ export default function Home() {
   // Show main UI when everything is ready
   const shouldShowMainUI =
     isConnected &&
-    initialized &&
+    !isFetching &&
     !projectsLoading &&
     (projects.length > 0 || userSide !== null) &&
     !showProjectSetup;
@@ -352,7 +350,7 @@ export default function Home() {
       shouldShowMainUI,
       projectsLoading,
       isConnected,
-      initialized,
+      isFetching,
       projects,
       userSide,
       showProjectSetup,
@@ -362,7 +360,7 @@ export default function Home() {
     shouldShowSideSelection,
     shouldShowMainUI,
     projectsLoading,
-    initialized,
+    isFetching,
     projects,
     userSide,
     showProjectSetup,
