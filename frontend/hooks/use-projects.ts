@@ -37,5 +37,7 @@ export const useProjects = (ownerAddress?: string) => {
     ...query,
     projects: query.data || [],
     fetchProjectById,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
   };
 };

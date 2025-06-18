@@ -15,20 +15,67 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowRight, ChevronRight } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronRight,
+  Clock,
+  AlertCircle,
+  CheckCircle,
+  Loader,
+} from "lucide-react";
 import { useState } from "react";
 import Image from "next/image";
 
-export interface LogEntry {
-  _id: string;
+export interface AgentInteraction {
+  interactionId: string;
   projectId: string;
-  agentName: string;
-  text: string;
-  data: Record<string, any>;
+  timestamp: string;
+
+  sourceAgent:
+    | "github"
+    | "socials"
+    | "leads"
+    | "compliance"
+    | "ip"
+    | "karma"
+    | "orchestrator"
+    | "system";
+  targetAgent?:
+    | "github"
+    | "socials"
+    | "leads"
+    | "compliance"
+    | "ip"
+    | "karma"
+    | "orchestrator"
+    | "system";
+
+  // Interaction details
+  type:
+    | "task_created"
+    | "task_completed"
+    | "data_shared"
+    | "error"
+    | "notification"
+    | "workflow_trigger";
+  action: string;
+  message: string;
+  data?: any;
+
+  // Status and context
+  status: "pending" | "processing" | "completed" | "failed";
+  workflowId?: string;
+  taskId?: string;
+  parentInteractionId?: string;
+
+  // Metadata
+  duration?: number;
+  retryCount?: number;
+  errorMessage?: string;
 }
 
-interface LogsSheetProps {
-  logs: LogEntry[];
+interface AgentInteractionsSheetProps {
+  interactions: AgentInteraction[];
   side: "light" | "dark" | null;
 }
 
@@ -73,8 +120,9 @@ const getAgentDisplayName = (
   return agents.find((a) => a.id === agentId)?.name || agentId;
 };
 
-const formatTimeAgo = (date: Date): string => {
+const formatTimeAgo = (timestamp: string): string => {
   const now = new Date();
+  const date = new Date(timestamp);
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
   if (diffInSeconds < 60) {
@@ -110,24 +158,69 @@ const formatTimeAgo = (date: Date): string => {
   return `${diffInYears}y ago`;
 };
 
-const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case "completed":
+      return <CheckCircle className="h-4 w-4 text-green-400" />;
+    case "failed":
+      return <AlertCircle className="h-4 w-4 text-red-400" />;
+    case "processing":
+      return <Loader className="h-4 w-4 text-yellow-400 animate-spin" />;
+    default:
+      return <Clock className="h-4 w-4 text-gray-400" />;
+  }
+};
+
+const getTypeColor = (type: string, side: "light" | "dark" | null) => {
+  const colors = {
+    light: {
+      task_created: "bg-blue-500/20 text-blue-300",
+      task_completed: "bg-green-500/20 text-green-300",
+      data_shared: "bg-purple-500/20 text-purple-300",
+      error: "bg-red-500/20 text-red-300",
+      notification: "bg-yellow-500/20 text-yellow-300",
+      workflow_trigger: "bg-indigo-500/20 text-indigo-300",
+    },
+    dark: {
+      task_created: "bg-red-500/20 text-red-300",
+      task_completed: "bg-green-500/20 text-green-300",
+      data_shared: "bg-purple-500/20 text-purple-300",
+      error: "bg-red-600/20 text-red-300",
+      notification: "bg-orange-500/20 text-orange-300",
+      workflow_trigger: "bg-red-700/20 text-red-300",
+    },
+  };
+
+  return side && colors[side][type as keyof typeof colors.light]
+    ? colors[side][type as keyof typeof colors.light]
+    : "bg-gray-500/20 text-gray-300";
+};
+
+const AgentInteractionsSheet: React.FC<AgentInteractionsSheetProps> = ({
+  interactions,
+  side,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+  const [selectedInteraction, setSelectedInteraction] =
+    useState<AgentInteraction | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const formatMessage = (message: string) => {
+  const formatData = (data: any) => {
     try {
-      const parsed = JSON.parse(message);
-      return JSON.stringify(parsed, null, 2);
+      return JSON.stringify(data, null, 2);
     } catch {
-      return message;
+      return String(data);
     }
   };
 
-  const filteredLogs = selectedAgent
-    ? logs.filter((log) => log.agentName === selectedAgent)
-    : logs;
+  const filteredInteractions = selectedAgent
+    ? interactions.filter(
+        (interaction) =>
+          interaction.sourceAgent === selectedAgent ||
+          interaction.targetAgent === selectedAgent
+      )
+    : interactions;
 
   const handleAgentClick = (agentId: string) => {
     setSelectedAgent(selectedAgent === agentId ? null : agentId);
@@ -166,7 +259,7 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
           <SheetHeader className="w-full">
             <div className="flex flex-row items-center justify-between">
               <SheetTitle className="text-white font-custom-regular tracking-widest text-xl">
-                Agent Logs
+                Agent Interactions
               </SheetTitle>
               <ArrowRight
                 className="h-5 w-5 text-stone-400 hover:text-white cursor-pointer"
@@ -223,16 +316,16 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
 
           <ScrollArea className="h-[calc(100vh-220px)] mt-4 pr-4">
             <div className="space-y-4">
-              {filteredLogs.length === 0 ? (
+              {filteredInteractions.length === 0 ? (
                 <p className="text-stone-500 text-center py-8">
                   {selectedAgent
-                    ? "No logs from this agent"
-                    : "No logs available yet"}
+                    ? "No interactions involving this agent"
+                    : "No interactions available yet"}
                 </p>
               ) : (
-                filteredLogs.map((log) => (
+                filteredInteractions.map((interaction) => (
                   <div
-                    key={log.id}
+                    key={interaction.interactionId}
                     className={`border rounded-lg p-4 ${
                       side === "light"
                         ? "border-blue-900/30 bg-blue-950/20"
@@ -242,31 +335,98 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      {/* Agent Avatar */}
+                      {/* Source Agent Avatar */}
                       <Image
-                        src={`/agents/${side}/${log.agentName}.png`}
-                        alt={getAgentDisplayName(log.agentName, side)}
+                        src={`/agents/${side}/${interaction.sourceAgent}.png`}
+                        alt={getAgentDisplayName(interaction.sourceAgent, side)}
                         width={40}
                         height={40}
                         className="rounded-full flex-shrink-0"
                       />
 
                       <div className="flex-1 min-w-0">
-                        {/* Agent Name and Time */}
+                        {/* Interaction Header */}
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-white text-sm">
-                            {getAgentDisplayName(log.agentName, side)} (
-                            {agents.find((a) => a.id === log.agentName)?.name})
-                          </h4>
-                          {/* <span className="text-xs text-stone-400">
-                            {formatTimeAgo(log.createdAt)}
-                          </span> */}
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-white text-sm">
+                              {getAgentDisplayName(
+                                interaction.sourceAgent,
+                                side
+                              )}
+                            </h4>
+                            {interaction.targetAgent && (
+                              <>
+                                <ArrowRight className="h-3 w-3 text-stone-400" />
+                                <span className="text-sm text-stone-300">
+                                  {getAgentDisplayName(
+                                    interaction.targetAgent,
+                                    side
+                                  )}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          <span className="text-xs text-stone-400">
+                            {formatTimeAgo(interaction.timestamp)}
+                          </span>
                         </div>
 
-                        {/* Log Message */}
-                        <p className="text-sm text-stone-300 mb-2 leading-relaxed">
-                          {log.text}
+                        {/* Interaction Type and Status */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span
+                            className={`px-2 py-1 rounded text-xs ${getTypeColor(
+                              interaction.type,
+                              side
+                            )}`}
+                          >
+                            {interaction.type.replace("_", " ")}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {getStatusIcon(interaction.status)}
+                            <span className="text-xs text-stone-400">
+                              {interaction.status}
+                            </span>
+                          </div>
+                          {interaction.duration && (
+                            <span className="text-xs text-stone-400">
+                              {interaction.duration}ms
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Action */}
+                        <p className="text-sm font-medium text-stone-200 mb-1">
+                          {interaction.action}
                         </p>
+
+                        {/* Message */}
+                        <p className="text-sm text-stone-300 mb-2 leading-relaxed">
+                          {interaction.message}
+                        </p>
+
+                        {/* Error Message */}
+                        {interaction.errorMessage && (
+                          <p className="text-sm text-red-400 mb-2">
+                            Error: {interaction.errorMessage}
+                          </p>
+                        )}
+
+                        {/* Workflow/Task IDs */}
+                        {(interaction.workflowId || interaction.taskId) && (
+                          <div className="flex gap-2 mb-2">
+                            {interaction.workflowId && (
+                              <span className="text-xs text-stone-400 bg-stone-800 px-2 py-1 rounded">
+                                Workflow: {interaction.workflowId.slice(0, 8)}
+                                ...
+                              </span>
+                            )}
+                            {interaction.taskId && (
+                              <span className="text-xs text-stone-400 bg-stone-800 px-2 py-1 rounded">
+                                Task: {interaction.taskId.slice(0, 8)}...
+                              </span>
+                            )}
+                          </div>
+                        )}
 
                         {/* Expand Button */}
                         <div className="flex justify-end">
@@ -279,7 +439,7 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
                                 : "hover:bg-stone-700 text-stone-400"
                             }`}
                             onClick={() => {
-                              setSelectedLog(log);
+                              setSelectedInteraction(interaction);
                               setIsDialogOpen(true);
                             }}
                           >
@@ -300,18 +460,59 @@ const LogsSheet: React.FC<LogsSheetProps> = ({ logs, side }) => {
         <DialogContent className="bg-zinc-800 border-stone-700 text-white max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-white font-custom-regular tracking-widest">
-              Log Details
+              Interaction Details
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-4">
-            <pre className="whitespace-pre-wrap text-sm text-stone-300 bg-stone-900/50 p-4 rounded-lg overflow-auto max-h-[60vh]">
-              {selectedLog && formatMessage(selectedLog.text)}
-            </pre>
-          </div>
+          {selectedInteraction && (
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-stone-400">Source:</span>
+                  <span className="ml-2 text-white">
+                    {selectedInteraction.sourceAgent}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-400">Target:</span>
+                  <span className="ml-2 text-white">
+                    {selectedInteraction.targetAgent || "System"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-400">Type:</span>
+                  <span className="ml-2 text-white">
+                    {selectedInteraction.type}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-400">Status:</span>
+                  <span className="ml-2 text-white">
+                    {selectedInteraction.status}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-stone-400 mb-2">Message:</h4>
+                <p className="text-white bg-stone-900/50 p-3 rounded">
+                  {selectedInteraction.message}
+                </p>
+              </div>
+
+              {selectedInteraction.data && (
+                <div>
+                  <h4 className="text-stone-400 mb-2">Data:</h4>
+                  <pre className="whitespace-pre-wrap text-sm text-stone-300 bg-stone-900/50 p-4 rounded-lg overflow-auto max-h-[40vh]">
+                    {formatData(selectedInteraction.data)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
   );
 };
 
-export default LogsSheet;
+export default AgentInteractionsSheet;

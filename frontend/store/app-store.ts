@@ -1,8 +1,45 @@
-import { LogEntry } from "@/components/layout/logs-sheet";
+import { AgentInteraction } from "@/components/layout/logs-sheet";
 import { create } from "zustand";
 
 type UserSide = "light" | "dark" | null;
 type WalletStatus = "disconnected" | "connecting" | "connected";
+
+interface AddAgentInteractionParams {
+  sourceAgent:
+    | "github"
+    | "socials"
+    | "leads"
+    | "compliance"
+    | "ip"
+    | "karma"
+    | "orchestrator"
+    | "system";
+  targetAgent?:
+    | "github"
+    | "socials"
+    | "leads"
+    | "compliance"
+    | "ip"
+    | "karma"
+    | "orchestrator"
+    | "system";
+  type:
+    | "task_created"
+    | "task_completed"
+    | "data_shared"
+    | "error"
+    | "notification"
+    | "workflow_trigger";
+  action: string;
+  message: string;
+  data?: any;
+  status?: "pending" | "processing" | "completed" | "failed";
+  workflowId?: string;
+  taskId?: string;
+  parentInteractionId?: string;
+  duration?: number;
+  errorMessage?: string;
+}
 
 interface AppState {
   walletStatus: WalletStatus;
@@ -10,9 +47,10 @@ interface AppState {
   balance: string;
   projectId: string;
   userSide: UserSide;
-  logs: LogEntry[];
+  agentInteractions: AgentInteraction[];
   jobResponse: any;
-  addLog: (message: string, agentId: string, type?: string) => void;
+  addAgentInteraction: (params: AddAgentInteractionParams) => void;
+  clearAgentInteractions: () => void;
   setUserSide: (side: UserSide) => void;
   setWalletStatus: (status: WalletStatus) => void;
   setProjectId: (id: string) => void;
@@ -21,29 +59,47 @@ interface AppState {
   setJobResponse: (response: any) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   walletStatus: "disconnected",
   userSide: null,
   projectId: "",
   address: "",
   balance: "0",
-  logs: [],
+  agentInteractions: [],
   jobResponse: null,
+
   setWalletStatus: (status: WalletStatus) => set({ walletStatus: status }),
-  addLog: (message: string, agentId: string, type: string = "info") => {
+
+  addAgentInteraction: (params: AddAgentInteractionParams) => {
+    const state = get();
+    const newInteraction: AgentInteraction = {
+      interactionId: `client-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`,
+      projectId: state.projectId,
+      timestamp: new Date().toISOString(),
+      sourceAgent: params.sourceAgent as AgentInteraction["sourceAgent"],
+      targetAgent: params.targetAgent as AgentInteraction["targetAgent"],
+      type: params.type,
+      action: params.action,
+      message: params.message,
+      data: params.data,
+      status: params.status || "completed",
+      workflowId: params.workflowId,
+      taskId: params.taskId,
+      parentInteractionId: params.parentInteractionId,
+      duration: params.duration,
+      retryCount: 0,
+      errorMessage: params.errorMessage,
+    };
+
     set((state) => ({
-      logs: [
-        {
-          _id: Date.now().toString(),
-          projectId: state.projectId,
-          agentName: agentId,
-          text: message,
-          data: {},
-        },
-        ...state.logs,
-      ],
+      agentInteractions: [newInteraction, ...state.agentInteractions],
     }));
   },
+
+  clearAgentInteractions: () => set({ agentInteractions: [] }),
+
   setAddress: (address: string) => set({ address }),
   setProjectId: (id: string) => set({ projectId: id }),
   setBalance: (balance: string) => set({ balance }),
