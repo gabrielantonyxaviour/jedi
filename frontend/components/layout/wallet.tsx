@@ -11,10 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
-import { parseCardanoBalance } from "@/lib/cardano";
 import { formatEther } from "viem";
-import { useAccount, useBalance, useConnect, useDisconnect } from "wagmi";
-import { aurora } from "viem/chains";
+import { useAccount, useBalance, useDisconnect } from "wagmi";
 import { useConnectModal } from "@tomo-inc/tomo-evm-kit";
 
 export default function WalletButton() {
@@ -28,7 +26,7 @@ export default function WalletButton() {
     <div className="flex items-center gap-4">
       {isConnected && (
         <div className="flex items-center gap-2 text-sm">
-          <Image src="/aurora.jpg" alt="eth" width={16} height={16} />
+          <Image src="/base.png" alt="eth" width={16} height={16} />
           <span className="text-stone-300">
             {parseFloat(formatEther(balance?.value ?? BigInt("0"))).toFixed(4)}{" "}
             ETH
