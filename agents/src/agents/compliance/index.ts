@@ -631,6 +631,17 @@ export class ComplianceAgent {
     characterResponse?: string
   ) {
     try {
+      console.log("Task Completion report payload");
+      console.log({
+        taskId,
+        workflowId,
+        status: error ? "FAILED" : "COMPLETED",
+        result: result ? { ...result, characterResponse } : null,
+        error,
+        timestamp: new Date().toISOString(),
+        agent: "monitoring-compliance",
+      });
+
       await this.sqs.send(
         new SendMessageCommand({
           QueueUrl: this.orchestratorQueue,

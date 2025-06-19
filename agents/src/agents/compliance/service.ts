@@ -63,49 +63,62 @@ export class ComplianceScrapingService {
 
       await page.goto("https://ethglobal.com/showcase", {
         waitUntil: "networkidle0",
+        timeout: 60000, // Increased timeout
       });
 
-      // Wait for projects to load - using the actual selector from the HTML
-      await page.waitForSelector('a[href*="/showcase/"]', {
-        timeout: 10000,
-      });
+      // Wait for projects to load with better error handling
+      try {
+        await page.waitForSelector('a[href*="/showcase/"]', {
+          timeout: 15000,
+        });
+      } catch (error) {
+        console.log(
+          "ETHGlobal showcase selector not found, trying alternatives..."
+        );
+        await page.waitForSelector("a", { timeout: 10000 });
+      }
 
-      // Extract project data using actual HTML structure
+      // Rest of the method remains the same but with better error handling
       const projects = await page.evaluate(() => {
-        const projectLinks = document.querySelectorAll('a[href*="/showcase/"]');
+        try {
+          const projectLinks = document.querySelectorAll(
+            'a[href*="/showcase/"], a[href*="/projects/"]'
+          );
 
-        return Array.from(projectLinks)
-          .slice(0, 30)
-          .map((link) => {
-            const projectCard = link.closest("div");
+          return Array.from(projectLinks)
+            .slice(0, 30)
+            .map((link) => {
+              try {
+                const projectCard = link.closest("div");
+                const titleEl = link.querySelector(
+                  "h2, h3, h4, [class*='title']"
+                );
+                const descEl = link.querySelector("p");
+                const hackathonEl = link.querySelector(
+                  '.bg-purple-300, [class*="purple"]'
+                );
+                const relativeUrl = link.getAttribute("href");
+                const fullUrl = relativeUrl
+                  ? `https://ethglobal.com${relativeUrl}`
+                  : "";
 
-            // Find title (h2 element)
-            const titleEl = link.querySelector("h2");
-
-            // Find description (p element within the link)
-            const descEl = link.querySelector("p");
-
-            // Find hackathon badge (div with purple background)
-            const hackathonEl = link.querySelector(
-              '.bg-purple-300, [class*="purple"]'
-            );
-
-            // Get the relative URL and make it absolute
-            const relativeUrl = link.getAttribute("href");
-            const fullUrl = relativeUrl
-              ? `https://ethglobal.com${relativeUrl}`
-              : "";
-
-            return {
-              name: titleEl?.textContent?.trim() || "",
-              description: descEl?.textContent?.trim() || "",
-              hackathon: hackathonEl?.textContent?.trim() || "ETHGlobal",
-              url: fullUrl,
-              tags: [], // ETHGlobal doesn't seem to have visible tags in the main listing
-              platform: "ETHGlobal",
-            };
-          })
-          .filter((p) => p.name && p.name.length > 2);
+                return {
+                  name: titleEl?.textContent?.trim() || "",
+                  description: descEl?.textContent?.trim() || "",
+                  hackathon: hackathonEl?.textContent?.trim() || "ETHGlobal",
+                  url: fullUrl,
+                  tags: [],
+                  platform: "ETHGlobal",
+                };
+              } catch (error) {
+                return null;
+              }
+            })
+            .filter((p) => p && p.name && p.name.length > 2);
+        } catch (error) {
+          console.error("Error in page evaluation:", error);
+          return [];
+        }
       });
 
       await browser.close();
@@ -117,7 +130,7 @@ export class ComplianceScrapingService {
     } catch (error) {
       await browser.close();
       console.error("ETHGlobal scraping error:", error);
-      return [];
+      return []; // Return empty array instead of throwing
     }
   }
 

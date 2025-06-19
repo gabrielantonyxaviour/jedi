@@ -1845,37 +1845,40 @@ export class CoreOrchestratorAgent {
       console.log(data);
 
       if (data.type === "TASK_COMPLETION") {
+        // Fix: Access payload properties correctly
+        const payload = data.payload;
+
         // Update task status in DynamoDB
-        await this.updateTaskStatus(data.taskId, {
-          status: data.status,
-          endTime: data.timestamp,
-          result: data.result,
-          error: data.error,
+        await this.updateTaskStatus(payload.taskId, {
+          status: payload.status,
+          endTime: payload.timestamp,
+          result: payload.result,
+          error: payload.error,
         });
 
-        const workflow = await this.getWorkflow(data.workflowId);
+        const workflow = await this.getWorkflow(payload.workflowId);
 
         if (workflow) {
           const isComplete = await this.checkWorkflowCompletion(
-            data.workflowId
+            payload.workflowId
           );
 
           if (isComplete) {
             console.log(
-              `✅ Orchestrator: Completing workflow ${data.workflowId}`
+              `✅ Orchestrator: Completing workflow ${payload.workflowId}`
             );
-            await this.completeWorkflow(data.workflowId);
+            await this.completeWorkflow(payload.workflowId);
           }
 
           // Notify client
-          // await this.notifyClient(data.workflowId, {
+          // await this.notifyClient(payload.workflowId, {
           //   type: "TASK_COMPLETED",
-          //   taskId: data.taskId,
-          //   workflowId: data.workflowId,
-          //   agent: data.agent,
-          //   status: data.status,
-          //   result: data.result,
-          //   error: data.error,
+          //   taskId: payload.taskId,
+          //   workflowId: payload.workflowId,
+          //   agent: payload.agent,
+          //   status: payload.status,
+          //   result: payload.result,
+          //   error: payload.error,
           // });
         }
       }
@@ -1926,13 +1929,18 @@ export class CoreOrchestratorAgent {
   private async getWorkflow(workflowId: string): Promise<any> {
     const tableName = process.env.WORKFLOWS_TABLE || "orchestrator-workflows";
 
-    const command = new GetItemCommand({
-      TableName: tableName,
-      Key: marshall({ workflowId }),
-    });
+    try {
+      const command = new GetItemCommand({
+        TableName: tableName,
+        Key: marshall({ workflowId }, { removeUndefinedValues: true }),
+      });
 
-    const response = await this.dynamoClient.send(command);
-    return response.Item ? unmarshall(response.Item) : null;
+      const response = await this.dynamoClient.send(command);
+      return response.Item ? unmarshall(response.Item) : null;
+    } catch (error) {
+      console.error(`❌ Error getting workflow ${workflowId}:`, error);
+      return null;
+    }
   }
 
   private async storeTaskStatus(status: TaskStatus): Promise<void> {
@@ -2122,37 +2130,67 @@ export class CoreOrchestratorAgent {
   private async updateTaskStatus(taskId: string, updates: Partial<TaskStatus>) {
     const tableName = process.env.TASK_STATUS_TABLE || "orchestrator-tasks";
 
+    console.log("🔄 Updating task status:", taskId, updates);
+
     const updateExpression = [];
     const expressionAttributeValues: any = {};
-    const expressionAttributeNames: any = {
-      "#status": "status",
-    };
+    const expressionAttributeNames: any = {};
 
-    if (updates.status) {
-      updateExpression.push("set #status = :status");
+    if (updates.status !== undefined) {
+      updateExpression.push("SET #status = :status");
+      expressionAttributeNames["#status"] = "status";
       expressionAttributeValues[":status"] = updates.status;
     }
-    if (updates.endTime) {
-      updateExpression.push("endTime = :endTime");
+
+    if (updates.endTime !== undefined) {
+      if (updateExpression.length === 0) {
+        updateExpression.push("SET endTime = :endTime");
+      } else {
+        updateExpression[0] += ", endTime = :endTime";
+      }
       expressionAttributeValues[":endTime"] = updates.endTime;
     }
-    if (updates.result) {
-      updateExpression.push("#result = :result");
+
+    if (updates.result !== undefined) {
+      if (updateExpression.length === 0) {
+        updateExpression.push("SET #result = :result");
+      } else {
+        updateExpression[0] += ", #result = :result";
+      }
       expressionAttributeNames["#result"] = "result";
       expressionAttributeValues[":result"] = updates.result;
     }
-    if (updates.error) {
-      updateExpression.push("#error = :error");
+
+    if (updates.error !== undefined) {
+      if (updateExpression.length === 0) {
+        updateExpression.push("SET #error = :error");
+      } else {
+        updateExpression[0] += ", #error = :error";
+      }
       expressionAttributeNames["#error"] = "error";
       expressionAttributeValues[":error"] = updates.error;
     }
 
+    // Only proceed if we have something to update
+    if (
+      updateExpression.length === 0 ||
+      Object.keys(expressionAttributeValues).length === 0
+    ) {
+      console.log("No valid updates provided, skipping task status update");
+      return;
+    }
+
     const command = new UpdateItemCommand({
       TableName: tableName,
-      Key: marshall({ taskId }),
-      UpdateExpression: updateExpression.join(", "),
-      ExpressionAttributeNames: expressionAttributeNames,
-      ExpressionAttributeValues: marshall(expressionAttributeValues),
+      Key: marshall({ taskId }, { removeUndefinedValues: true }),
+      UpdateExpression: updateExpression.join(" "),
+      ExpressionAttributeNames:
+        Object.keys(expressionAttributeNames).length > 0
+          ? expressionAttributeNames
+          : undefined,
+      ExpressionAttributeValues: marshall(expressionAttributeValues, {
+        removeUndefinedValues: true,
+      }),
     });
 
     await this.dynamoClient.send(command);

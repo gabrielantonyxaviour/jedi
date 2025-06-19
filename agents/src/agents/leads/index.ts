@@ -2,6 +2,7 @@ import {
   DynamoDBClient,
   PutItemCommand,
   QueryCommand,
+  UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import {
@@ -87,9 +88,9 @@ export class LeadsAgent {
             task.payload
           );
           // Auto-trigger email for high-scoring leads
-          for (const lead of newProjectLeads.filter((l) => l.score > 80)) {
-            await this.triggerLeadEmail(lead);
-          }
+          // for (const lead of newProjectLeads.filter((l) => l.score > 80)) {
+          //   await this.triggerLeadEmail(lead);
+          // }
           result = {
             leads: newProjectLeads,
             count: newProjectLeads.length,
@@ -126,7 +127,6 @@ export class LeadsAgent {
           throw new Error(`Unknown task type: ${task.type}`);
       }
 
-      // Generate character response
       if (characterInfo?.agentCharacter) {
         if (characterInfo.side === "light") {
           characterResponse =
@@ -229,8 +229,14 @@ export class LeadsAgent {
     console.log(`🎯 Discovering leads for project: ${project.name}`);
 
     // Generate search keywords using Bedrock
-    const searchKeywords = await this.generateSearchKeywords(project);
-    console.log(`📝 Generated keywords:`, searchKeywords);
+    let searchKeywords;
+    try {
+      searchKeywords = await this.generateSearchKeywords(project);
+      console.log(`📝 Generated keywords:`, searchKeywords);
+    } catch (error) {
+      console.error("Error generating keywords:", error);
+      searchKeywords = [project.name, "business"];
+    }
 
     // Use the working scraper
     const discoveredLeads = await this.leadScraper.scrapeLeads(
@@ -239,10 +245,9 @@ export class LeadsAgent {
       payload.maxResults || 50
     );
 
-    // Store all leads in DynamoDB
-    for (const lead of discoveredLeads) {
-      await this.storeLead(lead);
-    }
+    console.log("🔍 Discovered leads:", discoveredLeads);
+
+    await this.storeLeadsInProject(payload.projectId, discoveredLeads);
 
     console.log(`✅ Discovered and stored ${discoveredLeads.length} leads`);
     return discoveredLeads;
@@ -262,8 +267,8 @@ export class LeadsAgent {
   3. Business partners or collaborators
   4. Competitors or similar products
   
-  Return as a JSON array of strings, e.g. ["keyword1", "keyword2", "keyword3"]
-  Focus on specific, actionable terms rather than generic ones.
+  IMPORTANT: Return ONLY a valid JSON array of strings. No explanations, no additional text.
+  Example format: ["keyword1", "keyword2", "keyword3"]
   `;
 
     try {
@@ -272,16 +277,23 @@ export class LeadsAgent {
           modelId: "meta.llama3-70b-instruct-v1:0",
           body: JSON.stringify({
             prompt: wrapMetaLlamaPrompt(prompt),
-            max_gen_len: 300,
-            temperature: 0.5,
+            max_gen_len: 200,
+            temperature: 0.3,
             top_p: 0.9,
           }),
         })
       );
 
       const result = JSON.parse(new TextDecoder().decode(response.body));
-      const keywords = JSON.parse(result.generation);
+      let generation = result.generation.trim();
 
+      // Clean up the response - extract JSON if wrapped in text
+      const jsonMatch = generation.match(/\[.*\]/s);
+      if (jsonMatch) {
+        generation = jsonMatch[0];
+      }
+
+      const keywords = JSON.parse(generation);
       return Array.isArray(keywords) ? keywords : [project.name];
     } catch (error) {
       console.error("Error generating keywords:", error);
@@ -352,10 +364,10 @@ export class LeadsAgent {
     for (const lead of leads) {
       const score = await this.calculateLeadScore(lead, project);
       const updatedLead = { ...lead, score };
-
-      await this.updateLead(updatedLead);
       scoredLeads.push(updatedLead);
     }
+
+    await this.storeLeadsInProject(payload.projectId, scoredLeads);
 
     return scoredLeads;
   }
@@ -406,7 +418,7 @@ export class LeadsAgent {
     const qualification = JSON.parse(result.generation);
 
     // Update lead with qualification
-    await this.updateLead({
+    await this.updateLead(lead.projectId, {
       ...lead,
       status:
         qualification.qualification === "High potential" ? "qualified" : "new",
@@ -552,30 +564,73 @@ export class LeadsAgent {
     return response.Items ? (unmarshall(response.Items[0]) as Lead) : null!;
   }
 
-  private async getProjectLeads(projectId: string): Promise<Lead[]> {
-    const response = await this.dynamodb.send(
-      new QueryCommand({
-        TableName: this.leadsTableName,
-        IndexName: "projectId-score-index",
-        KeyConditionExpression: "projectId = :projectId",
-        ExpressionAttributeValues: marshall({ ":projectId": projectId }),
-      })
-    );
+  private calculateSources(
+    leads: Lead[]
+  ): Array<{ source: string; count: number }> {
+    const sourceMap = new Map();
+    leads.forEach((lead) => {
+      const count = sourceMap.get(lead.source) || 0;
+      sourceMap.set(lead.source, count + 1);
+    });
 
-    return (response.Items || []).map((item) => unmarshall(item) as Lead);
+    return Array.from(sourceMap.entries()).map(([source, count]) => ({
+      source,
+      count,
+    }));
   }
 
-  private async storeLead(lead: Lead): Promise<void> {
+  private async storeLeadsInProject(
+    projectId: string,
+    leads: Lead[]
+  ): Promise<void> {
+    const project = await this.getProject(projectId);
+
+    const updatedLeads = {
+      isActive: true,
+      totalLeads: leads.length,
+      sources: this.calculateSources(leads),
+      leads: leads,
+      lastScanAt: new Date().toISOString(),
+      highValueLeads: leads.filter((l) => l.score > 80).length,
+    };
+
     await this.dynamodb.send(
-      new PutItemCommand({
-        TableName: this.leadsTableName,
-        Item: marshall(lead),
+      new UpdateItemCommand({
+        TableName: this.projectsTableName,
+        Key: marshall({ projectId }, { removeUndefinedValues: true }),
+        UpdateExpression: "SET leads = :leads, updatedAt = :updatedAt",
+        ExpressionAttributeValues: marshall(
+          {
+            ":leads": updatedLeads,
+            ":updatedAt": new Date().toISOString(),
+          },
+          { removeUndefinedValues: true }
+        ),
       })
     );
   }
 
-  private async updateLead(lead: Lead): Promise<void> {
-    await this.storeLead(lead);
+  private async getProjectLeads(projectId: string): Promise<Lead[]> {
+    const project = await this.getProject(projectId);
+    return project?.leads?.leads || [];
+  }
+
+  private async addLeadToProject(
+    projectId: string,
+    newLead: Lead
+  ): Promise<void> {
+    const project = await this.getProject(projectId);
+    const existingLeads = project?.leads?.leads || [];
+
+    // Avoid duplicates
+    if (!existingLeads.find((l: Lead) => l.leadId === newLead.leadId)) {
+      existingLeads.push(newLead);
+      await this.storeLeadsInProject(projectId, existingLeads);
+    }
+  }
+
+  private async updateLead(projectId: string, lead: Lead): Promise<void> {
+    await this.addLeadToProject(projectId, lead);
   }
 
   private async reportTaskCompletion(

@@ -3,6 +3,7 @@ import {
   PutItemCommand,
   GetItemCommand,
   QueryCommand,
+  UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 
@@ -202,7 +203,42 @@ export interface ProjectInfo {
 }
 
 export class ProjectService {
-  constructor(private dynamoClient: DynamoDBClient) {}
+  private tableName: string;
+
+  constructor(private dynamoClient: DynamoDBClient) {
+    this.tableName = process.env.PROJECTS_TABLE_NAME || "projects";
+  }
+
+  // Helper method to safely marshall data
+  private safeMarshall(data: any): any {
+    return marshall(data, {
+      removeUndefinedValues: true,
+      convertEmptyValues: false,
+    });
+  }
+
+  // Helper method for safe DynamoDB operations
+  private async safeDynamoOperation<T>(
+    operation: () => Promise<T>
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error: any) {
+      if (
+        error.name === "ValidationException" &&
+        error.message.includes("removeUndefinedValues")
+      ) {
+        console.error(
+          "DynamoDB validation error - undefined values detected:",
+          error
+        );
+        throw new Error(
+          "Data validation failed - please check for undefined values"
+        );
+      }
+      throw error;
+    }
+  }
 
   async createProject(
     project: Omit<
@@ -224,14 +260,16 @@ export class ProjectService {
       updatedAt: now,
     };
 
-    await this.dynamoClient.send(
-      new PutItemCommand({
-        TableName: "projects",
-        Item: marshall(projectInfo),
-      })
-    );
+    return this.safeDynamoOperation(async () => {
+      await this.dynamoClient.send(
+        new PutItemCommand({
+          TableName: this.tableName,
+          Item: this.safeMarshall(projectInfo),
+        })
+      );
 
-    return projectInfo;
+      return projectInfo;
+    });
   }
 
   async updateProjectSetupStep(
@@ -265,11 +303,11 @@ export class ProjectService {
       switch (newState) {
         case "INFO":
           Object.assign(updates, {
-            name: stepData.name,
+            name: stepData.name || project.name,
             description: stepData.description,
             technicalDescription: stepData.technicalDescription,
             imageUrl: stepData.imageUrl,
-            keywords: stepData.keywords,
+            keywords: stepData.keywords || [],
           });
           break;
         case "SOCIALS":
@@ -297,8 +335,11 @@ export class ProjectService {
       throw new Error(`Project ${projectId} not found`);
     }
 
+    // Clean the data to remove undefined values
+    const cleanData = JSON.parse(JSON.stringify(data));
+
     const updates = {
-      [section]: { ...(project[section] as object), ...data },
+      [section]: { ...(project[section] as object), ...cleanData },
       updatedAt: new Date().toISOString(),
     };
 
@@ -320,11 +361,14 @@ export class ProjectService {
       totalScanned: 0,
     };
 
-    currentCompliance.similarProjects.push(complianceData);
+    // Clean the compliance data
+    const cleanComplianceData = JSON.parse(JSON.stringify(complianceData));
+
+    currentCompliance.similarProjects.push(cleanComplianceData);
     currentCompliance.totalScanned += 1;
     currentCompliance.lastScanAt = new Date().toISOString();
 
-    if (complianceData.status === "flagged") {
+    if (cleanComplianceData.status === "flagged") {
       currentCompliance.flaggedCount += 1;
     }
 
@@ -347,24 +391,27 @@ export class ProjectService {
       highValueLeads: 0,
     };
 
-    currentLeads.leads.push(leadData);
+    // Clean the lead data
+    const cleanLeadData = JSON.parse(JSON.stringify(leadData));
+
+    currentLeads.leads.push(cleanLeadData);
     currentLeads.totalLeads += 1;
     currentLeads.lastScanAt = new Date().toISOString();
 
-    if (leadData.score > 80) {
+    if (cleanLeadData.score > 80) {
       currentLeads.highValueLeads += 1;
     }
 
     // Update source counts
     const sourceIndex = currentLeads.sources.findIndex(
-      (s) => s.source === leadData.source
+      (s) => s.source === cleanLeadData.source
     );
     if (sourceIndex >= 0) {
       currentLeads.sources[sourceIndex].count += 1;
       currentLeads.sources[sourceIndex].lastScanned = new Date().toISOString();
     } else {
       currentLeads.sources.push({
-        source: leadData.source,
+        source: cleanLeadData.source,
         count: 1,
         lastScanned: new Date().toISOString(),
       });
@@ -381,7 +428,9 @@ export class ProjectService {
       throw new Error("Karma not setup for this project");
     }
 
-    project.karma.grants.push(grantData);
+    const cleanGrantData = JSON.parse(JSON.stringify(grantData));
+    project.karma.grants.push(cleanGrantData);
+
     return await this.updateProjectData(projectId, "karma", project.karma);
   }
 
@@ -396,24 +445,28 @@ export class ProjectService {
       throw new Error("IP protection not setup for this project");
     }
 
-    project.ip.licenses.push(licenseData);
+    const cleanLicenseData = JSON.parse(JSON.stringify(licenseData));
+    project.ip.licenses.push(cleanLicenseData);
+
     return await this.updateProjectData(projectId, "ip", project.ip);
   }
 
   // Existing methods remain the same...
   async getProject(projectId: string): Promise<ProjectInfo | null> {
-    const result = await this.dynamoClient.send(
-      new GetItemCommand({
-        TableName: "projects",
-        Key: marshall({ projectId }),
-      })
-    );
+    return this.safeDynamoOperation(async () => {
+      const result = await this.dynamoClient.send(
+        new GetItemCommand({
+          TableName: this.tableName,
+          Key: this.safeMarshall({ projectId }),
+        })
+      );
 
-    if (!result.Item) {
-      return null;
-    }
+      if (!result.Item) {
+        return null;
+      }
 
-    return unmarshall(result.Item) as ProjectInfo;
+      return unmarshall(result.Item) as ProjectInfo;
+    });
   }
 
   async updateProject(
@@ -425,34 +478,89 @@ export class ProjectService {
       throw new Error(`Project ${projectId} not found`);
     }
 
-    const updatedProject: ProjectInfo = {
-      ...project,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
+    // Clean updates to remove undefined values
+    const cleanUpdates = JSON.parse(JSON.stringify(updates));
+    cleanUpdates.updatedAt = new Date().toISOString();
 
-    await this.dynamoClient.send(
-      new PutItemCommand({
-        TableName: "projects",
-        Item: marshall(updatedProject),
-      })
-    );
+    return this.safeDynamoOperation(async () => {
+      // Build UpdateExpression dynamically
+      const updateExpressions: string[] = [];
+      const expressionAttributeValues: any = {};
+      const expressionAttributeNames: any = {};
 
-    return updatedProject;
+      Object.keys(cleanUpdates).forEach((key, index) => {
+        const attrName = `#attr${index}`;
+        const attrValue = `:val${index}`;
+
+        updateExpressions.push(`${attrName} = ${attrValue}`);
+        expressionAttributeNames[attrName] = key;
+        expressionAttributeValues[attrValue] = cleanUpdates[key];
+      });
+
+      if (updateExpressions.length === 0) {
+        return project; // No updates to make
+      }
+
+      await this.dynamoClient.send(
+        new UpdateItemCommand({
+          TableName: this.tableName,
+          Key: this.safeMarshall({ projectId }),
+          UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+          ExpressionAttributeNames: expressionAttributeNames,
+          ExpressionAttributeValues: this.safeMarshall(
+            expressionAttributeValues
+          ),
+          ReturnValues: "ALL_NEW",
+        })
+      );
+
+      // Return the updated project
+      return (await this.getProject(projectId)) as ProjectInfo;
+    });
   }
 
   async getProjectsByOwner(ownerId: string): Promise<ProjectInfo[]> {
-    const result = await this.dynamoClient.send(
-      new QueryCommand({
-        TableName: "projects",
-        IndexName: "OwnerIndex",
-        KeyConditionExpression: "ownerId = :ownerId",
-        ExpressionAttributeValues: marshall({
-          ":ownerId": ownerId,
-        }),
-      })
-    );
+    return this.safeDynamoOperation(async () => {
+      const result = await this.dynamoClient.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: "OwnerIndex",
+          KeyConditionExpression: "ownerId = :ownerId",
+          ExpressionAttributeValues: this.safeMarshall({
+            ":ownerId": ownerId,
+          }),
+        })
+      );
 
-    return (result.Items || []).map((item) => unmarshall(item) as ProjectInfo);
+      return (result.Items || []).map(
+        (item) => unmarshall(item) as ProjectInfo
+      );
+    });
+  }
+
+  // Utility method to clean project data
+  private cleanProjectData(data: any): any {
+    if (data === null || data === undefined) {
+      return null;
+    }
+
+    if (Array.isArray(data)) {
+      return data
+        .map((item) => this.cleanProjectData(item))
+        .filter((item) => item !== null);
+    }
+
+    if (typeof data === "object") {
+      const cleaned: any = {};
+      Object.keys(data).forEach((key) => {
+        const value = this.cleanProjectData(data[key]);
+        if (value !== null && value !== undefined) {
+          cleaned[key] = value;
+        }
+      });
+      return cleaned;
+    }
+
+    return data;
   }
 }

@@ -24,9 +24,6 @@ interface MessageExample {
   };
 }
 
-type ClientType = "discord" | "twitter" | "telegram" | "direct";
-type ModelProviderName = "openai" | "anthropic" | "grok";
-
 interface AgentCharacter {
   name: string;
   bio: string | string[];
@@ -37,9 +34,6 @@ interface AgentCharacter {
     chat: string[];
     post: string[];
   };
-  modelProvider: ModelProviderName;
-  clients: ClientType[];
-  plugins: any[];
 }
 
 interface ProjectSocialConfig {

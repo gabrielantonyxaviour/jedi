@@ -75,70 +75,101 @@ export class LeadScrapingService {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
       );
 
+      // Increased timeout and better error handling
       await page.goto("https://www.ycombinator.com/companies", {
         waitUntil: "networkidle0",
+        timeout: 60000, // Increased to 60 seconds
       });
 
-      // Wait for the correct search input
-      await page.waitForSelector('._searchBox_i9oky_202 input[type="text"]', {
-        timeout: 10000,
-      });
+      // Wait for the search input with increased timeout
+      try {
+        await page.waitForSelector('._searchBox_i9oky_202 input[type="text"]', {
+          timeout: 15000,
+        });
+      } catch (error) {
+        console.log("Search box not found, trying alternative selector...");
+        // Try alternative selectors
+        await page.waitForSelector('input[type="text"]', {
+          timeout: 10000,
+        });
+      }
 
       // Search for companies
       const searchTerm = keywords.slice(0, 3).join(" ");
-      await page.click('._searchBox_i9oky_202 input[type="text"]');
-      await page.keyboard.down("Control");
-      await page.keyboard.press("A");
-      await page.keyboard.up("Control");
-      await page.type('._searchBox_i9oky_202 input[type="text"]', searchTerm);
-      await page.keyboard.press("Enter");
+      const searchInput =
+        (await page.$('._searchBox_i9oky_202 input[type="text"]')) ||
+        (await page.$('input[type="text"]'));
+
+      if (searchInput) {
+        await searchInput.click();
+        await page.keyboard.down("Control");
+        await page.keyboard.press("A");
+        await page.keyboard.up("Control");
+        await searchInput.type(searchTerm);
+        await page.keyboard.press("Enter");
+      }
 
       // Wait for results to load
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(5000);
 
-      // Extract companies using the correct selectors from your HTML
+      // Extract companies with better error handling
       const companies = await page.evaluate(() => {
-        const companyCards = document.querySelectorAll("a._company_i9oky_355");
+        const companyCards = document.querySelectorAll(
+          "a._company_i9oky_355, a[href*='/companies/']"
+        );
 
         return Array.from(companyCards)
           .slice(0, 20)
           .map((card) => {
-            const nameEl = card.querySelector("._coName_i9oky_470");
-            const descEl = card.querySelector("._coDescription_i9oky_495");
-            const locationEl = card.querySelector("._coLocation_i9oky_486");
-            const link = card.getAttribute("href");
+            try {
+              const nameEl =
+                card.querySelector("._coName_i9oky_470") ||
+                card.querySelector("h3, h2, [class*='name']");
+              const descEl =
+                card.querySelector("._coDescription_i9oky_495") ||
+                card.querySelector("p, [class*='description']");
+              const locationEl =
+                card.querySelector("._coLocation_i9oky_486") ||
+                card.querySelector("[class*='location']");
+              const link = card.getAttribute("href");
 
-            // Extract industry from pills
-            const industryPills = card.querySelectorAll(".pill._pill_i9oky_33");
-            const industries = Array.from(industryPills)
-              .map((pill) => pill.textContent?.trim())
-              .filter(
-                (text) =>
-                  text &&
-                  !text.includes("20") &&
-                  !text.includes("Winter") &&
-                  !text.includes("Summer")
+              // Extract industry from pills
+              const industryPills = card.querySelectorAll(
+                ".pill._pill_i9oky_33, .pill, [class*='pill']"
               );
+              const industries = Array.from(industryPills)
+                .map((pill) => pill.textContent?.trim())
+                .filter(
+                  (text) =>
+                    text &&
+                    !text.includes("20") &&
+                    !text.includes("Winter") &&
+                    !text.includes("Summer")
+                );
 
-            return {
-              name: nameEl?.textContent?.trim() || "",
-              description: descEl?.textContent?.trim() || "",
-              location: locationEl?.textContent?.trim() || "",
-              industry: industries[0] || "Startup",
-              website: link ? `https://www.ycombinator.com${link}` : "",
-              batch:
-                Array.from(industryPills)
-                  .find((pill) => pill.textContent?.includes("20"))
-                  ?.textContent?.trim() || "",
-            };
+              return {
+                name: nameEl?.textContent?.trim() || "",
+                description: descEl?.textContent?.trim() || "",
+                location: locationEl?.textContent?.trim() || "",
+                industry: industries[0] || "Startup",
+                website: link ? `https://www.ycombinator.com${link}` : "",
+                batch:
+                  Array.from(industryPills)
+                    .find((pill) => pill.textContent?.includes("20"))
+                    ?.textContent?.trim() || "",
+              };
+            } catch (error) {
+              console.error("Error extracting company data:", error);
+              return null;
+            }
           })
-          .filter((c) => c.name);
+          .filter((c) => c && c.name);
       });
 
       await browser.close();
 
       console.log(`Found ${companies.length} YC companies`);
-      return companies.map((company) =>
+      return companies.map((company: any) =>
         this.createLead(company, "yc_companies", project.projectId, {
           batch: company.batch,
           ycProfile: company.website,
@@ -147,7 +178,8 @@ export class LeadScrapingService {
     } catch (error) {
       await browser.close();
       console.error("YC scraping error:", error);
-      throw error;
+      // Return empty array instead of throwing
+      return [];
     }
   }
 

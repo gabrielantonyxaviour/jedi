@@ -72,7 +72,7 @@ export class GitHubIntelligenceAgent {
   async processTask(task: any): Promise<void> {
     console.log(`[GitHubIntelligenceAgent] Starting task processing:`, task);
 
-    const characterInfo = task.characterInfo;
+    const characterInfo = task.payload.characterInfo;
     let characterResponse = "";
 
     try {
