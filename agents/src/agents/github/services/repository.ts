@@ -10,6 +10,7 @@ import {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
+import { wrapMetaLlamaPrompt } from "@/utils/helper";
 
 interface Developer {
   name: string;
@@ -46,25 +47,54 @@ export class RepositoryService {
     private s3: S3Client
   ) {}
 
-  async analyzeRepository(
-    repoUrl: string,
-    taskId?: string,
-    workflowId?: string
-  ): Promise<RepoData> {
-    const { owner, repo } = this.parseRepoUrl(repoUrl);
-    const repoInfo = await this.fetchRepositoryInfo(owner, repo);
-    const commits = await this.fetchRecentCommits(owner, repo);
-    const files = await this.fetchImportantFiles(owner, repo);
-    const developers = await this.fetchContributors(owner, repo);
+  async analyzeRepository(repoUrl: string): Promise<RepoData> {
+    console.log(`🔍 Starting repository analysis for: ${repoUrl}`);
 
+    const { owner, repo } = this.parseRepoUrl(repoUrl);
+    console.log(`📋 Parsed repo URL - Owner: ${owner}, Repo: ${repo}`);
+
+    console.log(`📊 Fetching repository info...`);
+    const repoInfo = await this.fetchRepositoryInfo(owner, repo);
+    console.log(`✅ Repository info fetched:`, {
+      name: repoInfo.name,
+      description: repoInfo.description,
+      language: repoInfo.language,
+      stars: repoInfo.stargazers_count,
+      forks: repoInfo.forks_count,
+      openIssues: repoInfo.open_issues_count,
+    });
+
+    console.log(`📝 Fetching recent commits...`);
+    const commits = await this.fetchRecentCommits(owner, repo);
+    console.log(`✅ Fetched ${commits.length} recent commits`);
+
+    console.log(`📁 Fetching important files...`);
+    const files = await this.fetchImportantFiles(owner, repo);
+    console.log(
+      `✅ Fetched ${files.length} important files:`,
+      files.map((f) => f.name)
+    );
+
+    console.log(`👥 Fetching contributors...`);
+    const developers = await this.fetchContributors(owner, repo);
+    console.log(
+      `✅ Fetched ${developers.length} contributors:`,
+      developers.map((d) => d.github_username)
+    );
+
+    console.log(`🤖 Generating AI summary...`);
     const { name, summary, technicalSummary } = await this.generateSummary(
       repoInfo,
       commits,
       files,
       developers
     );
+    console.log(`✅ AI summary generated:`, {
+      name,
+      summary: summary?.substring(0, 100) + "...",
+    });
 
-    return {
+    const result = {
       owner,
       repo,
       lastAnalyzed: new Date().toISOString(),
@@ -73,6 +103,9 @@ export class RepositoryService {
       summary,
       technicalSummary,
     };
+
+    console.log(`🎉 Repository analysis completed successfully`);
+    return result;
   }
 
   private async fetchContributors(
@@ -244,73 +277,113 @@ export class RepositoryService {
     developers: Developer[]
   ): Promise<{ name: string; summary: string; technicalSummary: string }> {
     const techStack = this.extractTechStack(files);
-    const lastCommit = commits[0];
-    const recentCommits = commits
-      .slice(0, 5)
-      .map((c) => c.commit.message)
-      .join("\n");
 
-    const prompt = `Analyze this GitHub repository and provide a name, summary and technical summary:
-  
-  Repository Details:
-  - Name: ${repoInfo.name}
-  - Description: ${repoInfo.description || "No description"}
-  - Language: ${repoInfo.language || "Not specified"}
-  - Stars: ${repoInfo.stargazers_count}
-  - Forks: ${repoInfo.forks_count}
-  - Size: ${repoInfo.size} KB
-  - Open Issues: ${repoInfo.open_issues_count}
-  - Contributors: ${developers.length}
-  - Created: ${new Date(repoInfo.created_at).toLocaleDateString()}
-  - Last Updated: ${new Date(repoInfo.updated_at).toLocaleDateString()}
-  - Tech Stack: ${techStack.join(", ")}
-  
-  Recent Commits:
-  ${recentCommits}
-  
-  Files Found: ${files.map((f) => f.name).join(", ")}
-  
-  Please provide:
-  1. NAME: A clear, descriptive project name (improve on the repo name if needed)
-  2. SUMMARY: A brief, user-friendly overview of what this repository is about, its purpose, and key highlights
-  3. TECHNICAL_SUMMARY: A detailed technical analysis including architecture, technologies used, development activity, and technical metrics
-  
-  Format your response as:
-  NAME:
-  [name here]
-  
-  SUMMARY:
-  [summary here]
-  
-  TECHNICAL_SUMMARY:
-  [technical summary here]`;
+    const prompt = `Analyze the following GitHub repository and generate:
+
+      1. **NAME** – A clear, improved name for the project
+      2. **SUMMARY** – A short, user-friendly overview of the repo, its purpose, and main features
+      3. **TECHNICAL_SUMMARY** – A deeper technical explanation covering tech stack, architecture, activity, and metrics
+      
+      Repository Info:
+      - Name: ${repoInfo.name}
+      - Description: ${repoInfo.description || "No description"}
+      - Language: ${repoInfo.language || "Not specified"}
+      - Tech Stack: ${techStack.join(", ")}
+
+      Files:
+      ${files.map((f) => f.name).join(", ")}
+
+      Please format your output as:
+      NAME:
+      [Your answer]
+      
+      SUMMARY:
+      [Your answer]
+      
+      TECHNICAL_SUMMARY:
+      [Your answer]`;
 
     const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      modelId: "meta.llama3-70b-instruct-v1:0",
       body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }],
+        prompt: wrapMetaLlamaPrompt(prompt),
+        max_gen_len: 512,
+        temperature: 0.5,
+        top_p: 0.9,
       }),
       contentType: "application/json",
     });
 
     try {
       const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      const content = responseBody.content[0].text;
-
-      const nameMatch = content.match(/NAME:\s*([\s\S]*?)(?=SUMMARY:|$)/);
-      const summaryMatch = content.match(
-        /SUMMARY:\s*([\s\S]*?)(?=TECHNICAL_SUMMARY:|$)/
+      const { generation: content } = JSON.parse(
+        new TextDecoder().decode(response.body)
       );
-      const technicalMatch = content.match(/TECHNICAL_SUMMARY:\s*([\s\S]*?)$/);
+      console.log("Raw AI response:", content);
+
+      // More flexible parsing - split by sections and handle various formats
+      const sections = content.split(
+        /\n\s*(?:NAME|SUMMARY|TECHNICAL_SUMMARY):\s*\n/i
+      );
+
+      let name = repoInfo.name;
+      let summary = "Summary generation failed";
+      let technicalSummary = "Technical summary generation failed";
+
+      if (sections.length >= 2) {
+        // Try to extract name from first section or look for it in content
+        const nameMatch = content.match(/NAME:\s*([^\n]+)/i);
+        if (nameMatch) {
+          name = nameMatch[1].trim();
+        }
+
+        // Try to extract summary
+        const summaryMatch = content.match(
+          /SUMMARY:\s*([\s\S]*?)(?=\n\s*(?:TECHNICAL_SUMMARY|$))/i
+        );
+        if (summaryMatch) {
+          summary = summaryMatch[1].trim();
+        } else if (sections.length >= 3) {
+          summary = sections[2].trim();
+        }
+
+        // Try to extract technical summary
+        const technicalMatch = content.match(
+          /TECHNICAL_SUMMARY:\s*([\s\S]*?)$/i
+        );
+        if (technicalMatch) {
+          technicalSummary = technicalMatch[1].trim();
+        } else if (sections.length >= 4) {
+          technicalSummary = sections[3].trim();
+        }
+      }
+
+      // Fallback: if we still have failures, try to extract any meaningful content
+      if (summary === "Summary generation failed" && content.length > 50) {
+        const lines = content
+          .split("\n")
+          .filter((line: string) => line.trim().length > 10);
+        if (lines.length > 0) {
+          summary = lines.slice(0, 2).join(" ").substring(0, 200);
+        }
+      }
+
+      if (
+        technicalSummary === "Technical summary generation failed" &&
+        content.length > 100
+      ) {
+        const lines = content
+          .split("\n")
+          .filter((line: string) => line.trim().length > 20);
+        if (lines.length > 2) {
+          technicalSummary = lines.slice(-3).join(" ").substring(0, 300);
+        }
+      }
 
       return {
-        name: nameMatch?.[1]?.trim() || repoInfo.name,
-        summary: summaryMatch?.[1]?.trim() || "Summary generation failed",
-        technicalSummary:
-          technicalMatch?.[1]?.trim() || "Technical summary generation failed",
+        name,
+        summary,
+        technicalSummary,
       };
     } catch (error) {
       console.error("Bedrock generation failed:", error);

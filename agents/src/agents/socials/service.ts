@@ -15,6 +15,7 @@ import {
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import fs from "fs";
 import path from "path";
+import { wrapMetaLlamaPrompt } from "@/utils/helper";
 
 interface MessageExample {
   user: string;
@@ -65,6 +66,10 @@ export class SocialsService {
   constructor() {
     this.bedrock = new BedrockRuntimeClient({
       region: process.env.AWS_REGION || "us-east-1",
+      credentials: {
+        accessKeyId: process.env.BEDROCK_AWS_KEY_ID!,
+        secretAccessKey: process.env.BEDROCK_AWS_SECRET_ACCESS_KEY!,
+      },
     });
     this.dynamodb = new DynamoDBClient({
       region: process.env.AWS_REGION || "us-east-1",
@@ -419,19 +424,22 @@ User request: ${prompt}
 Respond in character, following your personality and style guidelines. Keep it concise and engaging.`;
 
     const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      modelId: "meta.llama3-70b-instruct-v1:0",
       body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 500,
-        messages: [{ role: "user", content: characterPrompt }],
+        prompt: wrapMetaLlamaPrompt(characterPrompt),
+        max_gen_len: 500,
+        temperature: 0.5,
+        top_p: 0.9,
       }),
       contentType: "application/json",
     });
 
     try {
       const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      return responseBody.content[0].text.trim();
+      const { generation: characterResponse } = JSON.parse(
+        new TextDecoder().decode(response.body)
+      );
+      return characterResponse;
     } catch (error) {
       console.error("Bedrock character response failed:", error);
       return this.getFallbackResponse(platform);

@@ -10,6 +10,7 @@ import {
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { SocialsService } from "./service";
+import { wrapMetaLlamaPrompt } from "@/utils/helper";
 
 export class SocialsAgent {
   private sqs: SQSClient;
@@ -24,6 +25,10 @@ export class SocialsAgent {
     this.orchestratorQueue = process.env.ORCHESTRATOR_QUEUE_URL!;
     this.bedrock = new BedrockRuntimeClient({
       region: process.env.AWS_REGION || "us-east-1",
+      credentials: {
+        accessKeyId: process.env.BEDROCK_AWS_KEY_ID!,
+        secretAccessKey: process.env.BEDROCK_AWS_SECRET_ACCESS_KEY!,
+      },
     });
     this.socialsService = new SocialsService();
   }
@@ -200,19 +205,22 @@ ${JSON.stringify(result, null, 2)}
 Generate a brief response (1-2 sentences) in character that acknowledges the successful completion of the social media task. Stay true to the character's personality and speaking style.`;
 
     const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      modelId: "meta.llama3-70b-instruct-v1:0",
       body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 200,
-        messages: [{ role: "user", content: prompt }],
+        prompt: wrapMetaLlamaPrompt(prompt),
+        max_gen_len: 200,
+        temperature: 0.5,
+        top_p: 0.9,
       }),
       contentType: "application/json",
     });
 
     try {
       const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      return responseBody.content[0].text.trim();
+      const { generation: characterResponse } = JSON.parse(
+        new TextDecoder().decode(response.body)
+      );
+      return characterResponse;
     } catch (error) {
       console.error("Bedrock character response failed:", error);
       return "Social media task completed successfully! 🚀";
@@ -229,19 +237,22 @@ Generate a brief response (1-2 sentences) in character that acknowledges the suc
 A social media task has failed to complete. Generate a brief response (1-2 sentences) in character that acknowledges the failure while staying positive and solution-oriented. Stay true to the character's personality and speaking style.`;
 
     const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      modelId: "meta.llama3-70b-instruct-v1:0",
       body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 200,
-        messages: [{ role: "user", content: prompt }],
+        prompt: wrapMetaLlamaPrompt(prompt),
+        max_gen_len: 200,
+        temperature: 0.5,
+        top_p: 0.9,
       }),
       contentType: "application/json",
     });
 
     try {
       const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      return responseBody.content[0].text.trim();
+      const { generation: errorResponse } = JSON.parse(
+        new TextDecoder().decode(response.body)
+      );
+      return errorResponse;
     } catch (error) {
       console.error("Bedrock error response failed:", error);
       return "Something went wrong with the social media task. Let me try again! 💪";

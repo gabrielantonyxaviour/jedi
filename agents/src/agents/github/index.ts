@@ -10,6 +10,7 @@ import {
   BedrockRuntimeClient,
   InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
+import { wrapMetaLlamaPrompt } from "@/utils/helper";
 
 type CharacterInfo = {
   name: string;
@@ -37,6 +38,10 @@ export class GitHubIntelligenceAgent {
     });
     this.bedrock = new BedrockRuntimeClient({
       region: process.env.AWS_REGION || "us-east-1",
+      credentials: {
+        accessKeyId: process.env.BEDROCK_AWS_KEY_ID!,
+        secretAccessKey: process.env.BEDROCK_AWS_SECRET_ACCESS_KEY!,
+      },
     });
     this.s3 = new S3Client({ region: process.env.AWS_REGION || "us-east-1" });
     this.sqsClient = new SQSClient({
@@ -65,12 +70,7 @@ export class GitHubIntelligenceAgent {
   }
 
   async processTask(task: any): Promise<void> {
-    console.log(`[GitHubIntelligenceAgent] Starting task processing:`, {
-      taskId: task.taskId,
-      workflowId: task.workflowId,
-      type: task.type,
-      hasCharacterInfo: !!task.characterInfo,
-    });
+    console.log(`[GitHubIntelligenceAgent] Starting task processing:`, task);
 
     const characterInfo = task.characterInfo;
     let characterResponse = "";
@@ -90,9 +90,7 @@ export class GitHubIntelligenceAgent {
             task.payload.repoUrl
           );
           result = await this.repositoryService.analyzeRepository(
-            task.payload.repoUrl,
-            task.taskId,
-            task.workflowId
+            task.payload.repoUrl
           );
           console.log(
             `[GitHubIntelligenceAgent] Repository analysis completed`
@@ -105,17 +103,17 @@ export class GitHubIntelligenceAgent {
             task.payload.repoUrl
           );
           analysisResult = await this.repositoryService.analyzeRepository(
-            task.payload.repoUrl,
-            task.taskId,
-            task.workflowId
+            task.payload.repoUrl
           );
           console.log(
             `[GitHubIntelligenceAgent] Repository analysis completed, creating project`
           );
+          console.log(analysisResult);
           result = await this.projectService.createProject({
             projectId: task.payload.projectId,
             name: analysisResult.name || "",
             repo: analysisResult.repo,
+            githubUrl: task.payload.repoUrl,
             developers: analysisResult.developers,
             side: task.payload.side,
             summary: analysisResult.summary,
@@ -257,11 +255,12 @@ export class GitHubIntelligenceAgent {
    Generate a response in character that acknowledges the completion of the task. Keep it brief (1-2 sentences) and stay true to the character's personality and speaking style.`;
 
     const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      modelId: "meta.llama3-70b-instruct-v1:0",
       body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 200,
-        messages: [{ role: "user", content: prompt }],
+        prompt: wrapMetaLlamaPrompt(prompt),
+        max_gen_len: 1200,
+        temperature: 0.5,
+        top_p: 0.9,
       }),
       contentType: "application/json",
     });
@@ -269,8 +268,9 @@ export class GitHubIntelligenceAgent {
     try {
       console.log(`[GitHubIntelligenceAgent] Invoking Bedrock model`);
       const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      const characterText = responseBody.content[0].text.trim();
+      const { generation: characterText } = JSON.parse(
+        new TextDecoder().decode(response.body)
+      );
       console.log(
         `[GitHubIntelligenceAgent] Bedrock character response generated successfully`
       );
@@ -300,11 +300,12 @@ export class GitHubIntelligenceAgent {
    A task has failed to complete. Generate a response in character that acknowledges the failure. Keep it brief (1-2 sentences) and stay true to the character's personality and speaking style.`;
 
     const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      modelId: "meta.llama3-70b-instruct-v1:0",
       body: JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 200,
-        messages: [{ role: "user", content: prompt }],
+        prompt: wrapMetaLlamaPrompt(prompt),
+        max_gen_len: 1200,
+        temperature: 0.5,
+        top_p: 0.9,
       }),
       contentType: "application/json",
     });
@@ -314,8 +315,9 @@ export class GitHubIntelligenceAgent {
         `[GitHubIntelligenceAgent] Invoking Bedrock model for error response`
       );
       const response = await this.bedrock.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      const errorText = responseBody.content[0].text.trim();
+      const { generation: errorText } = JSON.parse(
+        new TextDecoder().decode(response.body)
+      );
       console.log(
         `[GitHubIntelligenceAgent] Bedrock error response generated successfully`
       );

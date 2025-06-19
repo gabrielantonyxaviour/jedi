@@ -24,6 +24,7 @@ import { BillingService } from "../services/billing";
 import crypto from "crypto";
 import { createCommercialRemixTerms } from "@/utils/utils";
 import { ProjectInfo, ProjectService } from "@/services/project";
+import { wrapMetaLlamaPrompt } from "@/utils/helper";
 
 interface AgentCharacter {
   name: string;
@@ -95,7 +96,13 @@ export class CoreOrchestratorAgent {
     this.stepFunctionsClient = new SFNClient({
       region: process.env.AWS_REGION,
     });
-    this.bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
+    this.bedrock = new BedrockRuntimeClient({
+      region: process.env.AWS_REGION,
+      credentials: {
+        accessKeyId: process.env.BEDROCK_AWS_KEY_ID!,
+        secretAccessKey: process.env.BEDROCK_AWS_SECRET_ACCESS_KEY!,
+      },
+    });
     this.billingService = new BillingService();
     this.projectService = new ProjectService(this.dynamoClient);
     this.app = express();
@@ -1400,17 +1407,18 @@ export class CoreOrchestratorAgent {
     try {
       const response = await this.bedrock.send(
         new InvokeModelCommand({
-          modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
+          modelId: "meta.llama3-70b-instruct-v1:0",
           body: JSON.stringify({
-            anthropic_version: "bedrock-2023-05-31",
-            messages: [{ role: "user", content: systemPrompt }],
-            max_tokens: 1200,
+            prompt: wrapMetaLlamaPrompt(systemPrompt),
+            max_gen_len: 1000,
+            temperature: 0.5,
+            top_p: 0.9,
           }),
         })
       );
 
       const result = JSON.parse(new TextDecoder().decode(response.body));
-      return JSON.parse(result.content[0].text);
+      return JSON.parse(result.generation);
     } catch (error) {
       console.error("Error analyzing prompt:", error);
       const characterContext = this.getCharacterContext(
@@ -1833,130 +1841,46 @@ export class CoreOrchestratorAgent {
   private async processCompletionMessage(message: any) {
     try {
       const data = JSON.parse(message.Body);
+      console.log("🔄 Orchestrator: Processing completion message");
+      console.log(data);
 
       if (data.type === "TASK_COMPLETION") {
-        const completion = data.payload;
-
         // Update task status in DynamoDB
-        await this.updateTaskStatus(completion.taskId, {
-          status: completion.status,
-          endTime: completion.timestamp,
-          result: completion.result,
-          error: completion.error,
+        await this.updateTaskStatus(data.taskId, {
+          status: data.status,
+          endTime: data.timestamp,
+          result: data.result,
+          error: data.error,
         });
 
-        const workflow = await this.getWorkflow(completion.workflowId);
+        const workflow = await this.getWorkflow(data.workflowId);
 
         if (workflow) {
-          // Handle multi-step Karma workflows
-          await this.handleKarmaWorkflowStep(completion, workflow);
-
           const isComplete = await this.checkWorkflowCompletion(
-            completion.workflowId
+            data.workflowId
           );
 
           if (isComplete) {
             console.log(
-              `✅ Orchestrator: Completing workflow ${completion.workflowId}`
+              `✅ Orchestrator: Completing workflow ${data.workflowId}`
             );
-            await this.completeWorkflow(completion.workflowId);
+            await this.completeWorkflow(data.workflowId);
           }
 
           // Notify client
-          await this.notifyClient(completion.workflowId, {
-            type: "TASK_COMPLETED",
-            taskId: completion.taskId,
-            workflowId: completion.workflowId,
-            agent: completion.agent,
-            status: completion.status,
-            result: completion.result,
-            error: completion.error,
-          });
+          // await this.notifyClient(data.workflowId, {
+          //   type: "TASK_COMPLETED",
+          //   taskId: data.taskId,
+          //   workflowId: data.workflowId,
+          //   agent: data.agent,
+          //   status: data.status,
+          //   result: data.result,
+          //   error: data.error,
+          // });
         }
       }
     } catch (error) {
       console.error("❌ Error processing completion:", error);
-    }
-  }
-
-  private async handleKarmaWorkflowStep(
-    completion: any,
-    workflow: any
-  ): Promise<void> {
-    if (
-      completion.agent !== "karma-integration" ||
-      completion.status !== "COMPLETED"
-    ) {
-      return;
-    }
-
-    const task = await this.getTaskDetails(completion.taskId);
-    if (!task?.metadata) return;
-
-    const { step, totalSteps } = task.metadata;
-
-    // Handle milestone creation workflow
-    if (task.type === "CREATE_MILESTONE" && step === 1) {
-      // Step 2: Trigger social media post
-      await this.sendTaskToAgent("social-media", {
-        taskId: uuidv4(),
-        workflowId: completion.workflowId,
-        type: "POST_MILESTONE_CREATED",
-        payload: {
-          projectTitle: completion.result?.projectTitle || "Project",
-          milestoneTitle: task.payload.title,
-          dueDate: new Date(task.payload.endsAt).toLocaleDateString(),
-          karmaUID: completion.result?.milestoneUID,
-        },
-        priority: "MEDIUM",
-        metadata: { step: 2, totalSteps },
-      });
-    } else if (task.type === "POST_MILESTONE_CREATED" && step === 2) {
-      // Step 3: Send confirmation email
-      await this.sendTaskToAgent("email-communication", {
-        taskId: uuidv4(),
-        workflowId: completion.workflowId,
-        type: "SEND_EMAIL",
-        payload: {
-          to: [task.payload.userEmail],
-          subject: `🎉 Milestone Workflow Complete!`,
-          body: `Hi ${task.payload.userName},\n\nYour milestone creation workflow is complete!\n\n✅ Milestone created in Karma\n✅ Social media announcement posted\n✅ Team notifications sent\n\nYou're all set!\n\nBest regards,\nKarma Integration Team`,
-        },
-        priority: "LOW",
-        metadata: { step: 3, totalSteps },
-      });
-    }
-
-    // Handle milestone completion workflow
-    else if (task.type === "COMPLETE_MILESTONE" && step === 1) {
-      // Step 2: Trigger social media post
-      await this.sendTaskToAgent("social-media", {
-        taskId: uuidv4(),
-        workflowId: completion.workflowId,
-        type: "POST_MILESTONE_COMPLETED",
-        payload: {
-          projectTitle: completion.result?.projectTitle || "Project",
-          milestoneTitle: task.payload.title,
-          proofOfWork: task.payload.proofOfWork,
-          karmaUID: completion.result?.updateUID,
-        },
-        priority: "MEDIUM",
-        metadata: { step: 2, totalSteps },
-      });
-    } else if (task.type === "POST_MILESTONE_COMPLETED" && step === 2) {
-      // Step 3: Send completion celebration email
-      await this.sendTaskToAgent("email-communication", {
-        taskId: uuidv4(),
-        workflowId: completion.workflowId,
-        type: "SEND_EMAIL",
-        payload: {
-          to: [task.payload.userEmail],
-          subject: `🚀 Milestone Completed Successfully!`,
-          body: `Hi ${task.payload.userName},\n\nCongratulations! Your milestone completion workflow is finished!\n\n✅ Milestone marked complete in Karma\n✅ Achievement shared on social media\n✅ Community notified\n\nKeep up the amazing work!\n\nBest regards,\nKarma Integration Team`,
-        },
-        priority: "LOW",
-        metadata: { step: 3, totalSteps },
-      });
     }
   }
 

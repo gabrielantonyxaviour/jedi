@@ -12,6 +12,7 @@ import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { randomUUID } from "crypto";
 import { LeadScrapingService } from "./service";
+import { wrapMetaLlamaPrompt } from "@/utils/helper";
 
 interface Lead {
   leadId: string;
@@ -47,7 +48,13 @@ export class LeadsAgent {
   constructor() {
     this.dynamodb = new DynamoDBClient({ region: process.env.AWS_REGION });
     this.s3 = new S3Client({ region: process.env.AWS_REGION });
-    this.bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
+    this.bedrock = new BedrockRuntimeClient({
+      region: process.env.AWS_REGION,
+      credentials: {
+        accessKeyId: process.env.BEDROCK_AWS_KEY_ID!,
+        secretAccessKey: process.env.BEDROCK_AWS_SECRET_ACCESS_KEY!,
+      },
+    });
     this.sqs = new SQSClient({ region: process.env.AWS_REGION });
     this.leadScraper = new LeadScrapingService();
 
@@ -262,17 +269,18 @@ export class LeadsAgent {
     try {
       const response = await this.bedrock.send(
         new InvokeModelCommand({
-          modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
+          modelId: "meta.llama3-70b-instruct-v1:0",
           body: JSON.stringify({
-            anthropic_version: "bedrock-2023-05-31",
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 300,
+            prompt: wrapMetaLlamaPrompt(prompt),
+            max_gen_len: 300,
+            temperature: 0.5,
+            top_p: 0.9,
           }),
         })
       );
 
       const result = JSON.parse(new TextDecoder().decode(response.body));
-      const keywords = JSON.parse(result.content[0].text);
+      const keywords = JSON.parse(result.generation);
 
       return Array.isArray(keywords) ? keywords : [project.name];
     } catch (error) {
@@ -384,17 +392,18 @@ export class LeadsAgent {
 
     const response = await this.bedrock.send(
       new InvokeModelCommand({
-        modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
+        modelId: "meta.llama3-70b-instruct-v1:0",
         body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 800,
+          prompt: wrapMetaLlamaPrompt(prompt),
+          max_gen_len: 800,
+          temperature: 0.5,
+          top_p: 0.9,
         }),
       })
     );
 
     const result = JSON.parse(new TextDecoder().decode(response.body));
-    const qualification = JSON.parse(result.content[0].text);
+    const qualification = JSON.parse(result.generation);
 
     // Update lead with qualification
     await this.updateLead({
@@ -440,17 +449,18 @@ export class LeadsAgent {
 
     const response = await this.bedrock.send(
       new InvokeModelCommand({
-        modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
+        modelId: "meta.llama3-70b-instruct-v1:0",
         body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 600,
+          prompt: wrapMetaLlamaPrompt(prompt),
+          max_gen_len: 600,
+          temperature: 0.5,
+          top_p: 0.9,
         }),
       })
     );
 
     const result = JSON.parse(new TextDecoder().decode(response.body));
-    const outreachContent = result.content[0].text;
+    const outreachContent = result.generation;
 
     // Store outreach content
     await this.s3.send(
@@ -500,17 +510,18 @@ export class LeadsAgent {
 
     const response = await this.bedrock.send(
       new InvokeModelCommand({
-        modelId: "anthropic.claude-3-sonnet-20240229-v1:0",
+        modelId: "meta.llama3-70b-instruct-v1:0",
         body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 50,
+          prompt: wrapMetaLlamaPrompt(prompt),
+          max_gen_len: 50,
+          temperature: 0.5,
+          top_p: 0.9,
         }),
       })
     );
 
     const result = JSON.parse(new TextDecoder().decode(response.body));
-    const scoreText = result.content[0].text.trim();
+    const scoreText = result.generation;
     const score = parseInt(scoreText.match(/\d+/)?.[0] || "50");
 
     return Math.max(0, Math.min(100, score));
