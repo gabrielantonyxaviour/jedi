@@ -13,7 +13,7 @@ export interface TaskInfo {
   type: string;
   status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
   payload: Record<string, any>;
-  result?: Record<string, any>;
+  payload?: Record<string, any>;
   error?: string;
   characterResponse?: string;
   createdAt: string;
@@ -50,24 +50,24 @@ export class TaskService {
   }
 
   async getTask(taskId: string): Promise<TaskInfo | null> {
-    const result = await this.dynamoClient.send(
+    const payload = await this.dynamoClient.send(
       new GetItemCommand({
         TableName: process.env.TASK_STATUS_TABLE || "orchestrator-tasks",
         Key: marshall({ taskId }),
       })
     );
 
-    if (!result.Item) {
+    if (!payload.Item) {
       return null;
     }
 
-    return unmarshall(result.Item) as TaskInfo;
+    return unmarshall(payload.Item) as TaskInfo;
   }
 
   async updateTaskStatus(
     taskId: string,
     status: TaskInfo["status"],
-    result?: Record<string, any>,
+    payload?: Record<string, any>,
     error?: string,
     characterResponse?: string
   ): Promise<TaskInfo> {
@@ -76,7 +76,7 @@ export class TaskService {
       updatedAt: new Date().toISOString(),
     };
 
-    if (result) updates.result = result;
+    if (payload) updates.payload = payload;
     if (error) updates.error = error;
     if (characterResponse) updates.characterResponse = characterResponse;
     if (status === "COMPLETED" || status === "FAILED") {
@@ -88,11 +88,11 @@ export class TaskService {
         TableName: process.env.TASK_STATUS_TABLE || "orchestrator-tasks",
         Key: marshall({ taskId }),
         UpdateExpression:
-          "SET #status = :status, #updatedAt = :updatedAt, #result = :result, #error = :error, #characterResponse = :characterResponse, #completedAt = :completedAt",
+          "SET #status = :status, #updatedAt = :updatedAt, #payload = :payload, #error = :error, #characterResponse = :characterResponse, #completedAt = :completedAt",
         ExpressionAttributeNames: {
           "#status": "status",
           "#updatedAt": "updatedAt",
-          "#result": "result",
+          "#payload": "payload",
           "#error": "error",
           "#characterResponse": "characterResponse",
           "#completedAt": "completedAt",
@@ -110,7 +110,7 @@ export class TaskService {
           taskId,
           workflowId: (await this.getTask(taskId))?.workflowId,
           status,
-          result,
+          payload,
           error,
           characterResponse,
           timestamp: new Date().toISOString(),
@@ -124,7 +124,7 @@ export class TaskService {
   async reportTaskCompletion(
     taskId: string,
     workflowId: string,
-    result: any,
+    payload: any,
     error?: string,
     characterResponse?: string
   ) {
@@ -150,7 +150,7 @@ export class TaskService {
             taskId,
             workflowId,
             status: "FAILED",
-            result,
+            payload,
             error,
             characterResponse,
             timestamp: new Date().toISOString(),
@@ -166,7 +166,7 @@ export class TaskService {
             taskId,
             workflowId,
             status: "COMPLETED",
-            result,
+            payload,
             characterResponse,
             timestamp: new Date().toISOString(),
           }),

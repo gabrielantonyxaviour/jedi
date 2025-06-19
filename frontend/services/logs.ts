@@ -29,7 +29,7 @@ export async function pushLogs(data: LogsData): Promise<boolean> {
     encryption.encrypt(data.data),
   ]);
 
-  const results = await Promise.all(
+  const payloads = await Promise.all(
     [0, 1, 2].map((index) =>
       uploadToNode(
         index,
@@ -47,7 +47,7 @@ export async function pushLogs(data: LogsData): Promise<boolean> {
     )
   );
 
-  return results.every(Boolean);
+  return payloads.every(Boolean);
 }
 
 export async function fetchLogs(): Promise<LogsData[]> {

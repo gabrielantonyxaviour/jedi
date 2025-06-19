@@ -76,7 +76,7 @@ export class GitHubIntelligenceAgent {
     let characterResponse = "";
 
     try {
-      let result;
+      let payload;
       let analysisResult;
 
       console.log(
@@ -89,7 +89,7 @@ export class GitHubIntelligenceAgent {
             `[GitHubIntelligenceAgent] Analyzing repository:`,
             task.payload.repoUrl
           );
-          result = await this.repositoryService.analyzeRepository(
+          payload = await this.repositoryService.analyzeRepository(
             task.payload.repoUrl
           );
           console.log(
@@ -109,7 +109,7 @@ export class GitHubIntelligenceAgent {
             `[GitHubIntelligenceAgent] Repository analysis completed, creating project`
           );
           console.log(analysisResult);
-          result = await this.projectService.createProject({
+          payload = await this.projectService.createProject({
             projectId: task.payload.projectId,
             name: analysisResult.name || "",
             repo: analysisResult.repo,
@@ -125,13 +125,13 @@ export class GitHubIntelligenceAgent {
 
         case "GET_LATEST_COMMITS":
           console.log(`[GitHubIntelligenceAgent] Getting latest commits`);
-          result = await this.repositoryService.getLatestCommits(task.payload);
+          payload = await this.repositoryService.getLatestCommits(task.payload);
           console.log(`[GitHubIntelligenceAgent] Latest commits retrieved`);
           break;
 
         case "FETCH_REPO_INFO":
           console.log(`[GitHubIntelligenceAgent] Fetching repo info`);
-          result = await this.repositoryService.fetchRepoInfo(task.payload);
+          payload = await this.repositoryService.fetchRepoInfo(task.payload);
           console.log(
             `[GitHubIntelligenceAgent] Repo info fetched successfully`
           );
@@ -141,7 +141,7 @@ export class GitHubIntelligenceAgent {
           console.log(
             `[GitHubIntelligenceAgent] Fetching important files for project`
           );
-          result = await this.repositoryService.fetchImportantFilesForProject(
+          payload = await this.repositoryService.fetchImportantFilesForProject(
             task.payload
           );
           console.log(`[GitHubIntelligenceAgent] Important files fetched`);
@@ -149,7 +149,7 @@ export class GitHubIntelligenceAgent {
 
         case "UPDATE_IMPORTANT_FILES":
           console.log(`[GitHubIntelligenceAgent] Updating important files`);
-          result = await this.repositoryService.updateImportantFiles(
+          payload = await this.repositoryService.updateImportantFiles(
             task.payload
           );
           console.log(`[GitHubIntelligenceAgent] Important files updated`);
@@ -157,7 +157,7 @@ export class GitHubIntelligenceAgent {
 
         case "PROCESS_WEBHOOK":
           console.log(`[GitHubIntelligenceAgent] Processing webhook`);
-          result = await this.webhookService.handleWebhook(
+          payload = await this.webhookService.handleWebhook(
             task.payload.body,
             task.taskId,
             task.workflowId
@@ -181,7 +181,7 @@ export class GitHubIntelligenceAgent {
         );
         characterResponse = await this.generateCharacterResponse(
           characterInfo,
-          result
+          payload
         );
         console.log(`[GitHubIntelligenceAgent] Character response generated`);
       }
@@ -196,7 +196,7 @@ export class GitHubIntelligenceAgent {
           task.taskId,
           task.workflowId,
           {
-            ...result,
+            ...payload,
             characterResponse,
           }
         );
@@ -239,7 +239,7 @@ export class GitHubIntelligenceAgent {
 
   private async generateCharacterResponse(
     characterInfo: CharacterInfo,
-    result: any
+    payload: any
   ): Promise<string> {
     console.log(
       `[GitHubIntelligenceAgent] Generating character response with Bedrock`
@@ -249,8 +249,8 @@ export class GitHubIntelligenceAgent {
       characterInfo.name
     }, a character with the following personality: ${characterInfo.personality}
    
-   The task has been completed successfully with the following result:
-   ${JSON.stringify(result, null, 2)}
+   The task has been completed successfully with the following payload:
+   ${JSON.stringify(payload, null, 2)}
    
    Generate a response in character that acknowledges the completion of the task. Keep it brief (1-2 sentences) and stay true to the character's personality and speaking style.`;
 

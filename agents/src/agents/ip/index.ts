@@ -88,74 +88,74 @@ export class IPAgent {
     let characterResponse = "";
 
     try {
-      let result;
+      let payload;
 
       switch (task.type) {
         case "REGISTER_GITHUB_PROJECT":
           const registration = await this.registerGitHubProject(task.payload);
-          result = { registration };
+          payload = { registration };
           break;
 
         case "CREATE_PROJECT_FORK":
           const fork = await this.createProjectFork(task.payload);
-          result = { fork };
+          payload = { fork };
           break;
 
         case "CREATE_PROJECT_REMIX":
           const remix = await this.createProjectRemix(task.payload);
-          result = { remix };
+          payload = { remix };
           break;
 
         case "CREATE_OPEN_SOURCE_PROJECT":
           const openSource = await this.createOpenSourceProject(task.payload);
-          result = { openSource };
+          payload = { openSource };
           break;
 
         case "DISPUTE_PROJECT_IP":
           const dispute = await this.disputeProjectIP(task.payload);
-          result = { dispute };
+          payload = { dispute };
           break;
 
         case "CREATE_DISPUTE":
           const newDispute = await this.createDispute(task.payload);
-          result = { dispute: newDispute };
+          payload = { dispute: newDispute };
           break;
 
         case "PAY_ROYALTY":
           const payment = await this.payRoyalty(task.payload);
-          result = { payment };
+          payload = { payment };
           break;
 
         case "CLAIM_ALL_ROYALTIES":
           const royalties = await this.claimAllRoyalties(task.payload);
-          result = { royalties };
+          payload = { royalties };
           break;
 
         case "CLAIM_DEVELOPER_ROYALTIES":
           const devRoyalties = await this.claimDeveloperRoyalties(task.payload);
-          result = { royalties: devRoyalties };
+          payload = { royalties: devRoyalties };
           break;
 
         case "PAY_PROJECT_LICENSE_FEE":
           const licenseFee = await this.payProjectLicenseFee(task.payload);
-          result = { payment: licenseFee };
+          payload = { payment: licenseFee };
           break;
 
         case "GET_PROJECT_IP_DETAILS":
           const details = await this.getProjectIPDetails(task.payload);
-          result = { details };
+          payload = { details };
           break;
 
         case "GET_PROJECT_LICENSE_TERMS":
           const terms = await this.getProjectLicenseTerms(task.payload);
-          result = { terms };
+          payload = { terms };
           break;
 
         case "CLAIM_PARENT_PROJECT_ROYALTIES":
           const parentRoyalties = await this.claimParentProjectRoyalties(
             task.payload
           );
-          result = { royalties: parentRoyalties };
+          payload = { royalties: parentRoyalties };
           break;
 
         default:
@@ -174,7 +174,7 @@ export class IPAgent {
       }
 
       await this.reportTaskCompletion(task.taskId, task.workflowId, {
-        ...result,
+        ...payload,
         characterResponse,
       });
     } catch (error: any) {
@@ -622,7 +622,7 @@ export class IPAgent {
   }): Promise<any> {
     console.log(`⚖️ Creating dispute for project IP: ${payload.targetIpId}`);
 
-    const result = await this.disputeProjectIP({
+    const dispute = await this.disputeProjectIP({
       projectId: payload.projectId,
       targetIpId: payload.targetIpId as Address,
       evidence: payload.evidence,
@@ -631,7 +631,7 @@ export class IPAgent {
       livenessMonths: 1,
     });
 
-    return result;
+    return dispute;
   }
 
   async payRoyalty(payload: {
@@ -841,7 +841,7 @@ export class IPAgent {
   private async reportTaskCompletion(
     taskId: string,
     workflowId: string,
-    result: any,
+    payload: any,
     error?: string,
     characterResponse?: string
   ) {
@@ -855,7 +855,7 @@ export class IPAgent {
               taskId,
               workflowId,
               status: error ? "FAILED" : "COMPLETED",
-              result: result ? { ...result, characterResponse } : null,
+              payload: payload ? { ...payload, characterResponse } : null,
               error,
               timestamp: new Date().toISOString(),
               agent: "story-protocol-ip",

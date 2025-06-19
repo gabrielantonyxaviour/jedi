@@ -31,7 +31,7 @@ export async function pushLeads(data: LeadsData): Promise<boolean> {
     encryption.encrypt(data.project_id),
   ]);
 
-  const results = await Promise.all(
+  const payloads = await Promise.all(
     [0, 1, 2].map((index) =>
       uploadToNode(
         index,
@@ -50,7 +50,7 @@ export async function pushLeads(data: LeadsData): Promise<boolean> {
     )
   );
 
-  return results.every(Boolean);
+  return payloads.every(Boolean);
 }
 
 export async function fetchLeads(): Promise<LeadsData[]> {

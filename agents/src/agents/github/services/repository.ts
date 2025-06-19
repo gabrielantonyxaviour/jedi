@@ -94,7 +94,7 @@ export class RepositoryService {
       summary: summary?.substring(0, 100) + "...",
     });
 
-    const result = {
+    const payload = {
       owner,
       repo,
       lastAnalyzed: new Date().toISOString(),
@@ -105,7 +105,7 @@ export class RepositoryService {
     };
 
     console.log(`🎉 Repository analysis completed successfully`);
-    return result;
+    return payload;
   }
 
   private async fetchContributors(
@@ -169,20 +169,20 @@ export class RepositoryService {
     }
 
     const { owner, repo } = this.parseRepoUrl(project.githubUrl);
-    const results = [];
+    const payloads = [];
 
     for (const file of payload.files) {
-      const result = await this.updateFile(
+      const payload = await this.updateFile(
         owner,
         repo,
         file.path,
         file.content,
         file.message
       );
-      results.push(result);
+      payloads.push(payload);
     }
 
-    return results;
+    return payloads;
   }
 
   private async fetchRepositoryInfo(owner: string, repo: string) {

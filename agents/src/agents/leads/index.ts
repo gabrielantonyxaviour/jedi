@@ -72,12 +72,12 @@ export class LeadsAgent {
     let characterResponse = "";
 
     try {
-      let result;
+      let payload;
 
       switch (task.type) {
         case "DISCOVER_LEADS":
           const leads = await this.discoverLeads(task.payload);
-          result = {
+          payload = {
             leads,
             count: leads.length,
           };
@@ -91,7 +91,7 @@ export class LeadsAgent {
           // for (const lead of newProjectLeads.filter((l) => l.score > 80)) {
           //   await this.triggerLeadEmail(lead);
           // }
-          result = {
+          payload = {
             leads: newProjectLeads,
             count: newProjectLeads.length,
           };
@@ -100,27 +100,27 @@ export class LeadsAgent {
         // NEW TASK TYPES
         case "GET_LATEST_LEADS":
           const latestLeads = await this.getLatestLeads(task.payload);
-          result = { latestLeads };
+          payload = { latestLeads };
           break;
 
         case "GET_LEADS_BY_SOURCE":
           const leadsBySource = await this.getLeadsBySource(task.payload);
-          result = { leadsBySource };
+          payload = { leadsBySource };
           break;
 
         case "SCORE_LEADS":
           const scoredLeads = await this.scoreLeads(task.payload);
-          result = { scoredLeads };
+          payload = { scoredLeads };
           break;
 
         case "QUALIFY_LEAD":
           const qualification = await this.qualifyLead(task.payload);
-          result = { qualification };
+          payload = { qualification };
           break;
 
         case "GENERATE_OUTREACH":
           const outreach = await this.generateOutreachContent(task.payload);
-          result = { outreach };
+          payload = { outreach };
           break;
 
         default:
@@ -138,7 +138,7 @@ export class LeadsAgent {
       }
 
       await this.reportTaskCompletion(task.taskId, task.workflowId, {
-        ...result,
+        ...payload,
         characterResponse,
       });
     } catch (error: any) {
@@ -146,7 +146,7 @@ export class LeadsAgent {
         characterResponse =
           characterInfo.side === "light"
             ? "*frustrated Wookiee sounds* Failed to find good leads, I have. Try harder, I must."
-            : "This incompetence is beneath me. The Count demands better results. Disappointing, most disappointing.";
+            : "This incompetence is beneath me. The Count demands better payloads. Disappointing, most disappointing.";
       }
 
       await this.reportTaskCompletion(
@@ -284,8 +284,8 @@ export class LeadsAgent {
         })
       );
 
-      const result = JSON.parse(new TextDecoder().decode(response.body));
-      let generation = result.generation.trim();
+      const payload = JSON.parse(new TextDecoder().decode(response.body));
+      let generation = payload.generation.trim();
 
       // Clean up the response - extract JSON if wrapped in text
       const jsonMatch = generation.match(/\[.*\]/s);
@@ -414,8 +414,8 @@ export class LeadsAgent {
       })
     );
 
-    const result = JSON.parse(new TextDecoder().decode(response.body));
-    const qualification = JSON.parse(result.generation);
+    const responsePayload = JSON.parse(new TextDecoder().decode(response.body));
+    const qualification = JSON.parse(responsePayload.generation);
 
     // Update lead with qualification
     await this.updateLead(lead.projectId, {
@@ -471,8 +471,8 @@ export class LeadsAgent {
       })
     );
 
-    const result = JSON.parse(new TextDecoder().decode(response.body));
-    const outreachContent = result.generation;
+    const responsePayload = JSON.parse(new TextDecoder().decode(response.body));
+    const outreachContent = responsePayload.generation;
 
     // Store outreach content
     await this.s3.send(
@@ -532,8 +532,8 @@ export class LeadsAgent {
       })
     );
 
-    const result = JSON.parse(new TextDecoder().decode(response.body));
-    const scoreText = result.generation;
+    const payload = JSON.parse(new TextDecoder().decode(response.body));
+    const scoreText = payload.generation;
     const score = parseInt(scoreText.match(/\d+/)?.[0] || "50");
 
     return Math.max(0, Math.min(100, score));
@@ -636,7 +636,7 @@ export class LeadsAgent {
   private async reportTaskCompletion(
     taskId: string,
     workflowId: string,
-    result: any,
+    payload: any,
     error?: string,
     characterResponse?: string
   ) {
@@ -646,14 +646,15 @@ export class LeadsAgent {
           QueueUrl: this.orchestratorQueue,
           MessageBody: JSON.stringify({
             type: "TASK_COMPLETION",
+            taskId,
+            workflowId,
+            status: error ? "FAILED" : "COMPLETED",
+            error,
+            timestamp: new Date().toISOString(),
+            agent: "lead-generation",
             payload: {
-              taskId,
-              workflowId,
-              status: error ? "FAILED" : "COMPLETED",
-              result: result ? { ...result, characterResponse } : null,
-              error,
-              timestamp: new Date().toISOString(),
-              agent: "lead-generation",
+              payload,
+              characterResponse,
             },
           }),
         })

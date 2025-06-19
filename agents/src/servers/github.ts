@@ -79,7 +79,7 @@ class GitHubAgentServer {
     try {
       const task = JSON.parse(message.Body);
       console.log(`📋 Processing task: ${task.type} (${task.taskId})`);
-      const result = await this.agent.processTask(task);
+      const payload = await this.agent.processTask(task);
 
       console.log(`✅ Task completed: ${task.taskId}`);
     } catch (error: any) {

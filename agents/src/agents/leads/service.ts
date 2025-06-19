@@ -109,7 +109,7 @@ export class LeadScrapingService {
         await page.keyboard.press("Enter");
       }
 
-      // Wait for results to load
+      // Wait for payloads to load
       await page.waitForTimeout(5000);
 
       // Extract companies with better error handling
@@ -206,7 +206,7 @@ export class LeadScrapingService {
       const $ = cheerio.load(response.data);
       const products: any[] = [];
 
-      $('button[data-test*="spotlight-result-product"]').each((i, el) => {
+      $('button[data-test*="spotlight-payload-product"]').each((i, el) => {
         if (i >= 15) return false;
 
         const $el = $(el);
@@ -222,7 +222,7 @@ export class LeadScrapingService {
         const reviews = $el.find(".text-brand-500").text().trim();
         const productId = $el
           .attr("data-test")
-          ?.replace("spotlight-result-product-", "");
+          ?.replace("spotlight-payload-product-", "");
 
         if (name) {
           products.push({

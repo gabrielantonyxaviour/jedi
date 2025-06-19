@@ -93,7 +93,7 @@ export default function ProjectSetupDialog({
     if (file) {
       setFormData((prev) => ({ ...prev, image: file }));
       const reader = new FileReader();
-      reader.onload = () => setImagePreview(reader.result as string);
+      reader.onload = () => setImagePreview(reader.payload as string);
       reader.readAsDataURL(file);
     }
   };

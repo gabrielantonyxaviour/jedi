@@ -51,55 +51,55 @@ export class KarmaAgent {
     let characterResponse = "";
 
     try {
-      let result;
+      let payload;
 
       switch (task.type) {
         case "CREATE_KARMA_PROJECT":
           const karmaProject = await this.createKarmaProject(task.payload);
-          result = { karmaProject };
+          payload = { karmaProject };
           break;
 
         case "APPLY_FOR_GRANT":
           const grantApplication = await this.applyForGrant(task.payload);
-          result = { grantApplication };
+          payload = { grantApplication };
           break;
 
         case "CREATE_MILESTONE":
           const milestone = await this.createMilestone(task.payload);
-          result = { milestone };
+          payload = { milestone };
           break;
 
         case "UPDATE_MILESTONE":
           const milestoneUpdate = await this.updateMilestone(task.payload);
-          result = { milestoneUpdate };
+          payload = { milestoneUpdate };
           break;
 
         case "SYNC_KARMA_DATA":
           const syncResult = await this.syncKarmaData(task.payload);
-          result = { syncResult };
+          payload = { syncResult };
           break;
 
         case "GET_KARMA_PROJECT":
           const project = await this.getKarmaProject(
             task.payload.karmaProjectId
           );
-          result = { project };
+          payload = { project };
           break;
 
         // NEW TASK TYPES
         case "GET_GRANT_OPPORTUNITIES":
           const opportunities = await this.getGrantOpportunities(task.payload);
-          result = { opportunities };
+          payload = { opportunities };
           break;
 
         case "GET_COMMUNITIES":
           const communities = await this.getCommunities(task.payload);
-          result = { communities };
+          payload = { communities };
           break;
 
         case "GET_PROJECTS":
           const projects = await this.getProjects(task.payload);
-          result = { projects };
+          payload = { projects };
           break;
 
         default:
@@ -118,7 +118,7 @@ export class KarmaAgent {
       }
 
       await this.reportTaskCompletion(task.taskId, task.workflowId, {
-        ...result,
+        ...payload,
         characterResponse,
       });
     } catch (error: any) {
@@ -665,7 +665,7 @@ export class KarmaAgent {
 
     return {
       projectsSynced: syncResults.length,
-      results: syncResults,
+      payloads: syncResults,
     };
   }
 
@@ -848,7 +848,7 @@ export class KarmaAgent {
   private async reportTaskCompletion(
     taskId: string,
     workflowId: string,
-    result: any,
+    payload: any,
     error?: string,
     characterResponse?: string
   ) {
@@ -862,7 +862,7 @@ export class KarmaAgent {
               taskId,
               workflowId,
               status: error ? "FAILED" : "COMPLETED",
-              result: result ? { ...result, characterResponse } : null,
+              payload: payload ? { ...payload, characterResponse } : null,
               error,
               timestamp: new Date().toISOString(),
               agent: "karma-integration",

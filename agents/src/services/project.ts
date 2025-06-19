@@ -454,18 +454,18 @@ export class ProjectService {
   // Existing methods remain the same...
   async getProject(projectId: string): Promise<ProjectInfo | null> {
     return this.safeDynamoOperation(async () => {
-      const result = await this.dynamoClient.send(
+      const payload = await this.dynamoClient.send(
         new GetItemCommand({
           TableName: this.tableName,
           Key: this.safeMarshall({ projectId }),
         })
       );
 
-      if (!result.Item) {
+      if (!payload.Item) {
         return null;
       }
 
-      return unmarshall(result.Item) as ProjectInfo;
+      return unmarshall(payload.Item) as ProjectInfo;
     });
   }
 
@@ -521,7 +521,7 @@ export class ProjectService {
 
   async getProjectsByOwner(ownerId: string): Promise<ProjectInfo[]> {
     return this.safeDynamoOperation(async () => {
-      const result = await this.dynamoClient.send(
+      const payload = await this.dynamoClient.send(
         new QueryCommand({
           TableName: this.tableName,
           IndexName: "OwnerIndex",
@@ -532,7 +532,7 @@ export class ProjectService {
         })
       );
 
-      return (result.Items || []).map(
+      return (payload.Items || []).map(
         (item) => unmarshall(item) as ProjectInfo
       );
     });

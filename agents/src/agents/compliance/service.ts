@@ -162,7 +162,7 @@ export class ComplianceScrapingService {
         const projectElements = document.querySelectorAll(
           'a[href*="/buidl/"], .buidl-card'
         );
-        const results: any[] = [];
+        const payloads: any[] = [];
 
         projectElements.forEach((element, index) => {
           if (index >= 30) return;
@@ -192,7 +192,7 @@ export class ComplianceScrapingService {
           const url = linkEl?.getAttribute("href");
 
           if (title && title.length > 2) {
-            results.push({
+            payloads.push({
               name: title,
               description: descEl?.textContent?.trim() || "",
               url: url?.startsWith("http") ? url : `https://dorahacks.io${url}`,
@@ -204,7 +204,7 @@ export class ComplianceScrapingService {
           }
         });
 
-        return results;
+        return payloads;
       });
 
       await browser.close();
@@ -245,7 +245,7 @@ export class ComplianceScrapingService {
 
       const projects = await page.evaluate(() => {
         const projectLinks = document.querySelectorAll('a[href*="/projects/"]');
-        const results: any[] = [];
+        const payloads: any[] = [];
 
         projectLinks.forEach((link, index) => {
           if (index >= 30) return;
@@ -265,7 +265,7 @@ export class ComplianceScrapingService {
           const url = link.getAttribute("href");
 
           if (title && title.length > 2) {
-            results.push({
+            payloads.push({
               name: title,
               description: descEl?.textContent?.trim() || "",
               url: url?.startsWith("http") ? url : `https://devfolio.co${url}`,
@@ -275,7 +275,7 @@ export class ComplianceScrapingService {
           }
         });
 
-        return results;
+        return payloads;
       });
 
       await browser.close();

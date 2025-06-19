@@ -301,25 +301,25 @@ export class SocialsService {
         throw new Error("No content provided or generated");
       }
 
-      let result: any = {};
+      let payload: any = {};
 
       switch (payload.platform) {
         case "twitter":
-          result = await this.postToTwitter(
+          payload = await this.postToTwitter(
             payload.projectId,
             content,
             payload.mediaData
           );
           break;
         case "telegram":
-          result = await this.postToTelegram(
+          payload = await this.postToTelegram(
             payload.projectId,
             content,
             payload.chatId
           );
           break;
         case "linkedin":
-          result = await this.postToLinkedIn(payload.projectId, content);
+          payload = await this.postToLinkedIn(payload.projectId, content);
           break;
         default:
           throw new Error(`Unsupported platform: ${payload.platform}`);
@@ -328,7 +328,7 @@ export class SocialsService {
       return {
         success: true,
         message: `Content posted to ${payload.platform} successfully`,
-        data: { ...result, content, generatedContent: !payload.content },
+        data: { ...payload, content, generatedContent: !payload.content },
       };
     } catch (error: any) {
       return {
@@ -348,7 +348,7 @@ export class SocialsService {
       throw new Error("Twitter not setup for this project");
     }
 
-    const result = await scraper.sendTweet(content, undefined, mediaData);
+    const payload = await scraper.sendTweet(content, undefined, mediaData);
     console.log(
       `🐦 Tweet sent for project ${projectId}:`,
       content.substring(0, 50) + "..."
@@ -367,11 +367,11 @@ export class SocialsService {
     }
 
     if (chatId) {
-      const result = await bot.api.sendMessage(chatId, content);
+      const payload = await bot.api.sendMessage(chatId, content);
       console.log(
         `📱 Telegram message sent for project ${projectId} to chat ${chatId}`
       );
-      return { messageSent: true, messageId: result.message_id, chatId };
+      return { messageSent: true, messageId: payload.message_id, chatId };
     } else {
       console.log(
         `📱 Telegram content prepared for project ${projectId}:`,

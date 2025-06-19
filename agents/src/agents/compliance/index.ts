@@ -41,12 +41,12 @@ export class ComplianceAgent {
     let characterResponse = "";
 
     try {
-      let result;
+      let payload;
 
       switch (task.type) {
         case "SCAN_SIMILAR_PROJECTS":
           const similarProjects = await this.scanSimilarProjects(task.payload);
-          result = {
+          payload = {
             similarProjects,
             count: similarProjects.length,
             flaggedCount: similarProjects.filter((p) => p.similarity > 85)
@@ -68,7 +68,7 @@ export class ComplianceAgent {
               "High similarity detected"
             );
           }
-          result = {
+          payload = {
             complianceResults,
             count: complianceResults.length,
             flaggedCount: complianceResults.filter(
@@ -79,22 +79,22 @@ export class ComplianceAgent {
 
         case "GET_SIMILAR_PROJECTS":
           const getSimilarResults = await this.getSimilarProjects(task.payload);
-          result = { similarProjects: getSimilarResults };
+          payload = { similarProjects: getSimilarResults };
           break;
 
         case "SEARCH_SIMILAR_PROJECTS":
           const searchResults = await this.searchSimilarProjects(task.payload);
-          result = { searchResults };
+          payload = { searchResults };
           break;
 
         case "ANALYZE_SIMILARITY":
           const analysis = await this.analyzeSimilarity(task.payload);
-          result = { analysis };
+          payload = { analysis };
           break;
 
         case "REVIEW_COMPLIANCE":
           const review = await this.reviewCompliance(task.payload);
-          result = { review };
+          payload = { review };
           break;
 
         case "FLAG_PROJECT":
@@ -103,17 +103,17 @@ export class ComplianceAgent {
             task.payload.complianceProject,
             task.payload.reason
           );
-          result = { flagResult };
+          payload = { flagResult };
           break;
 
         case "CLEAR_PROJECT":
           const clearResult = await this.clearProject(task.payload);
-          result = { clearResult };
+          payload = { clearResult };
           break;
 
         case "GET_COMPLIANCE_STATS":
           const stats = await this.getComplianceStats(task.payload);
-          result = { stats };
+          payload = { stats };
           break;
 
         default:
@@ -132,7 +132,7 @@ export class ComplianceAgent {
       }
 
       await this.reportTaskCompletion(task.taskId, task.workflowId, {
-        ...result,
+        ...payload,
         characterResponse,
       });
     } catch (error: any) {
@@ -147,8 +147,7 @@ export class ComplianceAgent {
         task.taskId,
         task.workflowId,
         null,
-        error.message,
-        characterResponse
+        error.message
       );
       throw error;
     }
@@ -189,7 +188,7 @@ export class ComplianceAgent {
       payload.maxResults || 50
     );
 
-    // Process and enhance the results
+    // Process and enhance the payloads
     const analyzedProjects: SimilarProject[] = [];
     for (const scrapedProject of discoveredProjects) {
       // Calculate more accurate similarity
@@ -282,13 +281,13 @@ export class ComplianceAgent {
       payload.maxResults || 50
     );
 
-    // Calculate similarity for search results
+    // Calculate similarity for search payloads
     const analyzedResults: SimilarProject[] = [];
-    for (const result of searchResults) {
-      const similarity = await this.calculateSimilarity(project, result);
+    for (const payload of searchResults) {
+      const similarity = await this.calculateSimilarity(project, payload);
 
       analyzedResults.push({
-        ...result,
+        ...payload,
         similarity,
         status: "pending_review",
         discoveredAt: new Date().toISOString(),
@@ -626,20 +625,20 @@ export class ComplianceAgent {
   private async reportTaskCompletion(
     taskId: string,
     workflowId: string,
-    result: any,
-    error?: string,
-    characterResponse?: string
+    payload: any,
+    error?: string
   ) {
     try {
       console.log("Task Completion report payload");
       console.log({
+        type: "TASK_COMPLETION",
         taskId,
         workflowId,
         status: error ? "FAILED" : "COMPLETED",
-        result: result ? { ...result, characterResponse } : null,
         error,
         timestamp: new Date().toISOString(),
         agent: "monitoring-compliance",
+        payload: payload,
       });
 
       await this.sqs.send(
@@ -647,15 +646,13 @@ export class ComplianceAgent {
           QueueUrl: this.orchestratorQueue,
           MessageBody: JSON.stringify({
             type: "TASK_COMPLETION",
-            payload: {
-              taskId,
-              workflowId,
-              status: error ? "FAILED" : "COMPLETED",
-              result: result ? { ...result, characterResponse } : null,
-              error,
-              timestamp: new Date().toISOString(),
-              agent: "monitoring-compliance",
-            },
+            taskId,
+            workflowId,
+            status: error ? "FAILED" : "COMPLETED",
+            error,
+            timestamp: new Date().toISOString(),
+            agent: "monitoring-compliance",
+            payload: payload,
           }),
         })
       );

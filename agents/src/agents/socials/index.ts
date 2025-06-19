@@ -43,7 +43,7 @@ export class SocialsAgent {
   private async pollSQSMessages(): Promise<void> {
     while (true) {
       try {
-        const result = await this.sqs.send(
+        const payload = await this.sqs.send(
           new ReceiveMessageCommand({
             QueueUrl: this.queueUrl,
             MaxNumberOfMessages: 10,
@@ -51,8 +51,8 @@ export class SocialsAgent {
           })
         );
 
-        if (result.Messages) {
-          for (const message of result.Messages) {
+        if (payload.Messages) {
+          for (const message of payload.Messages) {
             try {
               const task = JSON.parse(message.Body!);
               await this.processTask(task);
@@ -82,11 +82,11 @@ export class SocialsAgent {
     let characterResponse = "";
 
     try {
-      let result;
+      let payload;
 
       switch (task.type) {
         case "SETUP_SOCIAL":
-          result = await this.socialsService.setupSocial({
+          payload = await this.socialsService.setupSocial({
             ...task.payload,
             workflowId: task.workflowId,
             taskId: task.taskId,
@@ -94,58 +94,58 @@ export class SocialsAgent {
           break;
 
         case "POST_CONTENT":
-          result = await this.socialsService.postContent(task.payload);
+          payload = await this.socialsService.postContent(task.payload);
           break;
 
         case "TWEET_ABOUT":
-          result = await this.tweetAbout(task.payload);
+          payload = await this.tweetAbout(task.payload);
           break;
 
         case "MODIFY_CHARACTER":
-          result = await this.modifyCharacter(task.payload);
+          payload = await this.modifyCharacter(task.payload);
           break;
 
         case "SET_FREQUENCY":
-          result = await this.setFrequency(task.payload);
+          payload = await this.setFrequency(task.payload);
           break;
 
         case "CHANGE_ACCOUNTS":
-          result = await this.changeAccounts(task.payload);
+          payload = await this.changeAccounts(task.payload);
           break;
 
         case "GET_SOCIAL_SUMMARY":
-          result = await this.getSocialSummary(task.payload);
+          payload = await this.getSocialSummary(task.payload);
           break;
 
         case "GET_X_SUMMARY":
-          result = await this.getXSummary(task.payload);
+          payload = await this.getXSummary(task.payload);
           break;
 
         case "GET_TELEGRAM_SUMMARY":
-          result = await this.getTelegramSummary(task.payload);
+          payload = await this.getTelegramSummary(task.payload);
           break;
 
         case "GET_LINKEDIN_SUMMARY":
-          result = await this.getLinkedInSummary(task.payload);
+          payload = await this.getLinkedInSummary(task.payload);
           break;
 
         case "GET_LATEST_TWEETS":
-          result = await this.getLatestTweets(task.payload);
+          payload = await this.getLatestTweets(task.payload);
           break;
 
         case "GET_LATEST_LINKEDIN_POSTS":
-          result = await this.getLatestLinkedInPosts(task.payload);
+          payload = await this.getLatestLinkedInPosts(task.payload);
           break;
 
         case "FETCH_AND_ENGAGE":
-          result = await this.socialsService.fetchAndEngage(
+          payload = await this.socialsService.fetchAndEngage(
             task.payload.userId,
             task.payload.platform
           );
           break;
 
         case "UPDATE_MONITORING":
-          result = await this.socialsService.updateMonitoringConfig(
+          payload = await this.socialsService.updateMonitoringConfig(
             task.payload
           );
           break;
@@ -157,16 +157,16 @@ export class SocialsAgent {
       if (characterInfo) {
         characterResponse = await this.generateCharacterResponse(
           characterInfo,
-          result
+          payload
         );
       }
 
-      if (!result.success) {
-        throw new Error(result.message);
+      if (!payload.success) {
+        throw new Error(payload.message);
       }
 
       await this.reportTaskCompletion(task.taskId, task.workflowId, {
-        ...result,
+        ...payload,
         characterResponse,
       });
 
@@ -191,7 +191,7 @@ export class SocialsAgent {
 
   private async generateCharacterResponse(
     characterInfo: any,
-    result: any
+    payload: any
   ): Promise<string> {
     const prompt = `You are ${
       characterInfo.name || "a social media assistant"
@@ -199,8 +199,8 @@ export class SocialsAgent {
       characterInfo.personality || "helpful and engaging"
     }
 
-The social media task has been completed successfully with these results:
-${JSON.stringify(result, null, 2)}
+The social media task has been completed successfully with these payloads:
+${JSON.stringify(payload, null, 2)}
 
 Generate a brief response (1-2 sentences) in character that acknowledges the successful completion of the social media task. Stay true to the character's personality and speaking style.`;
 
@@ -462,7 +462,7 @@ A social media task has failed to complete. Generate a brief response (1-2 sente
   private async reportTaskCompletion(
     taskId: string,
     workflowId: string,
-    result: any,
+    payload: any,
     error?: string,
     characterResponse?: string
   ) {
@@ -476,7 +476,7 @@ A social media task has failed to complete. Generate a brief response (1-2 sente
               taskId,
               workflowId,
               status: error ? "FAILED" : "COMPLETED",
-              result: result ? { ...result, characterResponse } : null,
+              payload: payload ? { ...payload, characterResponse } : null,
               error,
               timestamp: new Date().toISOString(),
               agent: "social-media",

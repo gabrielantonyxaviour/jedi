@@ -35,7 +35,7 @@ export async function pushGithub(data: GithubData): Promise<boolean> {
     encryption.encrypt(data.metadata),
   ]);
 
-  const results = await Promise.all(
+  const payloads = await Promise.all(
     [0, 1, 2].map((index) =>
       uploadToNode(
         index,
@@ -56,7 +56,7 @@ export async function pushGithub(data: GithubData): Promise<boolean> {
     )
   );
 
-  return results.every(Boolean);
+  return payloads.every(Boolean);
 }
 
 export async function fetchGithub(): Promise<GithubData[]> {

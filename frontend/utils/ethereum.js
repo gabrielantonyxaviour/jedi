@@ -86,8 +86,8 @@ export function convertToDecimal(bigIntValue, decimals, decimalPlaces = 6) {
 
   const decimalPos = strValue.length - decimals;
 
-  const result =
+  const payload =
     strValue.slice(0, decimalPos) + "." + strValue.slice(decimalPos);
 
-  return parseFloat(result).toFixed(decimalPlaces);
+  return parseFloat(payload).toFixed(decimalPlaces);
 }

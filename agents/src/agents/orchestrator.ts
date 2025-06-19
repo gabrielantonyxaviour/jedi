@@ -76,7 +76,7 @@ interface TaskStatus {
   characterAgent?: string;
   startTime: string;
   endTime?: string;
-  result?: any;
+  payload?: any;
   error?: string;
 }
 
@@ -1417,8 +1417,8 @@ export class CoreOrchestratorAgent {
         })
       );
 
-      const result = JSON.parse(new TextDecoder().decode(response.body));
-      return JSON.parse(result.generation);
+      const payload = JSON.parse(new TextDecoder().decode(response.body));
+      return JSON.parse(payload.generation);
     } catch (error) {
       console.error("Error analyzing prompt:", error);
       const characterContext = this.getCharacterContext(
@@ -1634,16 +1634,16 @@ export class CoreOrchestratorAgent {
     agentName: string,
     task: any
   ): Promise<any> {
-    // For synchronous operations, send task and wait for result
+    // For synchronous operations, send task and wait for payload
     await this.sendTaskToAgent(agentName, task);
 
-    // Poll for result (simplified - use proper pub/sub in production)
+    // Poll for payload (simplified - use proper pub/sub in production)
     return new Promise((resolve) => {
       const pollInterval = setInterval(async () => {
         const status = await this.getTaskStatus(task.taskId);
         if (status?.status === "COMPLETED") {
           clearInterval(pollInterval);
-          resolve(status.result);
+          resolve(status.payload);
         } else if (status?.status === "FAILED") {
           clearInterval(pollInterval);
           resolve(null);
@@ -1845,29 +1845,26 @@ export class CoreOrchestratorAgent {
       console.log(data);
 
       if (data.type === "TASK_COMPLETION") {
-        // Fix: Access payload properties correctly
-        const payload = data.payload;
-
         // Update task status in DynamoDB
-        await this.updateTaskStatus(payload.taskId, {
-          status: payload.status,
-          endTime: payload.timestamp,
-          result: payload.result,
-          error: payload.error,
+        await this.updateTaskStatus(data.taskId, {
+          status: data.status,
+          endTime: data.timestamp,
+          payload: data.payload,
+          error: data.error,
         });
 
-        const workflow = await this.getWorkflow(payload.workflowId);
+        const workflow = await this.getWorkflow(data.workflowId);
 
         if (workflow) {
           const isComplete = await this.checkWorkflowCompletion(
-            payload.workflowId
+            data.workflowId
           );
 
           if (isComplete) {
             console.log(
-              `✅ Orchestrator: Completing workflow ${payload.workflowId}`
+              `✅ Orchestrator: Completing workflow ${data.workflowId}`
             );
-            await this.completeWorkflow(payload.workflowId);
+            await this.completeWorkflow(data.workflowId);
           }
 
           // Notify client
@@ -1877,7 +1874,7 @@ export class CoreOrchestratorAgent {
           //   workflowId: payload.workflowId,
           //   agent: payload.agent,
           //   status: payload.status,
-          //   result: payload.result,
+          //   payload: payload.payload,
           //   error: payload.error,
           // });
         }
@@ -2151,14 +2148,14 @@ export class CoreOrchestratorAgent {
       expressionAttributeValues[":endTime"] = updates.endTime;
     }
 
-    if (updates.result !== undefined) {
+    if (updates.payload !== undefined) {
       if (updateExpression.length === 0) {
-        updateExpression.push("SET #result = :result");
+        updateExpression.push("SET #payload = :payload");
       } else {
-        updateExpression[0] += ", #result = :result";
+        updateExpression[0] += ", #payload = :payload";
       }
-      expressionAttributeNames["#result"] = "result";
-      expressionAttributeValues[":result"] = updates.result;
+      expressionAttributeNames["#payload"] = "payload";
+      expressionAttributeValues[":payload"] = updates.payload;
     }
 
     if (updates.error !== undefined) {
